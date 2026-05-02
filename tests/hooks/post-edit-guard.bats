@@ -65,12 +65,14 @@ EOF
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/a.ts"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "exits cleanly when no active feature is set" {
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/anything/tasks.md"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "allows tasks.md edit that does NOT toggle a checkbox" {
@@ -80,6 +82,7 @@ EOF
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "allows [x] toggle when the corresponding _Files: path was changed" {
@@ -93,6 +96,7 @@ EOF
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 # ─── I4: phantom completion ──────────────────────────────────
@@ -120,4 +124,5 @@ EOF
   MUMEI_BYPASS=1 _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }

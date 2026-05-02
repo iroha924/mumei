@@ -76,6 +76,7 @@ EOF
   _run_hook '{"stop_hook_active":false}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "exits cleanly when stop_hook_active=true (loop guard)" {
@@ -85,6 +86,7 @@ EOF
   _run_hook '{"stop_hook_active":true}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "exits cleanly when phase != implement" {
@@ -92,6 +94,7 @@ EOF
   _run_hook '{"stop_hook_active":false}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "exits cleanly when at least one task is incomplete" {
@@ -99,6 +102,7 @@ EOF
   _run_hook '{"stop_hook_active":false}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "exits cleanly when latest review is newer than tasks.md" {
@@ -112,6 +116,7 @@ EOF
   _run_hook '{"stop_hook_active":false}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 # ─── R1: review pending or stale ─────────────────────────────
@@ -147,4 +152,5 @@ EOF
   MUMEI_BYPASS=1 _run_hook '{"stop_hook_active":false}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }

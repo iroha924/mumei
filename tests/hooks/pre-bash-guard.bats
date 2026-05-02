@@ -59,12 +59,14 @@ EOF
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "allows commit when no active feature is set" {
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m wip"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "allows non-commit Bash command in an active feature" {
@@ -72,6 +74,7 @@ EOF
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"ls"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 # ─── W2: incomplete Wave on git commit ──────────────────────
@@ -121,6 +124,7 @@ EOF
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────
@@ -130,4 +134,5 @@ EOF
   MUMEI_BYPASS=1 _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m foo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }

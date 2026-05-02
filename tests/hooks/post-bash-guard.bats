@@ -12,7 +12,7 @@ setup() {
   MUMEI_TEST_TMPDIR="$(mktemp -d -t mumei-test.XXXXXX)"
   export MUMEI_TEST_TMPDIR
   cd "$MUMEI_TEST_TMPDIR" || return 1
-  git init -q -b main >/dev/null 2>&1
+  git init -q -b main
   git config user.email t@t.t
   git config user.name t
   git commit --allow-empty -m init -q
@@ -63,6 +63,7 @@ EOF
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo hi"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "no output when phase != implement" {
@@ -74,6 +75,7 @@ EOF
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "no warning when modified file is in scope (listed in _Files:_)" {
@@ -87,6 +89,7 @@ EOF
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 # ─── warning (additionalContext) ─────────────────────────────
@@ -99,6 +102,25 @@ EOF
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"out-of-scope.txt"* ]]
   [[ "$ctx" == *"NOT listed"* ]]
+}
+
+@test "warning suppresses tracked .mumei/ files at full-path granularity" {
+  _init_feature_implement
+  # Commit the .mumei state baseline so later modifications appear at file
+  # granularity (`M  .mumei/specs/.../state.json`) rather than dir-level (`?? .mumei/`).
+  git add .mumei/
+  git commit -q -m "baseline mumei state"
+  # Modify the tracked state file
+  echo "internal" >> .mumei/specs/REQ-1-foo/state.json
+  # Also create an out-of-scope file so the hook actually emits a warning
+  echo "stray" > out-of-scope.txt
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
+  [ "$status" -eq 0 ]
+  ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"out-of-scope.txt"* ]]
+  # Tracked .mumei/ file must NOT appear in the listed-files block.
+  listed="$(printf '%s' "$ctx" | sed -n '/NOT listed/,/If these changes/p')"
+  [[ "$listed" != *$'\n.mumei/specs'* ]]
 }
 
 @test "warning lists out-of-scope file but excludes .mumei state changes" {
@@ -128,4 +150,5 @@ EOF
   MUMEI_BYPASS=1 _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }

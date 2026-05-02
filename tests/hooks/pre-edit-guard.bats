@@ -79,12 +79,14 @@ EOF
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/b.ts"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "allows edit when no active feature is set" {
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/anything.ts"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 @test "allows edit of meta files (e.g. .gitignore) regardless of phase" {
@@ -92,6 +94,7 @@ EOF
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".gitignore"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
 
 # ─── P1: phase=plan blocks src edits ────────────────────────
@@ -116,6 +119,8 @@ EOF
 EOF
   _run_hook '{"tool_name":"Write","tool_input":{"file_path":".mumei/specs/REQ-1-foo/design.md"}}'
   [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
   [[ "$reason" == *"NEEDS CLARIFICATION"* ]]
 }
@@ -127,6 +132,8 @@ EOF
   # No design.md created.
   _run_hook '{"tool_name":"Write","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
   [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
   [[ "$reason" == *"design.md missing"* ]]
 }
@@ -137,6 +144,8 @@ EOF
   _init_feature "implement" 1
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/unknown.ts"}}'
   [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
   [[ "$reason" == *"out of scope"* ]]
 }
@@ -150,6 +159,8 @@ EOF
   rm .mumei/specs/REQ-1-foo/tasks.md.bak
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/b.ts"}}'
   [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
   [[ "$reason" == *"depends on task 1.1"* ]]
 }
@@ -165,6 +176,8 @@ EOF
   # Now try to edit Wave 2 file
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/c.ts"}}'
   [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
   [[ "$reason" == *"uncommitted"* ]]
 }
@@ -176,4 +189,5 @@ EOF
   MUMEI_BYPASS=1 _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/unknown.ts"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
+  [ -z "$stderr" ]
 }
