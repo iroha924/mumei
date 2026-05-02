@@ -369,6 +369,12 @@ If `verdict == PASS`:
 mumei_state_set "$feature" '.phase' '"done"'
 ```
 
+After phase=done is set, the orchestrator MUST hand off to archive cleanup. Skipping this leaves stale specs in the active workspace and the user with no clear next step:
+
+1. **Tell the user the feature reached done** and prompt them to run `/mumei:archive <feature>` so the spec moves from `.mumei/specs/<feature>/` to `.mumei/archive/<YYYY-MM>/<feature>/`.
+2. **Optionally clear `.mumei/current`** for the user (this is non-destructive). The archive skill refuses to archive a feature that is still listed as active in `.mumei/current`, so clearing it first produces the smoother handoff.
+3. **Do NOT invoke `/mumei:archive` directly.** The archive skill is `disable-model-invocation: true` by design — it only runs on explicit user invocation. The orchestrator's job ends at the archive prompt.
+
 If `verdict == MAJOR_ISSUES` or `NEEDS_IMPROVEMENT`:
 
 - Show findings to user.

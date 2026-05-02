@@ -145,6 +145,45 @@ EOF
   [ "$decision" = "block" ]
 }
 
+# ─── R3: phase=done but feature still active in .mumei/current ───
+
+@test "blocks when phase=done and feature is still active in .mumei/current (R3)" {
+  _init_feature "implement" "yes"
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
+  mumei_state_set "REQ-1-foo" '.phase' '"done"'
+  # .mumei/current already points at REQ-1-foo from _init_feature
+  _run_hook '{"stop_hook_active":false}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.decision')"
+  [ "$decision" = "block" ]
+  reason="$(printf '%s' "$output" | jq -r '.reason')"
+  [[ "$reason" == *"/mumei:archive"* ]]
+  [[ "$reason" == *"REQ-1-foo"* ]]
+}
+
+@test "exits cleanly when phase=done and .mumei/current points at a different feature" {
+  _init_feature "implement" "yes"
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
+  mumei_state_set "REQ-1-foo" '.phase' '"done"'
+  # Point .mumei/current at a different (non-existent) feature
+  echo "REQ-2-other" > .mumei/current
+  _run_hook '{"stop_hook_active":false}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+  [ -z "$stderr" ]
+}
+
+@test "exits cleanly when phase=done and .mumei/current is empty" {
+  _init_feature "implement" "yes"
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
+  mumei_state_set "REQ-1-foo" '.phase' '"done"'
+  : > .mumei/current
+  _run_hook '{"stop_hook_active":false}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+  [ -z "$stderr" ]
+}
+
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────
 
 @test "MUMEI_BYPASS=1 short-circuits even when review is missing" {
