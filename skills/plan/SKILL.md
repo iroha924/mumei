@@ -39,6 +39,50 @@ phase="$(mumei_state_phase "$feature" 2>/dev/null || echo "new")"
 - `phase=review`: jump to review pipeline.
 - `phase=done`: tell the user "feature is done, run `/mumei:archive` to clean up".
 
+## Language conventions (applies to all spec drafts: requirements / design / tasks)
+
+The skill produces three documents per feature: `requirements.md`, `design.md`, `tasks.md`. They follow a consistent language policy:
+
+- **Section headings stay in English**, always. Hooks, parsers, and the orchestrator rely on stable English headings (`## User Story`, `## Acceptance Criteria`, `## Out of Scope`, `## Architecture`, `## Wave 1: ...`, etc.). Do not translate them.
+- **Body content follows the user's conversation language.** Detect the language from the user's recent substantive messages:
+  - If the user writes in Japanese, draft the User Story prose, the body of each AC (the clause after EARS keywords), Assumptions text, Open Questions text, design narratives, task descriptions, and Wave goals/verifies in Japanese.
+  - If the user writes in English, write everything in English.
+  - If mixed, default to the language of the user's most recent substantive message.
+- **EARS keywords stay in English** regardless of body language: `WHEN`, `WHILE`, `IF`, `WHERE`, `SHALL`. This keeps acceptance criteria machine-parseable.
+- **Annotations stay in English**: `[CONFIRMED]`, `[ASSUMPTION]`, `[NEEDS CLARIFICATION: ...]`. These are read by `coverage-extractor` and `coverage-validator` agents.
+- **Trace IDs stay as-is**: `REQ-1.1`, `REQ-1.2`, etc.
+- **Task meta stays in English**: `_Files:_`, `_Depends:_`, `_Requirements:_`. The values inside are file paths and IDs (also unchanged).
+
+Example — Japanese body:
+
+```markdown
+## User Story
+ユーザーとして、メールアドレスとパスワードでログインしたい。自分のデータにアクセスするため。
+
+## Acceptance Criteria
+- REQ-1.1 [CONFIRMED] WHEN ユーザーが正しい credentials を送信, the system SHALL セッション cookie を発行する。
+- REQ-1.2 [CONFIRMED] IF 連続 5 回失敗した場合, then the system SHALL 15 分間アカウントをロックする。
+
+## Out of Scope
+- MFA は v2 で対応 (本リリースでは扱わない)。
+```
+
+Example — English body:
+
+```markdown
+## User Story
+As a registered user, I want to log in with email and password, so that I can access my data.
+
+## Acceptance Criteria
+- REQ-1.1 [CONFIRMED] WHEN the user submits valid credentials, the system SHALL issue a session cookie.
+- REQ-1.2 [CONFIRMED] IF five consecutive logins fail, then the system SHALL lock the account for 15 minutes.
+
+## Out of Scope
+- MFA is deferred to v2.
+```
+
+The same policy applies to `design.md` (architecture narratives, component descriptions, trade-offs) and `tasks.md` (task descriptions, Wave goal/verify lines, but NOT the meta fields).
+
 ## Phase 1 — Requirements draft
 
 ### Phase 1.0 — Initialize feature state (new features only)

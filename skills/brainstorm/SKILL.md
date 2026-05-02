@@ -60,6 +60,16 @@ Stop and write the scratch file when ANY of these is true:
 - 3 rounds × 5 questions = 15 total questions reached.
 - Critical fatigue signs from user ("もういい", "まとめて").
 
+## Language conventions
+
+The brainstorm output follows the same language policy as `/mumei:plan`:
+
+- **Section headings stay in English** (`## Goal (JTBD)`, `## Scope`, `## User Stories (draft)`, `## Acceptance Criteria (EARS, draft)`, `## Rejected Alternatives`, `## Open Questions`, `## Confidence Distribution`, `## Interview Record`).
+- **Body content follows the user's conversation language.** Japanese conversation → Japanese prose. English conversation → English prose. Match the user's most recent substantive message when in doubt.
+- **EARS keywords stay in English** in draft acceptance criteria: `WHEN`, `WHILE`, `IF`, `WHERE`, `SHALL`.
+- **Confidence annotations stay in English**: `[CONFIRMED]`, `[ASSUMPTION]`, `[NEEDS CLARIFICATION: ...]`.
+- **`AskUserQuestion` prompts to the user** are in the user's language. The questions you ask should match how the user is writing to you.
+
 ## Output
 
 Write to `.mumei/scratch/<topic-slug>.md`:

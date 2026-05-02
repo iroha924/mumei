@@ -46,6 +46,14 @@ Do NOT use this skill for:
 6. If the change invalidates downstream artifacts (e.g., refining requirements while design exists), warn the user:
    > Refining REQ-1.4 may affect design.md and tasks.md. Re-run /mumei:plan to refresh downstream, or refine those manually.
 
+## Language conventions
+
+When editing existing spec sections, **match the existing document's body language**. If `requirements.md` is currently written in Japanese, keep your edits in Japanese. If English, English. Never silently switch the language of an existing document mid-edit.
+
+Section headings (`## Acceptance Criteria` etc.), EARS keywords (`WHEN`/`WHILE`/`IF`/`WHERE`/`SHALL`), inline annotations (`[CONFIRMED]` / `[ASSUMPTION]` / `[NEEDS CLARIFICATION: ...]`), trace IDs (`REQ-1.1`), and task meta (`_Files:_` / `_Depends:_` / `_Requirements:_`) **always stay in English** regardless of body language.
+
+If the user explicitly asks to translate the whole document into another language, that is an exception and proceed — but propose the change as a single deliberate edit, not a side effect of a refinement.
+
 ## State implications
 
 Refining a spec document does NOT automatically reset its approval. The user can:

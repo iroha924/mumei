@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-03
+
+### Added
+
+- **Language conventions** for spec documents. The `/mumei:plan`, `/mumei:brainstorm`, and `/mumei:refine` skills now explicitly follow a hybrid policy:
+  - Section headings (`## User Story`, `## Acceptance Criteria`, `## Out of Scope`, etc.) stay in **English** so hooks and parsers can read them reliably.
+  - Body content (User Story prose, AC clauses, Assumptions, Open Questions, design narratives, task descriptions) follows the **user's conversation language** — Japanese users get Japanese prose, English users get English.
+  - EARS keywords (`WHEN`/`WHILE`/`IF`/`WHERE`/`SHALL`), inline annotations (`[CONFIRMED]`/`[ASSUMPTION]`/`[NEEDS CLARIFICATION]`), trace IDs (`REQ-N.M`), and task meta (`_Files:_`/`_Depends:_`/`_Requirements:_`) stay in **English** regardless.
+
 ## [0.1.1] - 2026-05-03
 
 ### Added
