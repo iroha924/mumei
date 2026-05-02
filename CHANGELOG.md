@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-03
+
+### Added
+
+- **Self-hosted marketplace** — `.claude-plugin/marketplace.json` so users can install via `/plugin marketplace add hir4ta/mumei` + `/plugin install mumei@mumei`.
+
+### Changed
+
+- **README install instructions** rewritten around the marketplace flow. The legacy `claude --plugin-dir` path is documented as a development-only option.
+
 ## [0.1.0] - 2026-05-03
 
 Initial release. Pre-1.0; expect breaking changes between minor versions.

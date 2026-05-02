@@ -96,18 +96,41 @@ Moves the feature to `.mumei/archive/<YYYY-MM>/user-auth/`.
 
 ## Installation
 
-`mumei` is in pre-release (v0.1.0). Marketplace publication is TBD. For now, install via local plugin directory:
+mumei ships its own self-hosted marketplace. Inside Claude Code, run:
 
-```bash
-git clone https://github.com/<owner>/mumei.git ~/path/to/mumei
-
-# Start Claude Code with the local plugin loaded:
-claude --plugin-dir ~/path/to/mumei
+```text
+/plugin marketplace add hir4ta/mumei
+/plugin install mumei@mumei
 ```
 
-`--plugin-dir` loads the plugin in-place (no cache copy), which is the recommended path during pre-release. Once mumei stabilizes and a marketplace entry is published, `claude plugin install` will be the standard route.
+That registers the marketplace catalog at `hir4ta/mumei` and installs the `mumei` plugin from it (user scope by default). Reload to activate:
 
-After Claude Code starts, run `/mumei:init` once per project to set up the `.mumei/` directory and `CLAUDE.md` additions.
+```text
+/reload-plugins
+```
+
+After install, run the one-time per-project setup:
+
+```text
+/mumei:init
+```
+
+This creates `.mumei/` and proposes additions to your `CLAUDE.md` (with diff preview and explicit approval).
+
+### Other install paths
+
+- **Pin a specific version**: marketplace plugins follow git refs of the marketplace repo. Pin a tag with `/plugin marketplace add hir4ta/mumei#v0.1.1`.
+- **Local development clone**: if you cloned mumei locally and want to test edits without going through GitHub, start Claude Code with `claude --plugin-dir /path/to/your/clone-of-mumei`. This bypasses the marketplace cache.
+- **Uninstall**: `/plugin uninstall mumei@mumei` (the `.mumei/` directory in your project is left intact).
+
+### Updates
+
+```text
+/plugin marketplace update mumei
+/reload-plugins
+```
+
+Auto-update for third-party marketplaces is off by default. Enable it from `/plugin` → Marketplaces tab if you want hands-off updates.
 
 ## Project layout (after `/mumei:init`)
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "mumei",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Quality Enforcement Layer for Claude Code: brainstorm to plan (with Coverage Check) to implement (Wave Gate) to review (4-stage independent + per-issue validation)",
   "author": {
     "name": "Shunichi Hirata",

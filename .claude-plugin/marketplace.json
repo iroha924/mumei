@@ -1,0 +1,25 @@
+{
+  "name": "mumei",
+  "owner": {
+    "name": "Shunichi Hirata",
+    "email": "shunichi@hir4ta.com"
+  },
+  "description": "mumei marketplace (single-plugin, self-hosted)",
+  "plugins": [
+    {
+      "name": "mumei",
+      "source": "./",
+      "description": "Quality Enforcement Layer for Claude Code: brainstorm to plan (with Coverage Check) to implement (Wave Gate) to review (4-stage independent + per-issue validation)",
+      "homepage": "https://github.com/hir4ta/mumei",
+      "repository": "https://github.com/hir4ta/mumei",
+      "license": "MIT",
+      "keywords": [
+        "sdd",
+        "spec-driven",
+        "review",
+        "hooks",
+        "quality-enforcement"
+      ]
+    }
+  ]
+}
