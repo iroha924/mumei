@@ -78,3 +78,25 @@ jobs:
           [[ -f README.md ]] || { echo "FAIL: README.md missing"; exit 1; }
           [[ -f LICENSE ]] || { echo "FAIL: LICENSE missing"; exit 1; }
           [[ -f .claude-plugin/plugin.json ]] || { echo "FAIL: plugin.json missing"; exit 1; }
+
+  # ─────────────────────────────────────────
+  # bats による hook / _lib の単体テスト。
+  # macos-latest と ubuntu-latest の matrix で BSD/GNU 差を検出する。
+  # bats のバージョンは pin して両 OS 間の挙動差を抑える。
+  # ─────────────────────────────────────────
+  bats:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install bats
+        uses: bats-core/bats-action@3.0.0
+        with:
+          bats-version: 1.11.0
+
+      - name: bats tests/
+        run: bats -r tests/
