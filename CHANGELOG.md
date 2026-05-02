@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Section headings (`## User Story`, `## Acceptance Criteria`, `## Out of Scope`, etc.) stay in **English** so hooks and parsers can read them reliably.
   - Body content (User Story prose, AC clauses, Assumptions, Open Questions, design narratives, task descriptions) follows the **user's conversation language** — Japanese users get Japanese prose, English users get English.
   - EARS keywords (`WHEN`/`WHILE`/`IF`/`WHERE`/`SHALL`), inline annotations (`[CONFIRMED]`/`[ASSUMPTION]`/`[NEEDS CLARIFICATION]`), trace IDs (`REQ-N.M`), and task meta (`_Files:_`/`_Depends:_`/`_Requirements:_`) stay in **English** regardless.
+- **`README.ja.md`** — Japanese-language README mirroring the English `README.md`. Linked from the top of `README.md`.
+
+### Changed
+
+- **README.md `Status` line** updated from `v0.1.0` to `v0.1.2` to match the released version.
 
 ## [0.1.1] - 2026-05-03
 

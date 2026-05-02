@@ -3,6 +3,8 @@
 > Quality Enforcement Layer for Claude Code.
 > Stop the agent from skipping spec phases, Wave commits, and reviews — structurally.
 
+[日本語版 README](./README.ja.md)
+
 `mumei` is a Claude Code plugin that physically enforces a spec-driven development workflow:
 
 ```
@@ -247,7 +249,7 @@ Skips all hook gates. Use sparingly. There is no other escape hatch — no `--no
 
 ## Status
 
-Pre-release (v0.1.0). Expect breaking changes until v1.0.
+Pre-release (v0.1.2). Expect breaking changes until v1.0.
 
 ## License
 
