@@ -36,15 +36,15 @@ fi
 
 # 2.3 — Verify required binaries. Missing binaries produce a hard fail
 # with installation guidance, not a fall-through.
-missing="$(mumei_detector_check_binaries)" || true
-if [[ -n "$missing" ]]; then
+missing_bins="$(mumei_detector_check_binaries)" || true
+if [[ -n "$missing_bins" ]]; then
   mumei_log_error "missing required detector binaries:"
   while IFS= read -r b; do
     mumei_log_error "  - ${b}"
-  done <<< "$missing"
+  done <<< "$missing_bins"
   mumei_log_error ""
   mumei_log_error "install with:"
-  mumei_log_error "  macOS:  brew install ${missing//$'\n'/ }"
+  mumei_log_error "  macOS:  brew install ${missing_bins//$'\n'/ }"
   mumei_log_error "  Linux:  see https://semgrep.dev/docs/getting-started"
   mumei_log_error "          and https://github.com/google/osv-scanner/releases"
   mumei_log_error ""
@@ -77,6 +77,7 @@ WORK_DIR="$(mktemp -d -t mumei-detector-run.XXXXXX)"
 # so the orchestrator can distinguish "interrupted" from "missing binary"
 # even when stdout would otherwise be empty. The EXIT trap only cleans up;
 # signal traps emit the stub then exit 2 (which fires EXIT trap for cleanup).
+# shellcheck disable=SC2329  # invoked indirectly via the INT/TERM trap below
 _mumei_detector_on_signal() {
   local sig="$1"
   jq -n --arg sig "$sig" \
