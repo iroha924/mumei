@@ -295,29 +295,53 @@ Invoke the detector entry point as a single Bash call before any reviewer
 launches. This satisfies REQ-2.4 (run once, not per-reviewer) and gives the
 orchestrator a HIGH count to branch on.
 
+Capture both stdout and exit status — the script signals partial runs through
+both channels, and you must check both:
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/hooks/pre-review-detector.sh"
+summary="$(bash "${CLAUDE_PLUGIN_ROOT}/hooks/pre-review-detector.sh")"
+rc=$?
 ```
 
 The script writes `.mumei/specs/<feature>/reviews/<ts>-detectors.json` and
 emits a JSON summary on stdout:
 
 ```json
-{ "detectors_ran": true, "high_count": N, "report_path": "..." }
+{
+  "detectors_ran": <bool>,
+  "high_count": <N>,
+  "report_path": "...",
+  "failed_detectors": [...]
+}
 ```
 
-Behavior:
+Behavior, by exit status:
 
+- **`rc == 0`** — clean run. `detectors_ran` is `true`, `failed_detectors`
+  is empty. Read `high_count` and proceed to Stage 1.
+- **`rc == 2`** — STOP. Surface stderr to the user verbatim and do NOT
+  launch reviewers. Possible causes:
+  - Missing `semgrep` / `osv-scanner` binary (install required).
+  - Detector binary crashed mid-run (exited ≥ 2). The summary's
+    `failed_detectors` array names which one(s); `detectors_ran` is
+    `false` and the report's `errors[]` contains diagnostic entries.
+  - No active feature in `.mumei/current` or spec directory missing.
+  In every `rc == 2` case the LLM reviewers cannot replace the detector
+  ground truth; user must fix the underlying cause or set `MUMEI_BYPASS=1`.
 - **`MUMEI_BYPASS=1`** → script exits 0 with `bypassed: true`. Skip the
   HIGH-branching logic in Stage 1; behave as if `high_count == 0`.
-- **Missing semgrep / osv-scanner** → script exits 2 with brew install
-  guidance on stderr. Surface this to the user verbatim and STOP. Do not
-  proceed with reviewers; the user must install or set `MUMEI_BYPASS=1`.
-- **Detector exits ≥2 (real error)** → individual detector errors are
-  recorded in the report's `errors` array, but the script itself returns
-  0 as long as one detector succeeded. Inspect `.errors` if needed.
 
-Read `high_count` from stdout. Stage 1 branches on it.
+Defense-in-depth: do not rely on `detectors_ran` alone (the JSON only) or
+on `rc` alone — check both. A truthful clean run requires `rc == 0` AND
+`detectors_ran == true` AND `failed_detectors == []`.
+
+Note: a detector's *binary running successfully but reporting "skipped"*
+(e.g. no `package-lock.json` for osv-scanner, no `package.json` for the
+hpc check, malformed user-side JSON) is NOT a failure — it lands in
+`detectors_skipped` in the report and `rc` stays 0. Only crashed
+binaries (rc ≥ 2 from the binary itself) escalate to `rc == 2`.
+
+Read `high_count` from the captured stdout. Stage 1 branches on it.
 
 ### Stage 1 — Parallel reviewers (3 agents)
 

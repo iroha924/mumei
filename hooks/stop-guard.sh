@@ -116,9 +116,29 @@ fi
 # (skill bug, manually-authored review, etc.) and we force a re-run.
 # Reading the field rather than reconstructing a filename avoids coupling
 # stop-guard to a specific timestamp format used by pre-review-detector.sh.
+
+# Validate the review JSON parses before attempting to read fields. A
+# corrupt review file (truncated write, manual edit gone wrong) and a
+# missing detector_report field both produce empty `jq -r` output, so
+# without this check the user would see a misleading "Stage 0 was
+# skipped" message instead of "your review file is corrupt".
+REVIEW_NAME="$(basename "$LATEST_REVIEW")"
+if ! jq empty < "$LATEST_REVIEW" 2>/dev/null; then
+  REASON="Review ${REVIEW_NAME} is not valid JSON. Delete or restore the file and re-run /mumei:plan review."
+  CONTEXT="${LATEST_REVIEW} cannot be parsed by jq. Likely causes: truncated write, manual edit with syntax error, or filesystem corruption. Either restore from git history (.mumei/specs/<feature>/reviews/ is tracked) or delete the file and let /mumei:plan write a fresh review. Set MUMEI_BYPASS=1 to skip (not recommended)."
+  jq -n --arg r "$REASON" --arg c "$CONTEXT" '{
+    decision: "block",
+    reason: $r,
+    hookSpecificOutput: {
+      hookEventName: "Stop",
+      additionalContext: $c
+    }
+  }'
+  exit 0
+fi
+
 DETECTORS_FILE="$(jq -r '.detector_report // empty' "$LATEST_REVIEW" 2>/dev/null || true)"
 if [[ -z "$DETECTORS_FILE" || ! -f "$DETECTORS_FILE" ]]; then
-  REVIEW_NAME="$(basename "$LATEST_REVIEW")"
   REASON="Review ${REVIEW_NAME} has no resolvable detector_report — Stage 0 (deterministic detector run) was skipped. Re-run /mumei:plan review."
   CONTEXT="The review JSON must include a top-level \"detector_report\" field whose value is a readable path to a detectors.json from hooks/pre-review-detector.sh. Either the field is missing, empty, or points to a file that no longer exists. Detectors (semgrep, osv-scanner, hallucinated-package-check) provide ground-truth findings that LLM reviewers cannot replace. Set MUMEI_BYPASS=1 to skip (not recommended)."
   jq -n --arg r "$REASON" --arg c "$CONTEXT" '{

@@ -68,15 +68,22 @@ FINAL_PATH="${REVIEWS_DIR}/${TS}-detectors.json"
 
 # 2.5 — Per-detector intermediate outputs go to a temp dir so we can clean
 # them up regardless of failure. The aggregator writes the canonical file.
+# A trap covers EXIT (normal and abnormal) plus signals (Ctrl-C, kill);
+# without it a long semgrep run interrupted by the user would leak the dir.
 WORK_DIR="$(mktemp -d -t mumei-detector-run.XXXXXX)"
+# shellcheck disable=SC2064
+trap 'rm -rf "$WORK_DIR"' EXIT INT TERM
 SG_OUT="${WORK_DIR}/semgrep.json"
 OSV_OUT="${WORK_DIR}/osv.json"
 HPC_OUT="${WORK_DIR}/hpc.json"
 ERR_OUT="${WORK_DIR}/errors.ndjson"
 : > "$ERR_OUT"
 
-# Track detectors whose binary ran but exited fatally (rc>=2). Fall-through
-# to aggregate so the report is written, but exit 2 at the end so the
+# Track detectors that crashed (binary rc>=2). Skips (no lockfile, malformed
+# user-side JSON) are NOT failures — those land in the report's
+# detectors_skipped list and the run_* function returns 0.
+# Only true binary crashes propagate here. Fall-through to aggregate so the
+# partial report is still written for triage, but exit 2 at the end so the
 # orchestrator does not silently treat the run as ground truth.
 FAILED_DETECTORS=()
 
@@ -103,14 +110,20 @@ rm -rf "$WORK_DIR"
 HIGH_COUNT="$(jq '.counts.HIGH' < "$FINAL_PATH")"
 if (( ${#FAILED_DETECTORS[@]} == 0 )); then
   FAILED_JSON='[]'
+  DETECTORS_RAN='true'
 else
   FAILED_JSON="$(printf '%s\n' "${FAILED_DETECTORS[@]}" | jq -R . | jq -s .)"
+  # detectors_ran is false when any detector crashed — the JSON itself
+  # signals a partial run regardless of whether the orchestrator checks
+  # the exit code (defense-in-depth).
+  DETECTORS_RAN='false'
 fi
 jq -n \
   --argjson high "$HIGH_COUNT" \
   --arg path "$FINAL_PATH" \
   --argjson failed "$FAILED_JSON" \
-  '{detectors_ran: true, high_count: $high, report_path: $path, failed_detectors: $failed}'
+  --argjson ran "$DETECTORS_RAN" \
+  '{detectors_ran: $ran, high_count: $high, report_path: $path, failed_detectors: $failed}'
 
 # Hard fail when one or more detectors crashed (exit code >=2 from the
 # binary). Treat this the same as missing-binary: surfacing a partial

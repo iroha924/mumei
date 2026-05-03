@@ -120,12 +120,15 @@ setup() {
   jq -e '.skipped == true' < "$err"
 }
 
-@test "run_hpc: rejects malformed package.json" {
+@test "run_hpc: skips on malformed package.json (user input, not a crash)" {
   printf '%s' "{not json" > package.json
   out="$(mktemp)"
   err="$(mktemp)"
   run mumei_detector_run_hpc "$out" "$err"
-  [ "$status" -eq 1 ]
+  # Malformed user-side package.json is a SKIP (rc=0), not a hard fail —
+  # otherwise a typo in package.json would block the entire review pipeline.
+  [ "$status" -eq 0 ]
+  jq -e '.skipped == true' < "$err"
   jq -e '.message | contains("not valid JSON")' < "$err"
 }
 

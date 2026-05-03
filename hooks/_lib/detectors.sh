@@ -187,11 +187,15 @@ mumei_detector_run_hpc() {
     return 0
   fi
   if ! jq empty < package.json 2>/dev/null; then
-    jq -n --arg detector "hallucinated-package-check" --arg message "package.json is not valid JSON" \
-      '{detector: $detector, message: $message}' \
+    # Treat malformed package.json the same as "no package.json" — a
+    # user-side input issue, NOT a detector crash. The skipped:true marker
+    # signals to the orchestrator that this detector did not run, but the
+    # review pipeline can continue (returns 0).
+    jq -n --arg detector "hallucinated-package-check" --arg message "package.json is not valid JSON; skipping" \
+      '{detector: $detector, message: $message, skipped: true}' \
       >> "$errors_path"
     printf '%s' '{"results":[]}' > "$output_path"
-    return 1
+    return 0
   fi
   # Collect dep names from dependencies + devDependencies. The values are
   # version specifiers we don't need; only the keys are queried.

@@ -143,3 +143,83 @@ _init_test_feature() {
   [ -n "$report_path" ]
   echo "$report_path" | grep -qE '\.mumei/specs/REQ-99-test/reviews/.*-detectors\.json$'
 }
+
+# ─── detector crash path (FAILED_DETECTORS / exit 2) ────────────
+
+# Build stubs where semgrep crashes (exits 2) and osv-scanner is normal.
+_build_crashing_stubs() {
+  STUB_DIR="${MUMEI_TEST_TMPDIR}/stubs"
+  mkdir -p "$STUB_DIR"
+  cat > "$STUB_DIR/semgrep" <<'SH'
+#!/bin/sh
+echo "boom: simulated semgrep crash" >&2
+exit 2
+SH
+  cat > "$STUB_DIR/osv-scanner" <<'SH'
+#!/bin/sh
+output_path=""
+for arg in "$@"; do
+  case "$arg" in
+    --output=*) output_path="${arg#--output=}" ;;
+  esac
+done
+if [ -n "$output_path" ]; then
+  echo '{"results":[]}' > "$output_path"
+else
+  echo '{"results":[]}'
+fi
+exit 0
+SH
+  chmod +x "$STUB_DIR/semgrep" "$STUB_DIR/osv-scanner"
+  ORIG_PATH="$PATH"
+  export PATH="$STUB_DIR:$PATH"
+  hash -r
+}
+
+@test "detector crash: semgrep exit 2 yields rc=2, detectors_ran=false, semgrep in failed_detectors" {
+  _init_test_feature
+  _build_crashing_stubs
+  run env PATH="$STUB_DIR:$PATH" bash "$CLAUDE_PLUGIN_ROOT/hooks/pre-review-detector.sh"
+  _restore_path
+  [ "$status" -eq 2 ]
+  local summary
+  summary="$(echo "$output" | sed -n '/^{/,/^}/p')"
+  [ -n "$summary" ]
+  # Defense-in-depth: BOTH the JSON and the exit code signal partial.
+  echo "$summary" | jq -e '.detectors_ran == false'
+  echo "$summary" | jq -e '.failed_detectors | contains(["semgrep"])'
+  # Partial report is still written for triage (not deleted on exit 2).
+  local report_path
+  report_path="$(echo "$summary" | jq -r '.report_path')"
+  [ -f "$report_path" ]
+  jq empty < "$report_path"
+}
+
+@test "detector crash: stderr includes brew install guidance and exit 2 banner" {
+  _init_test_feature
+  _build_crashing_stubs
+  run env PATH="$STUB_DIR:$PATH" bash "$CLAUDE_PLUGIN_ROOT/hooks/pre-review-detector.sh"
+  _restore_path
+  [ "$status" -eq 2 ]
+  echo "$output" | grep -q "the following detectors failed"
+  echo "$output" | grep -q "semgrep"
+}
+
+@test "user-side malformed package.json is a SKIP, not a crash (rc=0)" {
+  _init_test_feature
+  _build_stubs
+  # Malformed JSON in package.json should NOT propagate to FAILED_DETECTORS;
+  # treat it like 'no package.json' — return 0 with skipped:true entry.
+  printf '%s' '{not valid json' > package.json
+  run env PATH="$STUB_DIR:$PATH" bash "$CLAUDE_PLUGIN_ROOT/hooks/pre-review-detector.sh"
+  _restore_path
+  [ "$status" -eq 0 ]
+  local summary
+  summary="$(echo "$output" | sed -n '/^{/,/^}/p')"
+  echo "$summary" | jq -e '.detectors_ran == true'
+  echo "$summary" | jq -e '.failed_detectors == []'
+  # The detectors.json should mark hpc as skipped, not failed.
+  local report_path
+  report_path="$(echo "$summary" | jq -r '.report_path')"
+  jq -e '.detectors_skipped | map(.name) | contains(["hallucinated-package-check"])' < "$report_path"
+}
