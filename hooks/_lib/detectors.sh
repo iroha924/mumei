@@ -340,13 +340,13 @@ mumei_detector_aggregate() {
     local k entry st norm finding
     for ((k = 0; k < hpc_count; k++)); do
       entry="$(jq -c ".[$k]" < "$hpc_json")"
-      st="$(printf '%s' "$entry" | jq -r '.status')"
+      st="$(printf '%s' "$entry" | jq -r '.status // ""')"
       norm="$(mumei_detector_normalize_severity hallucinated-package-check "$st")"
       finding="$(jq -n \
         --arg src "hallucinated-package-check" \
         --arg sev "$norm" \
         --arg raw "$st" \
-        --arg name "$(printf '%s' "$entry" | jq -r '.name')" \
+        --arg name "$(printf '%s' "$entry" | jq -r '.name // ""')" \
         --arg code "$(printf '%s' "$entry" | jq -r '.http_code // ""')" \
         '{
           source: $src,

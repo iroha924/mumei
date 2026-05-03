@@ -33,7 +33,7 @@ if [[ -z "$FEATURE" ]] || ! mumei_state_exists "$FEATURE"; then
   exit 0
 fi
 
-deny() {
+mumei_deny() {
   local reason="$1"
   local context="${2:-}"
   jq -n --arg r "$reason" --arg c "$context" '{
@@ -48,17 +48,17 @@ deny() {
 }
 
 # Detect a git commit invocation, including chained commands.
-is_git_commit() {
+mumei_is_git_commit() {
   printf '%s' "$1" | grep -qE '(^|[[:space:];|&])git[[:space:]]+commit([[:space:]]|$)'
 }
 
 # Detect a git push invocation.
-is_git_push() {
+mumei_is_git_push() {
   printf '%s' "$1" | grep -qE '(^|[[:space:];|&])git[[:space:]]+push([[:space:]]|$)'
 }
 
 # --- W2: git commit while the current Wave still has unchecked [ ] tasks ---
-if is_git_commit "$COMMAND"; then
+if mumei_is_git_commit "$COMMAND"; then
   CURRENT_WAVE="$(mumei_state_get "$FEATURE" '.current_wave // 0')"
   if [[ -n "$CURRENT_WAVE" ]] && [[ "$CURRENT_WAVE" -gt 0 ]]; then
     if ! mumei_tasks_wave_complete "$FEATURE" "$CURRENT_WAVE"; then
@@ -68,7 +68,7 @@ if is_git_commit "$COMMAND"; then
         st="$(mumei_tasks_status "$FEATURE" "$tid" 2>/dev/null || echo unknown)"
         [[ "$st" == "incomplete" ]] && printf '%s ' "$tid"
       done)"
-      deny \
+      mumei_deny \
         "Wave ${CURRENT_WAVE} has incomplete tasks: ${INCOMPLETE_TASKS}. Complete or revert before committing." \
         "Mark each task [x] in .mumei/specs/${FEATURE}/tasks.md after the implementation is done, or revert pending changes."
     fi
@@ -98,7 +98,7 @@ if is_git_commit "$COMMAND"; then
       if ! TEST_OUTPUT="$(eval "$TEST_CMD" 2>&1)"; then
         # Truncate test output to the last 30 lines for the deny reason
         TEST_TAIL="$(printf '%s' "$TEST_OUTPUT" | tail -n 30)"
-        deny \
+        mumei_deny \
           "Tests failing. Fix before committing." \
           "Test command: ${TEST_CMD}\n\n${TEST_TAIL}"
       fi
@@ -107,7 +107,7 @@ if is_git_commit "$COMMAND"; then
 fi
 
 # --- R2: git push while the review verdict is MAJOR_ISSUES ---
-if is_git_push "$COMMAND"; then
+if mumei_is_git_push "$COMMAND"; then
   # Inspect the latest review record. Read .verdict from
   # .mumei/specs/<feature>/reviews/<latest>.json.
   REVIEW_DIR=".mumei/specs/${FEATURE}/reviews"
@@ -118,7 +118,7 @@ if is_git_push "$COMMAND"; then
     if [[ -n "$LATEST_REVIEW" ]] && [[ -f "$LATEST_REVIEW" ]]; then
       VERDICT="$(jq -r '.verdict // empty' "$LATEST_REVIEW" 2>/dev/null || true)"
       if [[ "$VERDICT" == "MAJOR_ISSUES" ]]; then
-        deny \
+        mumei_deny \
           "Review verdict: MAJOR_ISSUES. Address findings before pushing." \
           "Latest review: ${LATEST_REVIEW}\nRun /mumei:plan to address findings and re-review."
       fi
