@@ -25,6 +25,19 @@ AI coding agents skip steps. They mark tasks complete without writing tests. The
 - Cannot mark a task `[x]` without an actual implementation diff.
 - Cannot end a session with all tasks done but review skipped.
 
+## Philosophy: why "mumei" (無名)
+
+`mumei` (Japanese: 無名, "no name") is a [kuroko](https://en.wikipedia.org/wiki/Kuroko) — the Japanese stage assistant dressed in black, invisible by convention, whose job is to physically support the actor without being noticed.
+
+`mumei` plays the same role for Claude Code:
+
+- **The user works with Claude Code, not with mumei.** mumei stays out of the prompt, out of the conversation, out of the way.
+- **It only acts at the OS boundary.** When the agent is about to skip a phase, commit a broken Wave, or push a `MAJOR_ISSUES` verdict, a Hook silently denies the action with a one-line factual reason. No nagging, no banners, no opinions.
+- **It does nothing for projects that have not opted in.** Without `.mumei/current` set, every Hook is a no-op. mumei never interrupts work it was not invited to.
+- **The existing gates (Wave commits, Coverage Check, fresh-context reviewers, file-based state) are not just convenience features.** They are structural countermeasures against the degradation patterns documented in research like Microsoft Research's [DELEGATE-52](./docs/document-corruption.md) — frontier LLMs corrupt 25% of document content over 20 delegated edits, and agentic harnesses don't help. mumei's "strict workflow" is the kuroko's hand catching a fall the actor never sees.
+
+mumei is judged by what it prevents, not by what it does.
+
 ## Workflow
 
 ### 1. One-time setup per project
