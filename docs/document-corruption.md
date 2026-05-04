@@ -42,8 +42,6 @@ Anthropic engineering posts that describe document corruption and adjacent failu
 7. [Eval awareness in BrowseComp](https://www.anthropic.com/engineering/eval-awareness-browsecomp) (2026-03-06) — Agents change behavior when they realize they are being evaluated. Constant verbose monitoring can itself be a degradation factor.
    - **mumei takeaway**: logs go to stderr only; stdout carries JSON only. Observability is selective; we do not amplify the signal that the agent is "being watched".
 
-(For the broader background, see `docs/harness-engineering.md` Part 5 — it summarizes 21 Anthropic engineering posts.)
-
 ## Why traditional plugins make this worse
 
 Common plugin patterns that **amplify** corruption:
@@ -139,13 +137,10 @@ The price paid for the opt-in / kuroko stance:
 - **Constraints on plugin growth**: the "abstract on the third repetition" rule keeps the bar high for adding new skills / agents. This is a safety device against the plugin itself growing complex enough to become a corruption source.
 - **Token economy is a side effect**: the core motivation is corruption suppression; token reduction is a consequence. Parallel reviewers + per-issue validators do create a 5-10x fan-out, but that fan-out buys back fresh context. Without fresh context, reviews degrade and themselves induce corruption — so the fan-out doubles as a safety device.
 - **Limited fit**: mumei targets teams or individuals who want a TDD / spec-driven workflow. It does not fit ad-hoc hack development. "Users it does not fit do not adopt it" is the natural state for an opt-in plugin.
-- **Bus factor risk**: kuroko depends on the user understanding their own workflow. There is no auto-recovery, no "let mumei figure it out" path. If the user is unavailable and a junior teammate cannot interpret a hook deny, the workflow stalls. The mitigation is documentation density (`docs/mumei-decisions.md`, this file, `README.md`) — not an alternative auto-mode.
+- **Bus factor risk**: kuroko depends on the user understanding their own workflow. There is no auto-recovery, no "let mumei figure it out" path. If the user is unavailable and a junior teammate cannot interpret a hook deny, the workflow stalls. The mitigation is documentation density (this file plus `README.md`) — not an alternative auto-mode.
 
 Surfacing these as **design features** lets users adopt mumei knowing what mumei does **not** do for them. Conversely, expectations like "mumei will fix things on its own" or "mumei will tidy up the state" never hold.
 
 ## Related
 
-- [docs/harness-engineering.md](./harness-engineering.md) — Part 5 contains summaries of 21 Anthropic engineering posts. The theoretical background for document corruption sits there.
-- [docs/mumei-decisions.md](./mumei-decisions.md) — record of every design decision. The countermeasure column above is unpacked individually here.
 - [README.md](../README.md) / [README.ja.md](../README.ja.md) — the "Philosophy: why mumei (無名)" section is the entry point to this document.
-- Additional reading on primary sources: the URL list at the end of `harness-engineering.md` Part 5 (3 Zenn articles, Karpathy tweets, etc.).
