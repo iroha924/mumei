@@ -1,4 +1,5 @@
 ---
+name: self-evaluate
 description: Self-evaluate the mumei plugin against its rubric. First runs `scripts/collect-anchors.sh` to mechanically harvest 52 objective anchors into JSON, then dispatches 4 parallel evaluator subagents (each with fresh context) that score the rubric using only the anchor JSON and the distributed artifacts (no design intent docs). Results land in `results/YYYY-MM-DD.md`. Use this skill when the user explicitly asks to "evaluate mumei", "score mumei against the rubric", or invokes `/self-evaluate`. Do NOT auto-trigger.
 allowed-tools: [Read, Bash, Task, Write]
 disable-model-invocation: true
