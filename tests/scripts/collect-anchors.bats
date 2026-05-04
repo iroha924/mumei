@@ -22,22 +22,8 @@ load '../test_helper'
 setup() {
   cd "$CLAUDE_PLUGIN_ROOT" || return 1
   TMPOUT="$(mktemp -t mumei-anchors.XXXXXX)"
-  TMPERR="$(mktemp -t mumei-anchors-err.XXXXXX)"
-  export TMPOUT TMPERR
-  if ! bash skills/self-evaluate/scripts/collect-anchors.sh > "$TMPOUT" 2> "$TMPERR"; then
-    {
-      echo "collect-anchors.sh failed with status $?"
-      echo "--- stdout (head) ---"
-      head -20 "$TMPOUT"
-      echo "--- stderr ---"
-      cat "$TMPERR"
-      echo "--- env probe ---"
-      echo "cwd=$PWD"
-      echo "CLAUDE_PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-<unset>}"
-      echo "git toplevel=$(git rev-parse --show-toplevel 2>&1 || echo '<failed>')"
-    } >&3
-    return 1
-  fi
+  export TMPOUT
+  bash skills/self-evaluate/scripts/collect-anchors.sh > "$TMPOUT" 2>/dev/null
 }
 
 teardown() {

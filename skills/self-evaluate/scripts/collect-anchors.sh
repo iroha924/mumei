@@ -34,7 +34,14 @@ if ! declare -F mumei_safe_grep_count >/dev/null 2>&1; then
 fi
 
 # ---------- helpers ----------
-count_lines() { wc -l < "$1" 2>/dev/null | tr -d ' \n' || echo 0; }
+# count_lines tolerates missing files: returns 0 when the path does
+# not exist (otherwise the bash `< missing` redirection itself would
+# emit a "No such file" diagnostic that pollutes stderr in CI where
+# gitignored dev files are absent).
+count_lines() {
+  [[ -f "$1" ]] || { printf '0'; return 0; }
+  wc -l < "$1" 2>/dev/null | tr -d ' \n' || printf '0'
+}
 exists_file() { [[ -f "$1" ]] && echo true || echo false; }
 
 # ---------- Dim 1: Plugin Hygiene ----------
@@ -177,7 +184,11 @@ ci_has_jq_empty=$(mumei_safe_grep_count 'jq empty' .github/workflows/ci.yml)
 ci_has_frontmatter=$(mumei_safe_grep_count 'frontmatter' .github/workflows/ci.yml)
 ci_bats_pinned=$(mumei_safe_grep_count 'v?1\.[0-9]+\.[0-9]+' .github/workflows/ci.yml)
 
-dogfood_done_count=$(find .mumei/archive -name 'state.json' -exec jq -r '.phase // empty' {} \; 2>/dev/null | grep -c '^done$' || echo 0)
+# grep -c always prints a count; its exit-1 on no-match would
+# otherwise trigger `|| echo 0` and append a second "0" line, which
+# jq --argjson would then reject as invalid JSON. Drop the fallback.
+dogfood_done_count=$(find .mumei/archive -name 'state.json' -exec jq -r '.phase // empty' {} + 2>/dev/null | grep -c '^done$')
+[[ -n "$dogfood_done_count" ]] || dogfood_done_count=0
 
 validate_skill_exists=$(exists_file .claude/skills/validate/SKILL.md)
 
