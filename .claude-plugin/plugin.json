@@ -6,6 +6,8 @@
   "author": {
     "name": "Shunichi Hirata"
   },
+  "homepage": "https://github.com/hir4ta/mumei",
+  "repository": "https://github.com/hir4ta/mumei",
   "license": "MIT",
   "keywords": [
     "harness",

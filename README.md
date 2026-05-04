@@ -140,6 +140,18 @@ mumei's `hallucinated-package-check` (npm registry probe) requires
 network egress to `https://registry.npmjs.org/`. On self-hosted
 runners with restricted egress, set `MUMEI_BYPASS=1` for that job.
 
+### Detector tunables
+
+These are **not** escape hatches — the detectors still run. They tune
+the detector behaviour for edge cases (slow scans, oversized
+manifests). Defaults are appropriate for typical projects; override
+only when needed.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MUMEI_DETECTOR_TIMEOUT` | `600` | Per-detector wall-clock timeout in seconds (`semgrep` / `osv-scanner` / `hallucinated-package-check`). Raise for very large repos; lower in CI when a hung detector is worse than a missed scan. |
+| `MUMEI_DETECTOR_HPC_MAX_PACKAGES` | `200` | Max number of npm packages probed by `hallucinated-package-check`. Above this, the probe is skipped with a warning recorded in the detector report (no hard fail). Guards against accidental DoS on `registry.npmjs.org`. |
+
 ## Installation
 
 mumei ships its own self-hosted marketplace. Inside Claude Code, run:
