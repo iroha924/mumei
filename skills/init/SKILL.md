@@ -45,13 +45,13 @@ mkdir -p .mumei/specs .mumei/archive .mumei/scratch
 [[ -f .mumei/current ]] || : > .mumei/current  # empty until first feature
 ```
 
-Generate `.mumei/.gitignore` so team-shared spec content (requirements / design / tasks / coverage-check / reviews / scratch / archive) is tracked, while per-developer state (`current` cursor, `state.json` progress) is ignored. **Do not overwrite an existing `.mumei/.gitignore`** — the user may have customized it.
+Generate `.mumei/.gitignore` so team-shared spec content (requirements / design / tasks / spec-reviews / reviews / scratch / archive) is tracked, while per-developer state (`current` cursor, `state.json` progress) is ignored. **Do not overwrite an existing `.mumei/.gitignore`** — the user may have customized it.
 
 ```bash
 if [[ ! -f .mumei/.gitignore ]]; then
   cat > .mumei/.gitignore <<'EOF'
 # mumei: per-developer state only. Everything else (specs/*/{requirements,design,tasks}.md,
-# coverage-check.json, reviews/, scratch/, archive/) is tracked for team handoff.
+# spec-reviews/, reviews/, scratch/, archive/) is tracked for team handoff.
 current
 specs/*/state.json
 EOF

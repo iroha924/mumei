@@ -7,7 +7,6 @@
     "id",
     "slug",
     "phase",
-    "approvals",
     "current_wave",
     "created_at",
     "updated_at"
@@ -25,16 +24,6 @@
     "phase": {
       "type": "string",
       "enum": ["plan", "implement", "review", "done"]
-    },
-    "approvals": {
-      "type": "object",
-      "required": ["requirements", "design", "tasks"],
-      "properties": {
-        "requirements": { "type": "string", "enum": ["draft", "approved"] },
-        "design": { "type": "string", "enum": ["draft", "approved"] },
-        "tasks": { "type": "string", "enum": ["draft", "approved"] }
-      },
-      "additionalProperties": false
     },
     "current_wave": {
       "type": "integer",

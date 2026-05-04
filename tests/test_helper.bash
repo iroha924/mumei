@@ -51,7 +51,6 @@ _init_feature() {
       id: $id,
       slug: $slug,
       phase: $phase,
-      approvals: {requirements: "approved", design: "approved", tasks: "approved"},
       current_wave: $wave,
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:00Z"

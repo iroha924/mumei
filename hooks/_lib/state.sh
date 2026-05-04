@@ -98,13 +98,6 @@ mumei_state_phase() {
   mumei_state_get "$feature" '.phase'
 }
 
-# Return the approval status of requirements / design / tasks (draft / approved).
-mumei_state_approval() {
-  local feature="$1"
-  local key="$2"  # requirements | design | tasks
-  mumei_state_get "$feature" ".approvals.${key}"
-}
-
 # Initialize state.json. Skip if it already exists.
 mumei_state_init() {
   local feature="$1"
@@ -123,7 +116,6 @@ mumei_state_init() {
       id: $id,
       slug: $slug,
       phase: "plan",
-      approvals: { requirements: "draft", design: "draft", tasks: "draft" },
       current_wave: 0,
       created_at: $now,
       updated_at: $now

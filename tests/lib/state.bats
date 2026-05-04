@@ -150,26 +150,6 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
-# ─── mumei_state_approval ─────────────────────────────────────
-
-@test "mumei_state_approval returns the approval status for a key" {
-  mkdir -p .mumei/specs/REQ-1-foo
-  printf '{"approvals":{"requirements":"approved","design":"draft"}}' \
-    > .mumei/specs/REQ-1-foo/state.json
-  run mumei_state_approval "REQ-1-foo" "requirements"
-  [ "$output" = "approved" ]
-  run mumei_state_approval "REQ-1-foo" "design"
-  [ "$output" = "draft" ]
-}
-
-@test "mumei_state_approval returns empty for unknown approval key" {
-  mkdir -p .mumei/specs/REQ-1-foo
-  printf '{"approvals":{"requirements":"approved"}}' \
-    > .mumei/specs/REQ-1-foo/state.json
-  run mumei_state_approval "REQ-1-foo" "tasks"
-  [ "$output" = "" ]
-}
-
 # ─── mumei_state_init ─────────────────────────────────────────
 
 @test "mumei_state_init creates state.json with default fields" {
@@ -182,8 +162,6 @@ setup() {
   [ "$output" = "test-suite" ]
   run jq -r '.phase' .mumei/specs/REQ-1-foo/state.json
   [ "$output" = "plan" ]
-  run jq -r '.approvals.requirements' .mumei/specs/REQ-1-foo/state.json
-  [ "$output" = "draft" ]
   run jq -r '.current_wave' .mumei/specs/REQ-1-foo/state.json
   [ "$output" = "0" ]
 }
