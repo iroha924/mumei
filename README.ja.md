@@ -188,29 +188,18 @@ install 後、プロジェクトごとに 1 回だけセットアップを実行
 
 ## プロジェクトレイアウト (`/mumei:init` 後)
 
+`/mumei:init` が作るのはディレクトリの骨格のみ。feature ごとのファイルは `/mumei:brainstorm`、`/mumei:plan`、`/mumei:archive` を実行した時に追加される。
+
 ```
 your-project/
-├── CLAUDE.md                              # mumei conventions が追記される
-├── .mumei/
-│   ├── current                            # active feature の slug (1 行)
-│   ├── specs/
-│   │   └── REQ-1-user-auth/
-│   │       ├── requirements.md
-│   │       ├── design.md
-│   │       ├── tasks.md
-│   │       ├── state.json
-│   │       ├── spec-reviews/                 # spec-reviewer の verdict (Phase 1.3 / 2.2 / 3.2)
-│   │       │   ├── 2026-05-03T10-00-00-requirements.json
-│   │       │   ├── 2026-05-03T10-15-00-design.json
-│   │       │   └── 2026-05-03T10-30-00-tasks.json
-│   │       └── reviews/                      # Phase 5 implementation review
-│   │           └── 2026-05-03T15-45-00.json
-│   ├── archive/
-│   │   └── 2026-04/
-│   │       └── REQ-old-feature/
-│   └── scratch/                           # gitignored
-│       └── user-auth.md                   # /mumei:brainstorm の出力
-└── .gitignore                             # .mumei/scratch/ と .claude/agent-memory-local/ を追加
+├── CLAUDE.md         # mumei conventions が追記される (diff 承認した場合)
+├── .gitignore        # `.claude/agent-memory-local/` が追加される (per-issue-validator のメモリ用)
+└── .mumei/
+    ├── .gitignore    # 開発者ごとの state を ignore (`current`、`specs/*/state.json`)
+    ├── current       # 空ファイル。最初の /mumei:plan が feature slug を書き込む
+    ├── specs/        # /mumei:plan <feature> で populate される (requirements.md / design.md / tasks.md / state.json / spec-reviews/ / reviews/)
+    ├── archive/      # /mumei:archive <feature> で populate される (<YYYY-MM>/<feature>/ 以下に移動)
+    └── scratch/      # /mumei:brainstorm <feature> で populate される。意図的に tracked (チームでブレスト履歴を共有するため)
 ```
 
 ## spec ドキュメントのフォーマット

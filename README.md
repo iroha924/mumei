@@ -190,29 +190,18 @@ After install, run the one-time per-project setup:
 
 ## Project layout (after `/mumei:init`)
 
+`/mumei:init` creates the directory skeleton only. Per-feature files appear later as you run `/mumei:brainstorm`, `/mumei:plan`, and `/mumei:archive`.
+
 ```
 your-project/
-├── CLAUDE.md                              # mumei conventions are appended here
-├── .mumei/
-│   ├── current                            # active feature slug (1 line)
-│   ├── specs/
-│   │   └── REQ-1-user-auth/
-│   │       ├── requirements.md
-│   │       ├── design.md
-│   │       ├── tasks.md
-│   │       ├── state.json
-│   │       ├── spec-reviews/                 # spec-reviewer verdicts (Phase 1.3 / 2.2 / 3.2)
-│   │       │   ├── 2026-05-03T10-00-00-requirements.json
-│   │       │   ├── 2026-05-03T10-15-00-design.json
-│   │       │   └── 2026-05-03T10-30-00-tasks.json
-│   │       └── reviews/                      # Phase 5 implementation review
-│   │           └── 2026-05-03T15-45-00.json
-│   ├── archive/
-│   │   └── 2026-04/
-│   │       └── REQ-old-feature/
-│   └── scratch/                           # gitignored
-│       └── user-auth.md                   # /mumei:brainstorm output
-└── .gitignore                             # adds .mumei/scratch/, .claude/agent-memory-local/
+├── CLAUDE.md         # mumei conventions appended (if you approved the diff)
+├── .gitignore        # `.claude/agent-memory-local/` appended (per-issue-validator memory)
+└── .mumei/
+    ├── .gitignore    # ignores per-developer state (`current`, `specs/*/state.json`)
+    ├── current       # empty until the first /mumei:plan writes a feature slug
+    ├── specs/        # populated by /mumei:plan <feature>: requirements.md, design.md, tasks.md, state.json, spec-reviews/, reviews/
+    ├── archive/      # populated by /mumei:archive <feature>: moved under <YYYY-MM>/<feature>/
+    └── scratch/      # populated by /mumei:brainstorm <feature>; tracked intentionally so brainstorm history is shared with the team
 ```
 
 ## Spec document format
