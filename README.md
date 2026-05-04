@@ -14,6 +14,25 @@ Hook-enforced spec phases, Wave commits, and reviews — at the OS boundary, not
 brainstorm → plan (3 spec reviewers + approval) → implement (Wave gate) → review (4-stage + per-issue validation) → done
 ```
 
+## Contents
+
+- [Features](#features)
+- [Why](#why)
+- [Commands](#commands)
+- [Philosophy: why "mumei" (無名)](#philosophy-why-mumei-無名)
+- [Workflow](#workflow)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Project layout](#project-layout-after-mumeiinit)
+- [Spec document format](#spec-document-format)
+- [Tasks document format](#tasks-document-format)
+- [Hook rules](#hook-rules-full-list)
+- [Escape hatch](#escape-hatch)
+- [Security and Privacy](#security-and-privacy)
+- [What `mumei` is NOT](#what-mumei-is-not)
+- [Status](#status)
+- [License](#license)
+
 ## Features
 
 - **Hook-enforced phases**: Cannot edit `src/` while spec is incomplete, cannot `git commit` with `[ ]` tasks remaining, cannot `git push` while review verdict is `MAJOR_ISSUES`.
@@ -140,19 +159,7 @@ review-phase Hook fails closed when either is missing (set
 fail happens at `/mumei:plan` review time so you can defer install
 until your first review.
 
-### CI snippet (GitHub Actions)
-
-```yaml
-- name: Install mumei detectors
-  run: |
-    pip install semgrep
-    curl -sL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 -o /usr/local/bin/osv-scanner
-    chmod +x /usr/local/bin/osv-scanner
-```
-
-mumei's `hallucinated-package-check` (npm registry probe) requires
-network egress to `https://registry.npmjs.org/`. On self-hosted
-runners with restricted egress, set `MUMEI_BYPASS=1` for that job.
+The `hallucinated-package-check` detector queries `https://registry.npmjs.org/` during the review phase. If your local environment blocks that egress, set `MUMEI_BYPASS=1` to skip mumei for that session.
 
 ### Detector tunables
 

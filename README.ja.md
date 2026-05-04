@@ -14,6 +14,25 @@ Claude Code のための Quality Enforcement Layer。
 brainstorm → plan (3 spec reviewer + 承認 gate) → implement (Wave gate) → review (4-stage + per-issue validation) → done
 ```
 
+## 目次
+
+- [Features](#features)
+- [なぜ](#なぜ)
+- [Commands](#commands)
+- [設計思想: なぜ「mumei (無名)」なのか](#設計思想-なぜmumei-無名なのか)
+- [ワークフロー](#ワークフロー)
+- [前提条件 (Prerequisites)](#前提条件-prerequisites)
+- [インストール](#インストール)
+- [プロジェクトレイアウト](#プロジェクトレイアウト-mumeiinit-後)
+- [spec ドキュメントのフォーマット](#spec-ドキュメントのフォーマット)
+- [tasks ドキュメントのフォーマット](#tasks-ドキュメントのフォーマット)
+- [Hook ルール一覧](#hook-ルール一覧)
+- [Escape hatch](#escape-hatch)
+- [Security and Privacy](#security-and-privacy)
+- [`mumei` が **しない** こと](#mumei-が-しない-こと)
+- [Status](#status)
+- [License](#license)
+
 ## Features
 
 - **Hook で物理強制される phase**: spec が未完成のまま `src/` を編集できない、`[ ]` task が残ったまま `git commit` できない、verdict が `MAJOR_ISSUES` のまま `git push` できない。
@@ -138,19 +157,7 @@ Hook は不在時に fail-closed する (`MUMEI_BYPASS=1` で override 可能、
 `/mumei:init` は不在を警告するが block しない。hard fail は `/mumei:plan`
 review 段で発生するため、最初の review までは install を遅らせられる。
 
-### CI snippet (GitHub Actions)
-
-```yaml
-- name: Install mumei detectors
-  run: |
-    pip install semgrep
-    curl -sL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 -o /usr/local/bin/osv-scanner
-    chmod +x /usr/local/bin/osv-scanner
-```
-
-mumei の `hallucinated-package-check` (npm registry probe) は
-`https://registry.npmjs.org/` への network egress が必要。
-egress 制限がある self-hosted runner ではそのジョブだけ `MUMEI_BYPASS=1` を設定する。
+`hallucinated-package-check` detector は review phase で `https://registry.npmjs.org/` を probe する。ローカル環境がこの egress を遮断している場合は `MUMEI_BYPASS=1` を設定して mumei をスキップする。
 
 ### Detector tunables
 
