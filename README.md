@@ -1,6 +1,6 @@
 # mumei
 
-[![Version](https://img.shields.io/badge/version-0.1.11-blue)](https://github.com/hir4ta/mumei/releases)
+[![Version](https://img.shields.io/badge/version-0.1.12-blue)](https://github.com/hir4ta/mumei/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![CI](https://github.com/hir4ta/mumei/actions/workflows/ci.yml/badge.svg)](https://github.com/hir4ta/mumei/actions/workflows/ci.yml)
 
