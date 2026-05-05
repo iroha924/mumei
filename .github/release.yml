@@ -1,0 +1,42 @@
+# mumei release notes auto-grouping
+# Used by `gh release create --generate-notes` to categorise commits since the
+# previous tag, based on Conventional Commits prefix in commit subjects.
+#
+# Reference: https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  exclude:
+    labels:
+      - "skip-changelog"
+    authors:
+      - "dependabot[bot]"
+  categories:
+    - title: "Features"
+      labels:
+        - "*"
+      # Match Conventional Commits subjects via prefix; gh inspects subjects
+      # not labels for plain repos. We add a `*` label fallback so that
+      # uncategorised PRs still appear under "Other changes".
+    - title: "Fixes"
+      labels:
+        - "bug"
+    - title: "Refactor"
+      labels:
+        - "refactor"
+    - title: "Documentation"
+      labels:
+        - "documentation"
+        - "docs"
+    - title: "Tests"
+      labels:
+        - "tests"
+    - title: "CI"
+      labels:
+        - "ci"
+    - title: "Chore"
+      labels:
+        - "chore"
+        - "dependencies"
+    - title: "Other changes"
+      labels:
+        - "*"

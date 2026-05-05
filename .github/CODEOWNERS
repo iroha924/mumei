@@ -1,0 +1,8 @@
+# mumei CODEOWNERS
+#
+# This file auto-requests review from the listed owner on every PR.
+# Format: <pattern> <owner...>
+#
+# Single maintainer for all paths. Refine when contributors grow.
+
+* @hir4ta
