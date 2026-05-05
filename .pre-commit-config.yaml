@@ -47,10 +47,24 @@ repos:
       - id: shfmt
         args: ["-d", "-i", "2"]
 
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.10.0
+  # shellcheck via locally-installed binary (system) — avoids the Docker
+  # dependency that koalaman/shellcheck-precommit imposes (it runs the
+  # checker in a container, which fails on hosts without Docker).
+  # Contributors must `brew install shellcheck` (or distro equivalent).
+  # `-x` follows external `source` directives so cross-file declarations
+  # are honored. tests/ is excluded because bats files exercise idioms
+  # (subshell PATH manipulation, intentional `ls -i` for inode reads,
+  # export-with-command-substitution helpers) that conflict with shellcheck's
+  # static analysis but are correct in the bats execution model.
+  - repo: local
     hooks:
       - id: shellcheck
+        name: shellcheck (system)
+        entry: shellcheck -x
+        language: system
+        types: [shell]
+        exclude: ^tests/
+        require_serial: false
 
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.7

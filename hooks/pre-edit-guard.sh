@@ -88,8 +88,22 @@ fi
 # Covers: dotfiles (.gitignore, .dockerignore, .editorconfig, etc.), config files
 # (Makefile, *.toml, *.yaml, *.yml, *.lock, *.json), README, LICENSE,
 # CLAUDE.md / AGENTS.md, .github/, .vscode/.
+#
+# Root-scope guard: any absolute path that lies OUTSIDE the project root is
+# also treated as meta. mumei is a project-local quality gate; Claude Code
+# system paths (e.g. ~/.claude/projects/<project>/memory/), tmp dirs, OS
+# caches, etc. are out of scope and must not be denied.
 mumei_is_meta_path() {
   local p="$1"
+  case "$p" in
+  /*)
+    local proj_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+    case "$p" in
+    "$proj_root" | "$proj_root"/*) ;; # inside project, fall through to existing checks
+    *) return 0 ;;                    # outside project, meta
+    esac
+    ;;
+  esac
   case "$p" in
   .mumei/* | .claude/* | .github/* | .vscode/* | .gitlab/* | .idea/*) return 0 ;;
   .[a-zA-Z]*) return 0 ;; # dotfiles in general (.gitignore, .editorconfig, .npmrc, ...)

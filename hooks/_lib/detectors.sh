@@ -81,7 +81,7 @@ mumei_detector_run_semgrep() {
   local stderr_log
   stderr_log="$(mktemp -t mumei-semgrep-stderr.XXXXXX)"
   local rc=0
-  semgrep --config=auto --json --quiet --timeout="${MUMEI_DETECTOR_TIMEOUT}" . \
+  semgrep --config=auto --json --quiet --timeout="$MUMEI_DETECTOR_TIMEOUT" . \
     >"$output_path" 2>"$stderr_log" || rc=$?
   if ((rc >= 2)); then
     local msg
@@ -353,10 +353,10 @@ _mumei_detector_self_test() {
     "osv-scanner:2.0=LOW"
     "osv-scanner:=MEDIUM"
   )
-  local case src raw expect actual
-  for case in "${cases[@]}"; do
-    src="${case%%:*}"
-    raw="${case#*:}"
+  local entry src raw expect actual
+  for entry in "${cases[@]}"; do
+    src="${entry%%:*}"
+    raw="${entry#*:}"
     expect="${raw#*=}"
     raw="${raw%%=*}"
     actual="$(mumei_detector_normalize_severity "$src" "$raw")"

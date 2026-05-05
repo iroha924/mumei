@@ -243,13 +243,8 @@ jobs:
             | sha256sum -c -
           tar -xzf /tmp/shellharden/sh.tar.gz -C /tmp/shellharden
           chmod +x /tmp/shellharden/shellharden
-          # NOTE: hooks/_lib/detectors.sh is excluded — shellharden v4.3.1 parser
-          # raises "Unexpected end of file" on it (see follow-up tracked in
-          # memory/req6-language-convention-fix.md). All other shell sources are
-          # still gated.
-          shopt -s extglob
           /tmp/shellharden/shellharden --check \
-            hooks/_lib/!(detectors).sh \
+            hooks/_lib/*.sh \
             hooks/*.sh \
             scripts/*.sh
 
