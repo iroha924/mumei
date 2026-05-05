@@ -24,7 +24,7 @@ _run_hook() {
   # the hook) doesn't surface it as an out-of-scope change.
   local input_file
   input_file="$(mktemp -t mumei-hook-input.XXXXXX)"
-  printf '%s' "$input_json" > "$input_file"
+  printf '%s' "$input_json" >"$input_file"
   run --separate-stderr bash -c \
     "bash '${CLAUDE_PLUGIN_ROOT}/hooks/post-bash-guard.sh' < '${input_file}'"
   rm -f "$input_file"
@@ -33,8 +33,8 @@ _run_hook() {
 _init_feature_implement() {
   local feature="REQ-1-foo"
   mkdir -p ".mumei/specs/${feature}"
-  echo "${feature}" > .mumei/current
-  cat > ".mumei/specs/${feature}/state.json" <<EOF
+  echo "${feature}" >.mumei/current
+  cat >".mumei/specs/${feature}/state.json" <<EOF
 {
   "id": "REQ-1",
   "slug": "foo",
@@ -44,7 +44,7 @@ _init_feature_implement() {
   "updated_at": "2026-01-01T00:00:00Z"
 }
 EOF
-  cat > ".mumei/specs/${feature}/tasks.md" <<'EOF'
+  cat >".mumei/specs/${feature}/tasks.md" <<'EOF'
 # foo plan
 
 ## Wave 1: alpha
@@ -70,7 +70,7 @@ EOF
   # downgrade to plan
   source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
   mumei_state_set "REQ-1-foo" '.phase' '"plan"'
-  echo "stray" > out-of-scope.txt
+  echo "stray" >out-of-scope.txt
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
@@ -80,7 +80,7 @@ EOF
 @test "no warning when modified file is in scope (listed in _Files:_)" {
   _init_feature_implement
   mkdir -p src
-  echo "x" > src/in-scope.ts
+  echo "x" >src/in-scope.ts
   # Stage the file so git status reports it at file granularity
   # (untracked directories are listed at directory granularity, which
   # the scope check cannot resolve to a specific _Files: entry).
@@ -95,7 +95,7 @@ EOF
 
 @test "emits additionalContext when modified file is out of scope" {
   _init_feature_implement
-  echo "stray" > out-of-scope.txt
+  echo "stray" >out-of-scope.txt
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
@@ -110,9 +110,9 @@ EOF
   git add .mumei/
   git commit -q -m "baseline mumei state"
   # Modify the tracked state file
-  echo "internal" >> .mumei/specs/REQ-1-foo/state.json
+  echo "internal" >>.mumei/specs/REQ-1-foo/state.json
   # Also create an out-of-scope file so the hook actually emits a warning
-  echo "stray" > out-of-scope.txt
+  echo "stray" >out-of-scope.txt
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
@@ -124,12 +124,12 @@ EOF
 
 @test "warning lists out-of-scope file but excludes .mumei state changes" {
   _init_feature_implement
-  echo "stray" > out-of-scope.txt
+  echo "stray" >out-of-scope.txt
   # Modify a file under .mumei/ alongside the out-of-scope change.
   # git status reports untracked dirs at directory granularity, but the
   # `^\.mumei/` filter in the hook excludes them — so .mumei/-prefixed
   # entries should NOT appear in the listed-files portion of the warning.
-  echo "internal" >> .mumei/specs/REQ-1-foo/state.json
+  echo "internal" >>.mumei/specs/REQ-1-foo/state.json
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
@@ -145,10 +145,10 @@ EOF
 
 @test "no warning when modified file is gitignored" {
   _init_feature_implement
-  echo 'tmp/' > .gitignore
+  echo 'tmp/' >.gitignore
   git add .gitignore && git commit -q -m gi
   mkdir -p tmp
-  echo "log" > tmp/scratch.log
+  echo "log" >tmp/scratch.log
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
@@ -160,10 +160,10 @@ EOF
   # inside it should be reported by `git status --porcelain` as
   # `?? cache/` (directory granularity), and the resolution loop
   # should classify the first file inside as gitignored → skip.
-  echo 'cache/' > .gitignore
+  echo 'cache/' >.gitignore
   git add .gitignore && git commit -q -m gi
   mkdir -p cache
-  echo "x" > cache/a.txt
+  echo "x" >cache/a.txt
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
@@ -175,7 +175,7 @@ EOF
   # non-gitignored and not listed in any _Files: meta, so the warning
   # must surface (proves ?? <dir>/ resolution actually fires).
   mkdir -p new_pkg
-  echo "x" > new_pkg/index.ts
+  echo "x" >new_pkg/index.ts
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
@@ -186,7 +186,7 @@ EOF
 
 @test "MUMEI_BYPASS=1 short-circuits even with out-of-scope changes" {
   _init_feature_implement
-  echo "stray" > out-of-scope.txt
+  echo "stray" >out-of-scope.txt
   MUMEI_BYPASS=1 _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]

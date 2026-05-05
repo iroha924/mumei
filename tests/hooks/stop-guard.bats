@@ -18,7 +18,7 @@ _run_hook() {
   local input_json="$1"
   local input_file
   input_file="$(mktemp -t mumei-hook-input.XXXXXX)"
-  printf '%s' "$input_json" > "$input_file"
+  printf '%s' "$input_json" >"$input_file"
   run --separate-stderr bash -c \
     "bash '${CLAUDE_PLUGIN_ROOT}/hooks/stop-guard.sh' < '${input_file}'"
   rm -f "$input_file"
@@ -31,7 +31,7 @@ _init_feature_with_tasks() {
   local all_complete="${2:-yes}"
   _init_feature REQ-1-foo "$phase" 1
   if [[ "$all_complete" == "yes" ]]; then
-    cat > ".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
+    cat >".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
 # foo plan
 
 ## Wave 1: alpha
@@ -42,7 +42,7 @@ _init_feature_with_tasks() {
   - _Requirements: REQ-1.1_
 EOF
   else
-    cat > ".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
+    cat >".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
 # foo plan
 
 ## Wave 1: alpha
@@ -100,10 +100,10 @@ EOF
   # Detector defense line reads the review JSON's detector_report field.
   # The detector report can use any timestamp format (decoupled from review).
   printf '{"counts":{"HIGH":0}}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json
   jq -n --arg r '.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json' \
     '{verdict: "PASS", detector_report: $r}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json
@@ -118,7 +118,7 @@ EOF
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   # Review JSON missing detector_report -> Stage 0 was skipped -> block.
   printf '{"verdict":"PASS"}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   _run_hook '{"stop_hook_active":false}'
@@ -134,7 +134,7 @@ EOF
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   jq -n --arg r '.mumei/specs/REQ-1-foo/reviews/missing-detectors.json' \
     '{verdict: "PASS", detector_report: $r}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   _run_hook '{"stop_hook_active":false}'
@@ -147,7 +147,7 @@ EOF
   _init_feature_with_tasks "implement" "yes"
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   printf '{"verdict":"PASS"}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   MUMEI_BYPASS=1 _run_hook '{"stop_hook_active":false}'
@@ -158,7 +158,7 @@ EOF
 @test "blocks when latest review is malformed JSON (corrupt-file branch)" {
   _init_feature_with_tasks "implement" "yes"
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  printf '%s' '{not valid json' > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
+  printf '%s' '{not valid json' >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   _run_hook '{"stop_hook_active":false}'
@@ -172,7 +172,7 @@ EOF
 @test "blocks when latest review is 0-byte (truncated write)" {
   _init_feature_with_tasks "implement" "yes"
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  : > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
+  : >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   _run_hook '{"stop_hook_active":false}'
@@ -186,7 +186,7 @@ EOF
 @test "blocks when latest review is whitespace-only" {
   _init_feature_with_tasks "implement" "yes"
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  printf '   \n\n  ' > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
+  printf '   \n\n  ' >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-00-00Z.json
   _run_hook '{"stop_hook_active":false}'
@@ -201,10 +201,10 @@ EOF
   # Detector file uses hyphen-encoded timestamp; review uses an ISO-with-colons name.
   # The defense line MUST resolve via detector_report, not by basename.
   printf '{"counts":{"HIGH":0}}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json
   jq -n --arg r '.mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json' \
     '{verdict: "PASS", detector_report: $r}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-12-01T00:00:00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-12-01T00:00:00Z.json
   touch -t 202612010000 .mumei/specs/REQ-1-foo/tasks.md
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00:00:00Z.json
   touch -t 202612020000 .mumei/specs/REQ-1-foo/reviews/2026-12-01T00-30-00Z-detectors.json
@@ -229,7 +229,7 @@ EOF
   _init_feature_with_tasks "implement" "yes"
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   printf '{"verdict":"PASS"}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   # Make tasks.md newer than the review
   touch -t 202601010000 .mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   touch -t 202602010000 .mumei/specs/REQ-1-foo/tasks.md
@@ -260,7 +260,7 @@ EOF
   source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
   mumei_state_set "REQ-1-foo" '.phase' '"done"'
   # Point .mumei/current at a different (non-existent) feature
-  echo "REQ-2-other" > .mumei/current
+  echo "REQ-2-other" >.mumei/current
   _run_hook '{"stop_hook_active":false}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
@@ -271,7 +271,7 @@ EOF
   _init_feature_with_tasks "implement" "yes"
   source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
   mumei_state_set "REQ-1-foo" '.phase' '"done"'
-  : > .mumei/current
+  : >.mumei/current
   _run_hook '{"stop_hook_active":false}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]

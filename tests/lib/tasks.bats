@@ -20,7 +20,7 @@ setup() {
 _write_sample_tasks() {
   local feature="$1"
   mkdir -p ".mumei/specs/${feature}"
-  cat > ".mumei/specs/${feature}/tasks.md" <<'EOF'
+  cat >".mumei/specs/${feature}/tasks.md" <<'EOF'
 # foo Implementation Plan
 
 ## Wave 1: bootstrap
@@ -181,7 +181,7 @@ EOF
 
 @test "mumei_tasks_current_wave returns empty when all Waves are complete" {
   mkdir -p .mumei/specs/REQ-2-done
-  cat > .mumei/specs/REQ-2-done/tasks.md <<'EOF'
+  cat >.mumei/specs/REQ-2-done/tasks.md <<'EOF'
 # done
 
 ## Wave 1: only

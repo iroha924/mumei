@@ -26,7 +26,7 @@ mumei_detector_check_binaries() {
       missing+=("$b")
     fi
   done
-  if (( ${#missing[@]} > 0 )); then
+  if ((${#missing[@]} > 0)); then
     printf '%s\n' "${missing[@]}"
     return 1
   fi
@@ -41,32 +41,32 @@ mumei_detector_normalize_severity() {
   local source="$1"
   local raw="$2"
   case "$source" in
-    semgrep)
-      case "$raw" in
-        ERROR) printf '%s' "HIGH" ;;
-        WARNING) printf '%s' "MEDIUM" ;;
-        INFO) printf '%s' "LOW" ;;
-        *) printf '%s' "MEDIUM" ;;
-      esac
-      ;;
-    osv-scanner)
-      # raw is a CVSS base score. CVSS undefined or non-numeric defaults to MEDIUM.
-      if [[ "$raw" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-        # awk handles float comparison portably (BSD + GNU).
-        local label
-        label="$(awk -v s="$raw" 'BEGIN {
+  semgrep)
+    case "$raw" in
+    ERROR) printf '%s' "HIGH" ;;
+    WARNING) printf '%s' "MEDIUM" ;;
+    INFO) printf '%s' "LOW" ;;
+    *) printf '%s' "MEDIUM" ;;
+    esac
+    ;;
+  osv-scanner)
+    # raw is a CVSS base score. CVSS undefined or non-numeric defaults to MEDIUM.
+    if [[ "$raw" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+      # awk handles float comparison portably (BSD + GNU).
+      local label
+      label="$(awk -v s="$raw" 'BEGIN {
           if (s+0 >= 7.0) printf "HIGH";
           else if (s+0 >= 4.0) printf "MEDIUM";
           else printf "LOW";
         }')"
-        printf '%s' "$label"
-      else
-        printf '%s' "MEDIUM"
-      fi
-      ;;
-    *)
+      printf '%s' "$label"
+    else
       printf '%s' "MEDIUM"
-      ;;
+    fi
+    ;;
+  *)
+    printf '%s' "MEDIUM"
+    ;;
   esac
 }
 
@@ -82,23 +82,23 @@ mumei_detector_run_semgrep() {
   stderr_log="$(mktemp -t mumei-semgrep-stderr.XXXXXX)"
   local rc=0
   semgrep --config=auto --json --quiet --timeout="${MUMEI_DETECTOR_TIMEOUT}" . \
-    > "$output_path" 2> "$stderr_log" || rc=$?
-  if (( rc >= 2 )); then
+    >"$output_path" 2>"$stderr_log" || rc=$?
+  if ((rc >= 2)); then
     local msg
     msg="$(tail -n 5 "$stderr_log" | tr '\n' ' ')"
     jq -n --arg detector "semgrep" --arg message "exit=${rc}: ${msg}" \
       '{detector: $detector, message: $message}' \
-      >> "$errors_path"
+      >>"$errors_path"
     rm -f "$stderr_log"
     return 1
   fi
   rm -f "$stderr_log"
   # Validate the JSON we got back; semgrep should always emit valid JSON
   # but a partial write on timeout could leave a corrupt file.
-  if ! jq empty < "$output_path" 2>/dev/null; then
+  if ! jq empty <"$output_path" 2>/dev/null; then
     jq -n --arg detector "semgrep" --arg message "produced invalid JSON" \
       '{detector: $detector, message: $message}' \
-      >> "$errors_path"
+      >>"$errors_path"
     return 1
   fi
   return 0
@@ -123,36 +123,36 @@ mumei_detector_run_osv() {
   if [[ -z "$lockfile" ]]; then
     jq -n --arg detector "osv-scanner" --arg message "no supported lockfile found in cwd" \
       '{detector: $detector, message: $message, skipped: true}' \
-      >> "$errors_path"
-    printf '%s' '{"results":[]}' > "$output_path"
+      >>"$errors_path"
+    printf '%s' '{"results":[]}' >"$output_path"
     return 0
   fi
   if ! command -v osv-scanner >/dev/null 2>&1; then
     jq -n --arg detector "osv-scanner" --arg message "osv-scanner binary not found on PATH" \
       '{detector: $detector, message: $message}' \
-      >> "$errors_path"
+      >>"$errors_path"
     return 1
   fi
   local stderr_log
   stderr_log="$(mktemp -t mumei-osv-stderr.XXXXXX)"
   local rc=0
-  osv-scanner --lockfile="$lockfile" --format=json --output="$output_path" 2> "$stderr_log" || rc=$?
+  osv-scanner --lockfile="$lockfile" --format=json --output="$output_path" 2>"$stderr_log" || rc=$?
   # osv-scanner returns 1 when vulnerabilities are found; >=128 typically signals signal exit.
   # Real errors (config invalid, scanner crash) are >= 2 but not 1.
-  if (( rc >= 2 && rc < 128 )); then
+  if ((rc >= 2 && rc < 128)); then
     local msg
     msg="$(tail -n 5 "$stderr_log" | tr '\n' ' ')"
     jq -n --arg detector "osv-scanner" --arg message "exit=${rc}: ${msg}" \
       '{detector: $detector, message: $message}' \
-      >> "$errors_path"
+      >>"$errors_path"
     rm -f "$stderr_log"
     return 1
   fi
   rm -f "$stderr_log"
-  if ! jq empty < "$output_path" 2>/dev/null; then
+  if ! jq empty <"$output_path" 2>/dev/null; then
     jq -n --arg detector "osv-scanner" --arg message "produced invalid JSON" \
       '{detector: $detector, message: $message}' \
-      >> "$errors_path"
+      >>"$errors_path"
     return 1
   fi
   return 0
@@ -165,12 +165,12 @@ _mumei_detector_collect_semgrep() {
   local findings_tmp="$2"
 
   [[ -s "$semgrep_json" ]] || return 0
-  jq -e '.results | type == "array"' < "$semgrep_json" >/dev/null 2>&1 || return 0
+  jq -e '.results | type == "array"' <"$semgrep_json" >/dev/null 2>&1 || return 0
 
   local count i row raw norm finding
-  count="$(jq '.results | length' < "$semgrep_json")"
+  count="$(jq '.results | length' <"$semgrep_json")"
   for ((i = 0; i < count; i++)); do
-    row="$(jq -c ".results[$i]" < "$semgrep_json")"
+    row="$(jq -c ".results[$i]" <"$semgrep_json")"
     raw="$(printf '%s' "$row" | jq -r '.extra.severity // "WARNING"')"
     norm="$(mumei_detector_normalize_severity semgrep "$raw")"
     finding="$(jq -n \
@@ -189,7 +189,7 @@ _mumei_detector_collect_semgrep() {
         message: $msg,
         rule_id: $rule
       }')"
-    jq --argjson f "$finding" '. + [$f]' < "$findings_tmp" > "${findings_tmp}.new"
+    jq --argjson f "$finding" '. + [$f]' <"$findings_tmp" >"${findings_tmp}.new"
     mv "${findings_tmp}.new" "$findings_tmp"
   done
 }
@@ -201,17 +201,17 @@ _mumei_detector_collect_osv() {
   local findings_tmp="$2"
 
   [[ -s "$osv_json" ]] || return 0
-  jq -e '.results' < "$osv_json" >/dev/null 2>&1 || return 0
+  jq -e '.results' <"$osv_json" >/dev/null 2>&1 || return 0
 
   # osv-scanner JSON: results[].packages[].vulnerabilities[]
   # Severity is the highest CVSS base score across severity[] entries.
   local osv_count j vuln pkg cvss norm finding
-  osv_count="$(jq '[.results[]?.packages[]?.vulnerabilities[]?] | length' < "$osv_json")"
+  osv_count="$(jq '[.results[]?.packages[]?.vulnerabilities[]?] | length' <"$osv_json")"
   for ((j = 0; j < osv_count; j++)); do
-    vuln="$(jq -c "[.results[]?.packages[]?.vulnerabilities[]?][$j]" < "$osv_json")"
+    vuln="$(jq -c "[.results[]?.packages[]?.vulnerabilities[]?][$j]" <"$osv_json")"
     pkg="$(jq -c --argjson v "$vuln" \
       '[.results[]?.packages[]? | select((.vulnerabilities // []) | any(.id == $v.id))][0]' \
-      < "$osv_json")"
+      <"$osv_json")"
     cvss="$(printf '%s' "$vuln" | jq -r '
       [.severity[]? | select(.score | type == "string") | .score]
       | map(capture("(?<n>[0-9]+(\\.[0-9]+)?)").n | tonumber? // 0)
@@ -235,7 +235,7 @@ _mumei_detector_collect_osv() {
         cve_id: $cve,
         package: { name: $pkg_name, version: $pkg_ver }
       }')"
-    jq --argjson f "$finding" '. + [$f]' < "$findings_tmp" > "${findings_tmp}.new"
+    jq --argjson f "$finding" '. + [$f]' <"$findings_tmp" >"${findings_tmp}.new"
     mv "${findings_tmp}.new" "$findings_tmp"
   done
 }
@@ -252,7 +252,7 @@ _mumei_detector_assemble_report() {
   # errors_json is a stream of objects (one per line); slurp into an array.
   local errors_arr="[]"
   if [[ -s "$errors_json" ]]; then
-    errors_arr="$(jq -s '.' < "$errors_json")"
+    errors_arr="$(jq -s '.' <"$errors_json")"
   fi
 
   # A detector is "skipped" when its error entry has skipped=true.
@@ -290,9 +290,12 @@ _mumei_detector_assemble_report() {
         LOW:    ([$findings[] | select(.severity == "LOW")] | length)
       },
       errors: $errors
-    }' > "$tmp_final" || { rm -f "$tmp_final"; return 1; }
+    }' >"$tmp_final" || {
+    rm -f "$tmp_final"
+    return 1
+  }
 
-  if ! jq empty < "$tmp_final" 2>/dev/null; then
+  if ! jq empty <"$tmp_final" 2>/dev/null; then
     rm -f "$tmp_final"
     mumei_log_error "aggregate produced invalid JSON"
     return 1
@@ -314,10 +317,10 @@ mumei_detector_aggregate() {
   # Build a flat findings array via per-detector helpers.
   local findings_tmp
   findings_tmp="$(mktemp -t mumei-detector-findings.XXXXXX)"
-  printf '[]' > "$findings_tmp"
+  printf '[]' >"$findings_tmp"
 
   _mumei_detector_collect_semgrep "$semgrep_json" "$findings_tmp"
-  _mumei_detector_collect_osv     "$osv_json"     "$findings_tmp"
+  _mumei_detector_collect_osv "$osv_json" "$findings_tmp"
 
   if ! _mumei_detector_assemble_report "$feature" "$findings_tmp" "$errors_json" "$final_path"; then
     rm -f "$findings_tmp"
@@ -371,7 +374,7 @@ _mumei_detector_self_test() {
   local err="${tmpdir}/err.json"
   local final="${tmpdir}/final.json"
 
-  cat > "$sg" <<'JSON'
+  cat >"$sg" <<'JSON'
 {
   "results": [
     { "check_id": "self-test.high", "path": "fixture.js", "start": {"line": 1},
@@ -379,24 +382,24 @@ _mumei_detector_self_test() {
   ]
 }
 JSON
-  printf '%s' '{"results":[]}' > "$osv"
-  : > "$err"
+  printf '%s' '{"results":[]}' >"$osv"
+  : >"$err"
   mumei_detector_aggregate "$sg" "$osv" "$err" "$final" "self-test" || rc=1
 
-  if ! jq empty < "$final" 2>/dev/null; then
+  if ! jq empty <"$final" 2>/dev/null; then
     mumei_log_error "self-test: final JSON is invalid"
     rc=1
   fi
 
   local high
-  high="$(jq '.counts.HIGH' < "$final" 2>/dev/null || echo 0)"
-  if (( high < 1 )); then
+  high="$(jq '.counts.HIGH' <"$final" 2>/dev/null || echo 0)"
+  if ((high < 1)); then
     mumei_log_error "self-test: expected at least 1 HIGH finding (semgrep ERROR), got ${high}"
     rc=1
   fi
 
   rm -rf "$tmpdir"
-  if (( rc == 0 )); then
+  if ((rc == 0)); then
     mumei_log_info "self-test: PASS"
   else
     mumei_log_error "self-test: FAIL"
@@ -407,13 +410,13 @@ JSON
 # CLI dispatch. Allows running the lib directly for the self-test.
 if [[ "${BASH_SOURCE[0]:-}" == "${0:-}" ]]; then
   case "${1:-}" in
-    --self-test)
-      _mumei_detector_self_test
-      exit "$?"
-      ;;
-    *)
-      mumei_log_error "usage: $(basename "$0") --self-test"
-      exit 2
-      ;;
+  --self-test)
+    _mumei_detector_self_test
+    exit "$?"
+    ;;
+  *)
+    mumei_log_error "usage: $(basename "$0") --self-test"
+    exit 2
+    ;;
   esac
 fi

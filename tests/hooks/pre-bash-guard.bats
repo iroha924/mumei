@@ -21,7 +21,7 @@ setup() {
 _run_hook() {
   local input_json="$1"
   local input_file="${MUMEI_TEST_TMPDIR}/.input.json"
-  printf '%s' "$input_json" > "$input_file"
+  printf '%s' "$input_json" >"$input_file"
   run --separate-stderr bash -c \
     "bash '${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-guard.sh' < '${input_file}'"
 }
@@ -30,7 +30,7 @@ _run_hook() {
 # then add tasks.md content specific to this suite.
 _init_feature_with_tasks() {
   _init_feature REQ-1-foo implement 1
-  cat > ".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
+  cat >".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
 # foo plan
 
 ## Wave 1: alpha
@@ -97,7 +97,7 @@ EOF
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   printf '{"verdict":"MAJOR_ISSUES"}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
@@ -110,7 +110,7 @@ EOF
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   printf '{"verdict":"PASS"}' \
-    > .mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]

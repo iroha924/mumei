@@ -26,7 +26,7 @@ _run_hook() {
   local input_json="$1"
   local input_file
   input_file="$(mktemp -t mumei-hook-input.XXXXXX)"
-  printf '%s' "$input_json" > "$input_file"
+  printf '%s' "$input_json" >"$input_file"
   run --separate-stderr bash -c \
     "bash '${CLAUDE_PLUGIN_ROOT}/hooks/pre-edit-guard.sh' < '${input_file}'"
   rm -f "$input_file"
@@ -37,7 +37,7 @@ _init_feature_with_tasks() {
   local phase="${1:-implement}"
   local current_wave="${2:-1}"
   _init_feature REQ-1-foo "$phase" "$current_wave"
-  cat > ".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
+  cat >".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'
 # foo plan
 
 ## Wave 1: alpha
@@ -101,7 +101,7 @@ EOF
 
 @test "denies design.md edit when requirements.md has [NEEDS CLARIFICATION] (P2)" {
   _init_feature_with_tasks "plan" 0
-  cat > .mumei/specs/REQ-1-foo/requirements.md <<'EOF'
+  cat >.mumei/specs/REQ-1-foo/requirements.md <<'EOF'
 # requirements
 - REQ-1.1 [NEEDS CLARIFICATION: how should X behave?] WHEN ...
 EOF
@@ -159,8 +159,8 @@ EOF
   _init_feature_with_tasks "implement" 1
   # Leave uncommitted changes in src/ (current Wave 1 has uncommitted work)
   mkdir -p src
-  echo "wip" > src/a.ts
-  git add src/a.ts  # staged but not committed
+  echo "wip" >src/a.ts
+  git add src/a.ts # staged but not committed
   # Now try to edit Wave 2 file
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/c.ts"}}'
   [ "$status" -eq 0 ]

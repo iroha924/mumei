@@ -21,7 +21,7 @@ _run_hook() {
   local input_json="$1"
   local input_file
   input_file="$(mktemp -t mumei-hook-input.XXXXXX)"
-  printf '%s' "$input_json" > "$input_file"
+  printf '%s' "$input_json" >"$input_file"
   run --separate-stderr bash -c \
     "bash '${CLAUDE_PLUGIN_ROOT}/hooks/post-edit-guard.sh' < '${input_file}'"
   rm -f "$input_file"
@@ -30,8 +30,8 @@ _run_hook() {
 _init_feature_with_tasks() {
   local feature="REQ-1-foo"
   mkdir -p ".mumei/specs/${feature}"
-  echo "${feature}" > .mumei/current
-  cat > ".mumei/specs/${feature}/state.json" <<EOF
+  echo "${feature}" >.mumei/current
+  cat >".mumei/specs/${feature}/state.json" <<EOF
 {
   "id": "REQ-1",
   "slug": "foo",
@@ -42,7 +42,7 @@ _init_feature_with_tasks() {
 }
 EOF
   # Initial tasks.md has 1.1 incomplete; we'll modify it in tests.
-  cat > ".mumei/specs/${feature}/tasks.md" <<'EOF'
+  cat >".mumei/specs/${feature}/tasks.md" <<'EOF'
 # foo plan
 
 ## Wave 1: alpha
@@ -77,7 +77,7 @@ EOF
 @test "allows tasks.md edit that does NOT toggle a checkbox" {
   _init_feature_with_tasks
   # Append a comment line; no [x] toggling happens.
-  echo "<!-- note -->" >> .mumei/specs/REQ-1-foo/tasks.md
+  echo "<!-- note -->" >>.mumei/specs/REQ-1-foo/tasks.md
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
@@ -88,7 +88,7 @@ EOF
   _init_feature_with_tasks
   # Implement the file referenced by 1.1
   mkdir -p src
-  echo "implementation" > src/a.ts
+  echo "implementation" >src/a.ts
   # Mark 1.1 complete
   sed -i.bak 's/- \[ \] 1\.1/- [x] 1.1/' .mumei/specs/REQ-1-foo/tasks.md
   rm .mumei/specs/REQ-1-foo/tasks.md.bak
@@ -119,11 +119,11 @@ EOF
 @test "allows [x] toggle when _Files: path is gitignored" {
   _init_feature_with_tasks
   # Add a gitignore rule, then point _Files: at a path it covers.
-  echo 'scratch/' > .gitignore
+  echo 'scratch/' >.gitignore
   git add .gitignore && git commit -q -m gi
   sed -i.bak 's|_Files: src/a.ts_|_Files: scratch/foo.txt_|' .mumei/specs/REQ-1-foo/tasks.md
   rm .mumei/specs/REQ-1-foo/tasks.md.bak
-  mkdir -p scratch && echo gen > scratch/foo.txt
+  mkdir -p scratch && echo gen >scratch/foo.txt
   # Mark 1.1 complete; src/a.ts was never modified (would be phantom
   # without T1-2). gitignored skip should override.
   sed -i.bak 's/- \[ \] 1\.1/- [x] 1.1/' .mumei/specs/REQ-1-foo/tasks.md
@@ -137,11 +137,11 @@ EOF
 
 @test "allows [x] toggle when _Files: mixes tracked-changed and gitignored paths" {
   _init_feature_with_tasks
-  echo 'scratch/' > .gitignore
+  echo 'scratch/' >.gitignore
   git add .gitignore && git commit -q -m gi
   sed -i.bak 's|_Files: src/a.ts_|_Files: src/a.ts, scratch/x.txt_|' .mumei/specs/REQ-1-foo/tasks.md
   rm .mumei/specs/REQ-1-foo/tasks.md.bak
-  mkdir -p src && echo impl > src/a.ts
+  mkdir -p src && echo impl >src/a.ts
   sed -i.bak 's/- \[ \] 1\.1/- [x] 1.1/' .mumei/specs/REQ-1-foo/tasks.md
   rm .mumei/specs/REQ-1-foo/tasks.md.bak
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
@@ -151,7 +151,7 @@ EOF
 
 @test "allows [x] toggle when every _Files: path is gitignored" {
   _init_feature_with_tasks
-  echo 'scratch/' > .gitignore
+  echo 'scratch/' >.gitignore
   git add .gitignore && git commit -q -m gi
   sed -i.bak 's|_Files: src/a.ts_|_Files: scratch/x.txt, scratch/y.txt_|' .mumei/specs/REQ-1-foo/tasks.md
   rm .mumei/specs/REQ-1-foo/tasks.md.bak

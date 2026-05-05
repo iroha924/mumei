@@ -21,7 +21,7 @@ setup() {
   local feature="REQ-1-foo"
   local sf=".mumei/specs/${feature}/state.json"
   mkdir -p ".mumei/specs/${feature}"
-  echo '{"phase":"plan"}' > "$sf"
+  echo '{"phase":"plan"}' >"$sf"
   local original_inode
   original_inode="$(ls -i "$sf" | awk '{print $1}')"
 
@@ -55,7 +55,7 @@ setup() {
   local feature="REQ-3-protected"
   local sf=".mumei/specs/${feature}/state.json"
   mkdir -p ".mumei/specs/${feature}"
-  echo '{"phase":"plan","preserved":true}' > "$sf"
+  echo '{"phase":"plan","preserved":true}' >"$sf"
   local original_content
   original_content="$(cat "$sf")"
   local original_inode

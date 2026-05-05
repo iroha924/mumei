@@ -41,7 +41,7 @@ if [[ -n "$missing_bins" ]]; then
   mumei_log_error "missing required detector binaries:"
   while IFS= read -r b; do
     mumei_log_error "  - ${b}"
-  done <<< "$missing_bins"
+  done <<<"$missing_bins"
   mumei_log_error ""
   mumei_log_error "install with:"
   mumei_log_error "  macOS:  brew install ${missing_bins//$'\n'/ }"
@@ -95,7 +95,7 @@ trap '_mumei_detector_on_signal SIGTERM' TERM
 SG_OUT="${WORK_DIR}/semgrep.json"
 OSV_OUT="${WORK_DIR}/osv.json"
 ERR_OUT="${WORK_DIR}/errors.ndjson"
-: > "$ERR_OUT"
+: >"$ERR_OUT"
 
 # Track detectors that crashed (binary rc>=2). Skips (no lockfile) are
 # NOT failures — those land in the report's detectors_skipped list and
@@ -122,8 +122,8 @@ rm -rf "$WORK_DIR"
 # 2.6 — Emit a JSON summary on stdout for the skill orchestrator to parse.
 # Always include failed_detectors so the orchestrator can detect partial
 # runs even if it forgets to read the report's errors[] array.
-HIGH_COUNT="$(jq '.counts.HIGH' < "$FINAL_PATH")"
-if (( ${#FAILED_DETECTORS[@]} == 0 )); then
+HIGH_COUNT="$(jq '.counts.HIGH' <"$FINAL_PATH")"
+if ((${#FAILED_DETECTORS[@]} == 0)); then
   FAILED_JSON='[]'
   DETECTORS_RAN='true'
 else
@@ -143,7 +143,7 @@ jq -n \
 # Hard fail when one or more detectors crashed (exit code >=2 from the
 # binary). Treat this the same as missing-binary: surfacing a partial
 # ground-truth signal as if it were complete defeats the design.
-if (( ${#FAILED_DETECTORS[@]} > 0 )); then
+if ((${#FAILED_DETECTORS[@]} > 0)); then
   mumei_log_error "the following detectors failed (exit code >=2):"
   printf '  - %s\n' "${FAILED_DETECTORS[@]}" >&2
   mumei_log_error ""

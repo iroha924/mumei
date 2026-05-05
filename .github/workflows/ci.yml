@@ -120,11 +120,11 @@ jobs:
     # it down so a compromised step cannot mutate code or other resources.
     permissions:
       contents: read
-      pull-requests: write  # gitleaks-action posts review comments on findings
+      pull-requests: write # gitleaks-action posts review comments on findings
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # gitleaks が full history を必要とする
+          fetch-depth: 0 # gitleaks が full history を必要とする
 
       # Run the local pre-commit hook suite in CI so lint behaviour stays
       # identical between developer machines and CI (no drift).

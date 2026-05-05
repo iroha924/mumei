@@ -36,29 +36,29 @@ _init_repo() {
 }
 
 @test "mumei_safe_grep_count returns 0 for an empty file with no matches" {
-  : > empty.txt
+  : >empty.txt
   run mumei_safe_grep_count "pattern" empty.txt
   [ "$status" -eq 0 ]
   [ "$output" = "0" ]
 }
 
 @test "mumei_safe_grep_count returns the integer count for a single matching file" {
-  printf 'pattern\nother\n' > a.txt
+  printf 'pattern\nother\n' >a.txt
   run mumei_safe_grep_count "pattern" a.txt
   [ "$status" -eq 0 ]
   [ "$output" = "1" ]
 }
 
 @test "mumei_safe_grep_count sums matches across multiple files" {
-  printf 'pattern\npattern\n' > a.txt
-  printf 'pattern\nother\n' > b.txt
+  printf 'pattern\npattern\n' >a.txt
+  printf 'pattern\nother\n' >b.txt
   run mumei_safe_grep_count "pattern" a.txt b.txt
   [ "$status" -eq 0 ]
   [ "$output" = "3" ]
 }
 
 @test "mumei_safe_grep_count handles special-character patterns and a missing-file mix" {
-  printf 'foo bar\n[bracket]\n' > a.txt
+  printf 'foo bar\n[bracket]\n' >a.txt
   run mumei_safe_grep_count "\[bracket\]" a.txt missing.txt
   [ "$status" -eq 0 ]
   [ "$output" = "1" ]
@@ -68,18 +68,18 @@ _init_repo() {
 
 @test "mumei_path_is_gitignored exits 0 for a gitignored path inside a repo" {
   _init_repo
-  printf 'ignored.txt\n' > .gitignore
+  printf 'ignored.txt\n' >.gitignore
   git add .gitignore && git commit -q -m gi
-  : > ignored.txt
+  : >ignored.txt
   run mumei_path_is_gitignored "ignored.txt"
   [ "$status" -eq 0 ]
 }
 
 @test "mumei_path_is_gitignored exits non-zero for a tracked path" {
   _init_repo
-  printf 'ignored.txt\n' > .gitignore
+  printf 'ignored.txt\n' >.gitignore
   git add .gitignore && git commit -q -m gi
-  : > tracked.txt
+  : >tracked.txt
   run mumei_path_is_gitignored "tracked.txt"
   [ "$status" -ne 0 ]
 }

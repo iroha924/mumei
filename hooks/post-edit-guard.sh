@@ -60,9 +60,9 @@ if [[ -z "$DIFF" ]]; then
   exit 0
 fi
 
-NEWLY_COMPLETED="$(printf '%s' "$DIFF" \
-  | grep -E '^\+- \[x\] [0-9]+(\.[0-9]+)*' \
-  | sed -E 's/^\+- \[x\] ([0-9]+(\.[0-9]+)*).*/\1/')"
+NEWLY_COMPLETED="$(printf '%s' "$DIFF" |
+  grep -E '^\+- \[x\] [0-9]+(\.[0-9]+)*' |
+  sed -E 's/^\+- \[x\] ([0-9]+(\.[0-9]+)*).*/\1/')"
 
 [[ -n "$NEWLY_COMPLETED" ]] || exit 0
 
@@ -71,10 +71,13 @@ PHANTOM_TASKS=""
 while IFS= read -r task_id; do
   [[ -n "$task_id" ]] || continue
   files="$(mumei_tasks_files "$FEATURE" "$task_id" 2>/dev/null || true)"
-  [[ -n "$files" ]] || { PHANTOM_TASKS+="${task_id} "; continue; }
+  [[ -n "$files" ]] || {
+    PHANTOM_TASKS+="${task_id} "
+    continue
+  }
 
   has_implementation=0
-  IFS=',' read -ra file_arr <<< "$files"
+  IFS=',' read -ra file_arr <<<"$files"
   for f in "${file_arr[@]}"; do
     f="$(echo "$f" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
     [[ -n "$f" ]] || continue
@@ -103,7 +106,7 @@ while IFS= read -r task_id; do
   if [[ "$has_implementation" == "0" ]]; then
     PHANTOM_TASKS+="${task_id} "
   fi
-done <<< "$NEWLY_COMPLETED"
+done <<<"$NEWLY_COMPLETED"
 
 if [[ -n "$PHANTOM_TASKS" ]]; then
   REASON="Task(s) marked [x] without implementation: ${PHANTOM_TASKS%% }. Phantom completion blocked."

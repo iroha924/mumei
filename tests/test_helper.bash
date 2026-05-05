@@ -41,7 +41,7 @@ _init_feature() {
   id="$(printf '%s' "$feature" | grep -oE '^REQ-[0-9]+')"
   slug="${feature#${id}-}"
   mkdir -p ".mumei/specs/${feature}"
-  printf '%s\n' "$feature" > .mumei/current
+  printf '%s\n' "$feature" >.mumei/current
   jq -n \
     --arg id "$id" \
     --arg slug "$slug" \
@@ -54,5 +54,5 @@ _init_feature() {
       current_wave: $wave,
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:00Z"
-    }' > ".mumei/specs/${feature}/state.json"
+    }' >".mumei/specs/${feature}/state.json"
 }

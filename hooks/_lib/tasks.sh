@@ -31,8 +31,8 @@ mumei_tasks_list_ids() {
   local tf
   tf="$(mumei_tasks_path "$feature")"
   [[ -f "$tf" ]] || return 1
-  grep -E '^- \[[x ]\] [0-9]+(\.[0-9]+)*' "$tf" \
-    | sed -E 's/^- \[[x ]\] ([0-9]+(\.[0-9]+)*).*/\1/'
+  grep -E '^- \[[x ]\] [0-9]+(\.[0-9]+)*' "$tf" |
+    sed -E 's/^- \[[x ]\] ([0-9]+(\.[0-9]+)*).*/\1/'
 }
 
 # Return the given task ID's status ("complete" / "incomplete"). Exit 1 if not found.
@@ -47,8 +47,8 @@ mumei_tasks_status() {
   [[ -n "$line" ]] || return 1
   # Use a case statement so this stays portable across bash/zsh/sh
   case "$line" in
-    '- [x] '*) printf 'complete' ;;
-    *)         printf 'incomplete' ;;
+  '- [x] '*) printf 'complete' ;;
+  *) printf 'incomplete' ;;
   esac
 }
 
@@ -57,7 +57,7 @@ mumei_tasks_status() {
 # BSD awk compatible: avoids the 3-argument form of match.
 _mumei_tasks_extract_meta() {
   local task_id="$1"
-  local meta_key="$2"  # Files | Depends | Requirements
+  local meta_key="$2" # Files | Depends | Requirements
   local tasks_file="$3"
   awk -v target_id="$task_id" -v key="$meta_key" '
     function task_id_of(line,    s, id) {
@@ -142,7 +142,7 @@ mumei_tasks_owners_of_file() {
     local files
     files="$(mumei_tasks_files "$feature" "$task_id" 2>/dev/null || true)"
     if [[ -n "$files" ]]; then
-      IFS=',' read -ra arr <<< "$files"
+      IFS=',' read -ra arr <<<"$files"
       for f in "${arr[@]}"; do
         local trimmed
         trimmed="$(echo "$f" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"

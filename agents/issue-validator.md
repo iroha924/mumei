@@ -72,6 +72,7 @@ For the finding, evaluate THREE axes (each yes/no):
 1. **ACCURATE** — Is the technical claim correct? Read the cited evidence and verify. If the finding cites a missing test, does the test really not exist? If it cites a SQL injection, is the input really untrusted and the sink really `db.query`?
 
 2. **GROUNDED** — Is the finding backed by a concrete artifact? Either:
+
    - Code quote that proves the issue, OR
    - `rule_quote` from CLAUDE.md / requirements.md / OWASP / lint config that the code violates.
    - Pure speculation with no quoted source = NOT GROUNDED.

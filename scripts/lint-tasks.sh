@@ -84,13 +84,13 @@ while IFS= read -r task_id; do
   [[ -z "$files" ]] && missing+=("_Files:_")
   [[ -z "$depends" ]] && missing+=("_Depends:_")
   [[ -z "$requirements" ]] && missing+=("_Requirements:_")
-  if (( ${#missing[@]} > 0 )); then
+  if ((${#missing[@]} > 0)); then
     VIOLATIONS+="Task ${task_id}: missing meta (${missing[*]})"$'\n'
   fi
 
   # 2 & 3. Validate each _Requirements:_ token
   if [[ -n "$requirements" ]]; then
-    IFS=',' read -ra req_arr <<< "$requirements"
+    IFS=',' read -ra req_arr <<<"$requirements"
     for req in "${req_arr[@]}"; do
       req="$(echo "$req" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
       [[ -n "$req" ]] || continue
@@ -106,7 +106,7 @@ while IFS= read -r task_id; do
 
   # 4. Validate each _Files:_ path
   if [[ -n "$files" ]]; then
-    IFS=',' read -ra file_arr <<< "$files"
+    IFS=',' read -ra file_arr <<<"$files"
     for f in "${file_arr[@]}"; do
       f="$(echo "$f" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
       [[ -n "$f" ]] || continue

@@ -150,7 +150,7 @@ Return ONLY a JSON object matching this schema. No markdown fencing, no commenta
 - `MAJOR_ISSUES`: any HIGH `missing_ac` or `scope_creep`, OR `ac_coverage < 4` out of 5.
 - `NEEDS_IMPROVEMENT`: any MEDIUM finding, OR `scope_discipline < 3`.
 - `PASS`: all ACs trace, no scope creep, all scores >= 4.
-- `UNKNOWN`: requirements.md or tasks.md missing or unparseable. Set `confidence: "LOW"` and explain in `summary`.
+- `UNKNOWN`: requirements.md or tasks.md missing or unparsable. Set `confidence: "LOW"` and explain in `summary`.
 
 ## Score rubric
 

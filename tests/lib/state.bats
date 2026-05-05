@@ -41,7 +41,7 @@ setup() {
 
 @test "mumei_current_feature returns slug from .mumei/current" {
   mkdir -p .mumei
-  echo "REQ-1-foo" > .mumei/current
+  echo "REQ-1-foo" >.mumei/current
   run mumei_current_feature
   [ "$status" -eq 0 ]
   [ "$output" = "REQ-1-foo" ]
@@ -54,7 +54,7 @@ setup() {
 
 @test "mumei_current_feature returns non-zero when .mumei/current is whitespace only" {
   mkdir -p .mumei
-  printf '   \n' > .mumei/current
+  printf '   \n' >.mumei/current
   run mumei_current_feature
   [ "$status" -ne 0 ]
 }
@@ -63,7 +63,7 @@ setup() {
 
 @test "mumei_state_exists succeeds when state.json present" {
   mkdir -p .mumei/specs/REQ-1-foo
-  echo '{}' > .mumei/specs/REQ-1-foo/state.json
+  echo '{}' >.mumei/specs/REQ-1-foo/state.json
   run mumei_state_exists "REQ-1-foo"
   [ "$status" -eq 0 ]
 }
@@ -77,7 +77,7 @@ setup() {
 
 @test "mumei_state_get returns scalar value at jq path" {
   mkdir -p .mumei/specs/REQ-1-foo
-  printf '{"phase":"plan","current_wave":2}' > .mumei/specs/REQ-1-foo/state.json
+  printf '{"phase":"plan","current_wave":2}' >.mumei/specs/REQ-1-foo/state.json
   run mumei_state_get "REQ-1-foo" '.phase'
   [ "$status" -eq 0 ]
   [ "$output" = "plan" ]
@@ -90,7 +90,7 @@ setup() {
 
 @test "mumei_state_get returns empty for null jq result" {
   mkdir -p .mumei/specs/REQ-1-foo
-  printf '{}' > .mumei/specs/REQ-1-foo/state.json
+  printf '{}' >.mumei/specs/REQ-1-foo/state.json
   run mumei_state_get "REQ-1-foo" '.phase'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
@@ -123,7 +123,7 @@ setup() {
 @test "mumei_state_set updates a scalar and bumps updated_at" {
   mkdir -p .mumei/specs/REQ-1-foo
   printf '{"phase":"plan","updated_at":"2000-01-01T00:00:00Z"}' \
-    > .mumei/specs/REQ-1-foo/state.json
+    >.mumei/specs/REQ-1-foo/state.json
   mumei_state_set "REQ-1-foo" '.phase' '"review"'
   run jq -r '.phase' .mumei/specs/REQ-1-foo/state.json
   [ "$output" = "review" ]
@@ -140,7 +140,7 @@ setup() {
 
 @test "mumei_state_phase returns the phase field" {
   mkdir -p .mumei/specs/REQ-1-foo
-  printf '{"phase":"review"}' > .mumei/specs/REQ-1-foo/state.json
+  printf '{"phase":"review"}' >.mumei/specs/REQ-1-foo/state.json
   run mumei_state_phase "REQ-1-foo"
   [ "$output" = "review" ]
 }
@@ -168,7 +168,7 @@ setup() {
 
 @test "mumei_state_init is a no-op when state.json already exists" {
   mkdir -p .mumei/specs/REQ-1-foo
-  printf '{"phase":"review","custom":"keep-me"}' > .mumei/specs/REQ-1-foo/state.json
+  printf '{"phase":"review","custom":"keep-me"}' >.mumei/specs/REQ-1-foo/state.json
   mumei_state_init "REQ-1-foo" "test-suite" "REQ-1"
   run jq -r '.phase' .mumei/specs/REQ-1-foo/state.json
   [ "$output" = "review" ]

@@ -68,9 +68,9 @@ mumei_state_write_full() {
   mkdir -p "$dir"
   local tmp
   tmp="$(mktemp "${sf}.XXXXXX")"
-  cat > "$tmp"
+  cat >"$tmp"
   # validate JSON before commit
-  if ! jq empty < "$tmp" 2>/dev/null; then
+  if ! jq empty <"$tmp" 2>/dev/null; then
     rm -f "$tmp"
     mumei_log_error "invalid JSON for state.json (feature=${feature})"
     return 1
@@ -87,9 +87,12 @@ mumei_state_set() {
   local json_value="$3"
   local sf
   sf="$(mumei_state_path "$feature")"
-  [[ -f "$sf" ]] || { mumei_log_error "state.json not found for ${feature}"; return 1; }
-  jq "$jq_path = $json_value | .updated_at = (now | todateiso8601)" "$sf" \
-    | mumei_state_write_full "$feature"
+  [[ -f "$sf" ]] || {
+    mumei_log_error "state.json not found for ${feature}"
+    return 1
+  }
+  jq "$jq_path = $json_value | .updated_at = (now | todateiso8601)" "$sf" |
+    mumei_state_write_full "$feature"
 }
 
 # Return the current phase (plan / implement / review / done).

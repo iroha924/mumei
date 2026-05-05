@@ -38,7 +38,7 @@ setup() {
   # The skill reads high_count from the hook stdout. We can simulate the
   # decision the skill must make by counting HIGH entries in a
   # hand-rolled detectors.json.
-  cat > fake-detectors.json <<'JSON'
+  cat >fake-detectors.json <<'JSON'
 {
   "feature": "test",
   "ran_at": "2026-05-03T00:00:00Z",
@@ -57,7 +57,7 @@ setup() {
 }
 JSON
   local high
-  high="$(jq '.counts.HIGH' < fake-detectors.json)"
+  high="$(jq '.counts.HIGH' <fake-detectors.json)"
   [ "$high" = "1" ]
   # The skill's documented rule: high > 0 implies skip security-reviewer.
   # We assert the count is the value the skill must read.
@@ -97,16 +97,22 @@ JSON
   for r in spec-compliance-reviewer code-quality-reviewer security-reviewer adversarial-reviewer; do
     local agent="$CLAUDE_PLUGIN_ROOT/agents/${r}.md"
     [ -f "$agent" ]
-    grep -q "Detector findings (ground truth)" "$agent" \
-      || { echo "missing in $r"; return 1; }
+    grep -q "Detector findings (ground truth)" "$agent" ||
+      {
+        echo "missing in $r"
+        return 1
+      }
   done
 }
 
 @test "all 4 reviewer agents instruct: do NOT validate / dispute / downgrade" {
   for r in spec-compliance-reviewer code-quality-reviewer security-reviewer adversarial-reviewer; do
     local agent="$CLAUDE_PLUGIN_ROOT/agents/${r}.md"
-    grep -qE "Do NOT validate.*dispute.*downgrade" "$agent" \
-      || { echo "missing instruction in $r"; return 1; }
+    grep -qE "Do NOT validate.*dispute.*downgrade" "$agent" ||
+      {
+        echo "missing instruction in $r"
+        return 1
+      }
   done
 }
 

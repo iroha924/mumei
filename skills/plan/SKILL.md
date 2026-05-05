@@ -124,6 +124,7 @@ Approach:
 3. Use `AskUserQuestion` (multiple-choice where possible, 1-4 questions per call). Cap is **3 rounds × 5 questions = 15 questions max**. Track count.
 
 4. Stop early if:
+
    - All ambiguities resolve.
    - The user signals closure ("ok", "proceed", "make spec", etc.).
    - Cap reached → ask the user "continue clarifying or proceed to draft?"
@@ -425,6 +426,7 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
 Branch on `high_count` from Stage 0:
 
 - **`high_count == 0`** (the common case) — launch all 3 reviewers in parallel:
+
   - `Task(subagent_type: "spec-compliance-reviewer", ...)`
   - `Task(subagent_type: "code-quality-reviewer", ...)`
   - `Task(subagent_type: "security-reviewer", ...)`
@@ -432,6 +434,7 @@ Branch on `high_count` from Stage 0:
 - **`high_count > 0`** — skip `security-reviewer`. Detector findings are
   ground truth for the security category, so duplicating the work in an LLM
   reviewer wastes tokens and risks the LLM downgrading them. Launch only:
+
   - `Task(subagent_type: "spec-compliance-reviewer", ...)`
   - `Task(subagent_type: "code-quality-reviewer", ...)`
 

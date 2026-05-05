@@ -75,8 +75,8 @@ setup() {
 @test "check_binaries: returns 0 when both binaries are stubbed on PATH" {
   local stub orig_path
   stub="$(mktemp -d)"
-  printf '#!/bin/sh\nexit 0\n' > "$stub/semgrep"
-  printf '#!/bin/sh\nexit 0\n' > "$stub/osv-scanner"
+  printf '#!/bin/sh\nexit 0\n' >"$stub/semgrep"
+  printf '#!/bin/sh\nexit 0\n' >"$stub/osv-scanner"
   chmod +x "$stub/semgrep" "$stub/osv-scanner"
   orig_path="$PATH"
   PATH="$stub:$PATH"
@@ -96,14 +96,14 @@ setup() {
   err="$(mktemp)"
   run mumei_detector_run_osv "$out" "$err"
   [ "$status" -eq 0 ]
-  jq -e '.skipped == true' < "$err"
-  jq -e '.results == []' < "$out"
+  jq -e '.skipped == true' <"$err"
+  jq -e '.results == []' <"$out"
 }
 
 # ─── mumei_detector_aggregate ─────────────────────────────────
 
 @test "aggregate: classifies HIGH/LOW from synthetic semgrep findings" {
-  cat > sg.json <<'JSON'
+  cat >sg.json <<'JSON'
 {
   "results": [
     { "check_id": "ci.error", "path": "src/a.js", "start": {"line": 10},
@@ -113,26 +113,26 @@ setup() {
   ]
 }
 JSON
-  printf '%s' '{"results":[]}' > osv.json
-  : > err.json
+  printf '%s' '{"results":[]}' >osv.json
+  : >err.json
   final="$(mktemp)"
   run mumei_detector_aggregate sg.json osv.json err.json "$final" "test-feat"
   [ "$status" -eq 0 ]
-  [ "$(jq '.counts.HIGH' < "$final")" = "1" ]
-  [ "$(jq '.counts.LOW'  < "$final")" = "1" ]
-  [ "$(jq -r '.findings.HIGH[0].source' < "$final")" = "semgrep" ]
-  [ "$(jq -r '.findings.HIGH[0].rule_id' < "$final")" = "ci.error" ]
+  [ "$(jq '.counts.HIGH' <"$final")" = "1" ]
+  [ "$(jq '.counts.LOW' <"$final")" = "1" ]
+  [ "$(jq -r '.findings.HIGH[0].source' <"$final")" = "semgrep" ]
+  [ "$(jq -r '.findings.HIGH[0].rule_id' <"$final")" = "ci.error" ]
 }
 
 @test "aggregate: tracks skipped detectors via errors stream" {
-  printf '%s' '{"results":[]}' > sg.json
-  printf '%s' '{"results":[]}' > osv.json
-  jq -n '{detector:"osv-scanner", message:"no lockfile", skipped:true}' > err.json
+  printf '%s' '{"results":[]}' >sg.json
+  printf '%s' '{"results":[]}' >osv.json
+  jq -n '{detector:"osv-scanner", message:"no lockfile", skipped:true}' >err.json
   final="$(mktemp)"
   run mumei_detector_aggregate sg.json osv.json err.json "$final" "test-feat"
   [ "$status" -eq 0 ]
-  [ "$(jq -r '.detectors_skipped[0].name' < "$final")" = "osv-scanner" ]
-  [ "$(jq -r '.detectors_run | join(",")' < "$final")" = "semgrep" ]
+  [ "$(jq -r '.detectors_skipped[0].name' <"$final")" = "osv-scanner" ]
+  [ "$(jq -r '.detectors_run | join(",")' <"$final")" = "semgrep" ]
 }
 
 # ─── self-test entry point ────────────────────────────────────

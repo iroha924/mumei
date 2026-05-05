@@ -82,7 +82,7 @@ else
   # Review file names are ISO 8601 timestamps, so alphabetical = chronological.
   # Exclude detector reports (<ts>-detectors.json) so we pin the actual review.
   LATEST_REVIEW="$(find "${REVIEW_DIR}" -maxdepth 1 -type f -name '*.json' \
-                     ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
+    ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
   if [[ -z "$LATEST_REVIEW" ]]; then
     NEEDS_REVIEW=1
   else
@@ -123,7 +123,7 @@ fi
 # Combine `[[ -s ]]` (rejects 0-byte) with `jq -e 'type'` (requires at
 # least one parseable JSON value, rejecting whitespace-only files).
 REVIEW_NAME="$(basename "$LATEST_REVIEW")"
-if [[ ! -s "$LATEST_REVIEW" ]] || ! jq -e 'type' < "$LATEST_REVIEW" >/dev/null 2>&1; then
+if [[ ! -s "$LATEST_REVIEW" ]] || ! jq -e 'type' <"$LATEST_REVIEW" >/dev/null 2>&1; then
   REASON="Review ${REVIEW_NAME} is empty or not valid JSON. Delete or restore the file and re-run /mumei:plan review."
   CONTEXT="${LATEST_REVIEW} cannot be parsed by jq. Likely causes: 0-byte truncated write (disk full, killed editor, network mount disconnected), manual edit with syntax error, or filesystem corruption. Either restore from git history (.mumei/specs/<feature>/reviews/ is tracked) or delete the file and let /mumei:plan write a fresh review."
   jq -n --arg r "$REASON" --arg c "$CONTEXT" '{

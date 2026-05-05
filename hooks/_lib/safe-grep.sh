@@ -27,7 +27,8 @@ set -u
 # Multi-file invocations sum per-file counts via awk on the
 # "<file>:<count>" output of `grep -c`.
 mumei_safe_grep_count() {
-  local pat="$1"; shift
+  local pat="$1"
+  shift
   if [[ "$#" -eq 0 ]]; then
     printf '0\n'
     return 0
@@ -46,8 +47,8 @@ mumei_safe_grep_count() {
   # `grep -c` emits "<file>:<count>" per file (or just "<count>" for a
   # single file). awk extracts the trailing numeric field and sums.
   # `s+0` ensures integer output even when no lines matched.
-  grep -cE "$pat" "${existing[@]}" 2>/dev/null \
-    | awk -F: '{s+=$NF} END {print s+0}'
+  grep -cE "$pat" "${existing[@]}" 2>/dev/null |
+    awk -F: '{s+=$NF} END {print s+0}'
 }
 
 # Exit 0 if the path is reported as gitignored by `git check-ignore`.

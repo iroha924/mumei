@@ -48,7 +48,10 @@ teardown() {
 
 @test "every agents/*.md starts with frontmatter delimiter" {
   for f in agents/*.md; do
-    [ "$(head -1 "$f")" = "---" ] || { echo "FAIL: $f - missing frontmatter"; return 1; }
+    [ "$(head -1 "$f")" = "---" ] || {
+      echo "FAIL: $f - missing frontmatter"
+      return 1
+    }
   done
 }
 
@@ -80,7 +83,10 @@ teardown() {
 
 @test "every skills/**/SKILL.md starts with frontmatter delimiter" {
   while IFS= read -r f; do
-    [ "$(head -1 "$f")" = "---" ] || { echo "FAIL: $f - missing frontmatter"; return 1; }
+    [ "$(head -1 "$f")" = "---" ] || {
+      echo "FAIL: $f - missing frontmatter"
+      return 1
+    }
   done < <(find skills -name SKILL.md)
 }
 

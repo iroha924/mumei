@@ -22,14 +22,14 @@ setup() {
 _build_stubs() {
   STUB_DIR="${MUMEI_TEST_TMPDIR}/stubs"
   mkdir -p "$STUB_DIR"
-  cat > "$STUB_DIR/semgrep" <<'SH'
+  cat >"$STUB_DIR/semgrep" <<'SH'
 #!/bin/sh
 # Find --json output target by walking arguments. semgrep prints to stdout
 # unless --output is given; this stub mimics that contract.
 echo '{"results":[]}'
 exit 0
 SH
-  cat > "$STUB_DIR/osv-scanner" <<'SH'
+  cat >"$STUB_DIR/osv-scanner" <<'SH'
 #!/bin/sh
 # osv-scanner writes to --output=<path> when given, else stdout.
 output_path=""
@@ -126,9 +126,9 @@ _init_test_feature() {
   local report_path
   report_path="$(echo "$summary" | jq -r '.report_path')"
   [ -f "$report_path" ]
-  jq empty < "$report_path"
-  jq -e '.feature == "REQ-99-test"' < "$report_path"
-  [ "$(jq '.counts.HIGH' < "$report_path")" = "0" ]
+  jq empty <"$report_path"
+  jq -e '.feature == "REQ-99-test"' <"$report_path"
+  [ "$(jq '.counts.HIGH' <"$report_path")" = "0" ]
 }
 
 @test "happy: report path lives under .mumei/specs/<feature>/reviews/" {
@@ -150,12 +150,12 @@ _init_test_feature() {
 _build_crashing_stubs() {
   STUB_DIR="${MUMEI_TEST_TMPDIR}/stubs"
   mkdir -p "$STUB_DIR"
-  cat > "$STUB_DIR/semgrep" <<'SH'
+  cat >"$STUB_DIR/semgrep" <<'SH'
 #!/bin/sh
 echo "boom: simulated semgrep crash" >&2
 exit 2
 SH
-  cat > "$STUB_DIR/osv-scanner" <<'SH'
+  cat >"$STUB_DIR/osv-scanner" <<'SH'
 #!/bin/sh
 output_path=""
 for arg in "$@"; do
@@ -192,7 +192,7 @@ SH
   local report_path
   report_path="$(echo "$summary" | jq -r '.report_path')"
   [ -f "$report_path" ]
-  jq empty < "$report_path"
+  jq empty <"$report_path"
 }
 
 @test "detector crash: stderr includes brew install guidance and exit 2 banner" {
@@ -204,4 +204,3 @@ SH
   echo "$output" | grep -q "the following detectors failed"
   echo "$output" | grep -q "semgrep"
 }
-

@@ -27,7 +27,7 @@ _run_hook() {
   local input_json="$1"
   local input_file
   input_file="$(mktemp -t mumei-hook-input.XXXXXX)"
-  printf '%s' "$input_json" > "$input_file"
+  printf '%s' "$input_json" >"$input_file"
   run --separate-stderr bash -c \
     "bash '${CLAUDE_PLUGIN_ROOT}/scripts/lint-tasks.sh' < '${input_file}'"
   rm -f "$input_file"
@@ -36,8 +36,8 @@ _run_hook() {
 _init_feature() {
   local feature="${1:-REQ-1-foo}"
   mkdir -p ".mumei/specs/${feature}"
-  echo "${feature}" > .mumei/current
-  cat > ".mumei/specs/${feature}/state.json" <<EOF
+  echo "${feature}" >.mumei/current
+  cat >".mumei/specs/${feature}/state.json" <<EOF
 {
   "id": "REQ-1",
   "slug": "foo",
@@ -48,7 +48,7 @@ _init_feature() {
 }
 EOF
   # Baseline requirements.md so REQ-1.1 / REQ-1.2 are valid tokens.
-  cat > ".mumei/specs/${feature}/requirements.md" <<'EOF'
+  cat >".mumei/specs/${feature}/requirements.md" <<'EOF'
 # foo Requirements
 
 ## Acceptance Criteria
@@ -66,9 +66,9 @@ _run_lint_for_default_feature() {
 @test "no output when tasks.md is well-formed and all paths exist" {
   _init_feature
   mkdir -p src
-  echo a > src/a.ts
-  echo b > src/b.ts
-  cat > .mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+  echo a >src/a.ts
+  echo b >src/b.ts
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
 
 ## Wave 1: alpha
@@ -91,7 +91,7 @@ EOF
 
 @test "flags task missing _Files:_ meta" {
   _init_feature
-  cat > .mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
 ## Wave 1: alpha
 - [ ] 1.1 first
@@ -109,8 +109,8 @@ EOF
 
 @test "flags _Requirements:_ token that does not match REQ-N.M" {
   _init_feature
-  mkdir -p src && echo a > src/a.ts
-  cat > .mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+  mkdir -p src && echo a >src/a.ts
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
 ## Wave 1: alpha
 - [ ] 1.1 first
@@ -129,8 +129,8 @@ EOF
 
 @test "flags _Requirements:_ token absent from requirements.md" {
   _init_feature
-  mkdir -p src && echo a > src/a.ts
-  cat > .mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+  mkdir -p src && echo a >src/a.ts
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
 ## Wave 1: alpha
 - [ ] 1.1 first
@@ -149,7 +149,7 @@ EOF
 
 @test "flags _Files:_ path that does not exist" {
   _init_feature
-  cat > .mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
 ## Wave 1: alpha
 - [ ] 1.1 first
@@ -168,9 +168,9 @@ EOF
 
 @test "tolerates _Files:_ path that is gitignored even when missing" {
   _init_feature
-  echo 'scratch/' > .gitignore
+  echo 'scratch/' >.gitignore
   git add .gitignore && git commit -q -m gi
-  cat > .mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
 ## Wave 1: alpha
 - [ ] 1.1 first
@@ -187,7 +187,7 @@ EOF
 
 @test "MUMEI_BYPASS=1 short-circuits before any check" {
   _init_feature
-  cat > .mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
 ## Wave 1: alpha
 - [ ] 1.1 first

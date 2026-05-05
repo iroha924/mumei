@@ -91,15 +91,15 @@ fi
 mumei_is_meta_path() {
   local p="$1"
   case "$p" in
-    .mumei/*|.claude/*|.github/*|.vscode/*|.gitlab/*|.idea/*) return 0 ;;
-    .[a-zA-Z]*) return 0 ;;            # dotfiles in general (.gitignore, .editorconfig, .npmrc, ...)
-    README*|LICENSE*|CHANGELOG*|CONTRIBUTING*|CODEOWNERS|NOTICE*) return 0 ;;
-    CLAUDE.md|AGENTS.md) return 0 ;;
-    Makefile|Dockerfile*|Rakefile|Gemfile*|Procfile|justfile|Justfile) return 0 ;;
-    *.toml|*.yaml|*.yml|*.lock|*.lockfile) return 0 ;;
-    *.config.js|*.config.ts|*.config.mjs|*.config.cjs|*.config.json) return 0 ;;
-    package.json|package-lock.json|tsconfig*.json|jsconfig*.json|composer.json) return 0 ;;
-    biome.json|deno.json|deno.jsonc) return 0 ;;
+  .mumei/* | .claude/* | .github/* | .vscode/* | .gitlab/* | .idea/*) return 0 ;;
+  .[a-zA-Z]*) return 0 ;; # dotfiles in general (.gitignore, .editorconfig, .npmrc, ...)
+  README* | LICENSE* | CHANGELOG* | CONTRIBUTING* | CODEOWNERS | NOTICE*) return 0 ;;
+  CLAUDE.md | AGENTS.md) return 0 ;;
+  Makefile | Dockerfile* | Rakefile | Gemfile* | Procfile | justfile | Justfile) return 0 ;;
+  *.toml | *.yaml | *.yml | *.lock | *.lockfile) return 0 ;;
+  *.config.js | *.config.ts | *.config.mjs | *.config.cjs | *.config.json) return 0 ;;
+  package.json | package-lock.json | tsconfig*.json | jsconfig*.json | composer.json) return 0 ;;
+  biome.json | deno.json | deno.jsonc) return 0 ;;
   esac
   return 1
 }
@@ -138,7 +138,7 @@ OWNER_TASK="$(printf '%s' "$OWNERS" | awk '{print $1}')"
 if [[ -n "$OWNER_TASK" ]]; then
   DEPS="$(mumei_tasks_depends "$FEATURE" "$OWNER_TASK" 2>/dev/null || true)"
   if [[ -n "$DEPS" ]] && [[ "$DEPS" != "-" ]]; then
-    IFS=',' read -ra dep_arr <<< "$DEPS"
+    IFS=',' read -ra dep_arr <<<"$DEPS"
     for dep in "${dep_arr[@]}"; do
       dep="$(echo "$dep" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
       [[ -n "$dep" ]] || continue
