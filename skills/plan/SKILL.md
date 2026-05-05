@@ -1,6 +1,6 @@
 ---
 name: plan
-description: The mumei orchestrator. Drives the full lifecycle of a feature — clarification → requirements → design → tasks (each auto-reviewed by an independent reviewer agent up to 3 iterations) → single user approval gate → implementation Wave by Wave → 4-stage review with per-issue validation. Triggers when the user invokes /mumei:plan <feature> or naturally asks to "plan", "spec", "design", or "implement" a feature with mumei.
+description: The mumei orchestrator. Drives the full lifecycle of a feature — clarification → requirements → design → tasks (each auto-reviewed by an independent reviewer agent up to 3 iterations) → single user approval gate → implementation Wave by Wave → 4-stage review with per-issue validation. Triggers when the user invokes /mumei:plan <feature> or naturally asks to "plan", "spec", "design", or "implement" a feature with mumei. Always renders body content (User Story prose, AC bodies after EARS keywords, Assumptions, Open Questions, design narratives, task descriptions, Wave goals/verifies) in the user's conversation language; English section headings, EARS keywords, REQ trace IDs, and [CONFIRMED]/[ASSUMPTION] annotations remain literal.
 allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion]
 argument-hint: <feature-slug>
 ---
@@ -17,27 +17,6 @@ Principle: 3 spec drafts are produced non-stop, each gated by an independent spe
 You orchestrate the full lifecycle of a feature in mumei: brainstorm input → clarification → requirements → design → tasks → single user approval gate → implement (Wave by Wave) → 4-stage review → done.
 
 This skill is the heart of mumei. Every other skill (brainstorm, init, archive) plays a supporting role.
-
-## Inputs
-
-- `<feature-slug>`: a kebab-case slug like `user-auth`. The internal ID becomes `REQ-N` where N is auto-assigned (next available integer).
-- Optional: `.mumei/scratch/<topic>.md` produced by `/mumei:brainstorm` — used as starting context.
-
-## Phase awareness
-
-Before doing anything, check the state:
-
-```bash
-source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/state.sh"
-feature="$1"
-phase="$(mumei_state_phase "$feature" 2>/dev/null || echo "new")"
-```
-
-- `phase=new` (state.json missing): start from Phase 1.0 (state init).
-- `phase=plan`: continue from where the user left off (resume in the appropriate sub-phase by inspecting which spec docs and `spec-reviews/` files exist).
-- `phase=implement`: jump to Wave management.
-- `phase=review`: jump to review pipeline.
-- `phase=done`: tell the user "feature is done, run `/mumei:archive` to clean up".
 
 ## Language conventions (applies to all spec drafts: requirements / design / tasks)
 
@@ -73,6 +52,27 @@ As a registered user, I want to log in with email and password, so that I can ac
 ```
 
 The same policy applies to `design.md` (architecture narratives, component descriptions, trade-offs) and `tasks.md` (task descriptions, Wave goal/verify lines, but NOT the meta fields).
+
+## Inputs
+
+- `<feature-slug>`: a kebab-case slug like `user-auth`. The internal ID becomes `REQ-N` where N is auto-assigned (next available integer).
+- Optional: `.mumei/scratch/<topic>.md` produced by `/mumei:brainstorm` — used as starting context.
+
+## Phase awareness
+
+Before doing anything, check the state:
+
+```bash
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/state.sh"
+feature="$1"
+phase="$(mumei_state_phase "$feature" 2>/dev/null || echo "new")"
+```
+
+- `phase=new` (state.json missing): start from Phase 1.0 (state init).
+- `phase=plan`: continue from where the user left off (resume in the appropriate sub-phase by inspecting which spec docs and `spec-reviews/` files exist).
+- `phase=implement`: jump to Wave management.
+- `phase=review`: jump to review pipeline.
+- `phase=done`: tell the user "feature is done, run `/mumei:archive` to clean up".
 
 ## Approval model (key change vs. earlier mumei versions)
 
@@ -132,6 +132,8 @@ Approach:
 5. Do NOT silently fill in assumptions. Anything the user did not confirm goes into `requirements.md` with `[ASSUMPTION]` (and the assumption is captured under `## Assumptions`).
 
 ### Phase 1.2 — Draft requirements.md
+
+**Reminder**: render body content (User Story prose, AC bodies after EARS keywords, Assumptions, Open Questions) in the user's conversation language (see [Language conventions](#language-conventions-applies-to-all-spec-drafts-requirements--design--tasks) above). English headings, EARS keywords, REQ trace IDs, and `[CONFIRMED]`/`[ASSUMPTION]` annotations stay literal.
 
 Generate `.mumei/specs/<feature>/requirements.md` using the template:
 
@@ -197,6 +199,8 @@ Each iteration overwrites a new `${ts}-requirements.json` so the audit trail is 
 ## Phase 2 — Design (no user interaction)
 
 ### Phase 2.1 — Draft design.md
+
+**Reminder**: render body content (Overview, Components, Trade-offs, Risks, Wave Plan narratives) in the user's conversation language (see [Language conventions](#language-conventions-applies-to-all-spec-drafts-requirements--design--tasks) above). English headings, code/diagram fences, and REQ trace IDs stay literal.
 
 Generate `.mumei/specs/<feature>/design.md`:
 
@@ -271,6 +275,8 @@ Branch on `verdict` exactly like Phase 1.3 (PASS → next; NEEDS_IMPROVEMENT / M
 ## Phase 3 — Tasks (no user interaction)
 
 ### Phase 3.1 — Draft tasks.md
+
+**Reminder**: render body content (Wave goal/verify prose, task descriptions) in the user's conversation language (see [Language conventions](#language-conventions-applies-to-all-spec-drafts-requirements--design--tasks) above). English headings (`## Wave N: ...`), `**Goal**:` / `**Verify**:` markers, and the task meta fields `_Files:_` / `_Depends:_` / `_Requirements:_` stay literal.
 
 Generate `.mumei/specs/<feature>/tasks.md` from the design's Wave Plan:
 
