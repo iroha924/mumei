@@ -160,12 +160,13 @@ jobs:
           /tmp/shfmt/shfmt -d -i 2 hooks/_lib/*.sh hooks/*.sh scripts/*.sh
 
       - name: actionlint
-        # Pin the installer script to the same tag the pre-commit config uses
-        # (v1.7.7) so an upstream rewrite of `main`/scripts/download-actionlint.bash
-        # cannot silently change CI lint behaviour.  Mismatch with pre-commit
-        # rev would make local-vs-CI drift visible in PR; keep them aligned.
+        # Pin the installer script to a tag (instead of `main` mutable ref)
+        # AND pass the explicit version arg, because the installer script at
+        # `tag v1.7.7` defaults to `version=1.7.6` if no arg is provided —
+        # script-tag pin alone leaves a 1-version drift vs. pre-commit which
+        # actually delivers 1.7.7. The pin is two-fold: tag + version arg.
         id: get_actionlint
-        run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash)
+        run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
         shell: bash
       - name: actionlint check
         run: ${{ steps.get_actionlint.outputs.executable }} -color
@@ -175,6 +176,12 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pin gitleaks binary version to match .pre-commit-config.yaml
+          # rev. gitleaks-action@v2 hard-codes a default that lags upstream,
+          # so without this env CI lacks newer detectors (e.g.,
+          # anthropic-api-key, notion-api-token added in 8.25+).
+          # Keep aligned with .pre-commit-config.yaml gitleaks rev.
+          GITLEAKS_VERSION: "8.30.1"
 
       # lychee is heavy and rate-limit-sensitive; keep it out of pre-commit
       # (developer commits should not hammer external sites) but gate CI on it.

@@ -11,6 +11,14 @@
 
 title = "mumei gitleaks config"
 
+# CRITICAL: without this `[extend]` block, gitleaks would WIPE its default
+# ruleset (~140 detectors) and only the empty allowlist below would remain,
+# silently passing every secret. `useDefault = true` extends (not replaces)
+# the default config so allowlist composes onto the standard rules.
+# Reference: https://github.com/gitleaks/gitleaks#configuration
+[extend]
+useDefault = true
+
 [allowlist]
 description = "mumei: known false-positive paths and history-bearing files"
 paths = [

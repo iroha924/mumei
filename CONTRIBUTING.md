@@ -142,6 +142,53 @@ Wave. The artifacts live under `.mumei/specs/<feature>/`. This is gitignored, so
 the spec stays local; share intent through the PR description and link to the
 relevant `decisions.md` entry under `docs/` if applicable.
 
+## Maintainer-only — bumping pinned external binaries
+
+`shfmt` and `shellharden` are downloaded by CI from upstream GitHub Releases
+and pinned by SHA256 to detect tampering or rate-limit HTML responses being
+mistaken for binaries. When bumping the version, both the URL **and** the
+hash must be updated atomically — copying a stale or untrusted hash would
+defeat the pin.
+
+Procedure:
+
+1. Identify the new upstream version. For shfmt, consult
+   `https://github.com/mvdan/sh/releases`; for shellharden, consult
+   `https://github.com/anordal/shellharden/releases`.
+
+2. Compute the SHA256 from the upstream-published asset:
+
+   ```bash
+   # shfmt
+   curl -sL "https://github.com/mvdan/sh/releases/download/vX.Y.Z/shfmt_vX.Y.Z_linux_amd64" \
+     | sha256sum -
+
+   # shellharden
+   curl -sL "https://github.com/anordal/shellharden/releases/download/vX.Y.Z/shellharden-x86_64-unknown-linux-gnu.tar.gz" \
+     | sha256sum -
+   ```
+
+   Cross-reference (verified 2026-05): the upstream-published checksum
+   asymmetry is the OPPOSITE of what one might assume:
+
+   - **shfmt**: at v3.13.1 the release ships **no** `*_checksums.txt` file.
+     (v3.12.0 included one named `sha256sums.txt` — it was dropped after.)
+     Compute the hash on two independent machines and compare; or fall back
+     to the GitHub-reported asset digest via
+     `gh api repos/mvdan/sh/releases/tags/vX.Y.Z --jq '.assets[] | select(.name=="<asset>") | .digest'`.
+
+   - **shellharden**: at v4.3.1 the release ships per-asset `*.sha512`
+     siblings (e.g., `shellharden-x86_64-unknown-linux-gnu.sha512`). Cross-
+     reference using `sha512sum -c -` against that sibling, then convert to
+     SHA256 by recomputing on the verified tarball.
+
+3. Update both the URL and the SHA256 line in `.github/workflows/ci.yml` in
+   the same commit. The PR description should include:
+   `Updates: <tool> vX.Y.A → vX.Y.B; SHA256: <new-hash>; verified against: <upstream-url>`.
+
+4. Run `gh run watch` on the PR's CI; `sha256sum -c -` will fail loudly if
+   the hash is wrong.
+
 ## Maintainer-only — release tag signing
 
 Release tags are signed with the maintainer's SSH key. To set up signing on a
