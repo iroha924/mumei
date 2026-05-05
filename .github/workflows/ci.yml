@@ -130,7 +130,7 @@ jobs:
         uses: crate-ci/typos@master
 
       - name: lychee (link check)
-        uses: lycheeverse/lychee-action@v3
+        uses: lycheeverse/lychee-action@v2
         with:
           args: >-
             --no-progress
@@ -164,7 +164,7 @@ jobs:
         uses: raven-actions/actionlint@v2
 
       - name: gitleaks (secret scan)
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
