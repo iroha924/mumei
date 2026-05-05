@@ -17,6 +17,10 @@
     // top-level h1 が無いファイル (issue templates 等) があり得る。
     "MD041": false,
 
+    // mumei の agent body は意図的に `# Role` / `# Inputs` / `# Method` の複数 h1 構造を使う
+    // (CLAUDE.md plugin-artifact-conventions 規約)。MD025 は無効化。
+    "MD025": false,
+
     // ordered list の番号は 1. 1. 1. ... ではなく 1. 2. 3. を採用する (auto-renumbering 派ではない)。
     "MD029": { "style": "ordered" },
 

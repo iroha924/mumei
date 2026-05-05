@@ -120,7 +120,7 @@ jobs:
           fetch-depth: 0  # gitleaks が full history を必要とする
 
       - name: markdownlint-cli2
-        uses: DavidAnson/markdownlint-cli2-action@v20
+        uses: DavidAnson/markdownlint-cli2-action@v23
         with:
           globs: |
             **/*.md
