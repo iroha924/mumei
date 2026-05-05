@@ -145,7 +145,7 @@ mumei stores zero state outside the project tree. Everything lives under
 │   ├── design.md                 # Architecture + Wave Plan
 │   ├── tasks.md                  # Wave > Task hierarchy with _Files: _Depends: _Requirements:
 │   ├── state.json                # phase / current_wave / created_at / updated_at (gitignored)
-│   ├── spec-reviews/             # per-iteration JSON from spec-reviewers
+│   ├── spec-reviews/             # per-iteration JSON from spec-reviewers (created lazily by /mumei:plan; absent on fresh features)
 │   └── reviews/                  # Phase 5 review results + detector reports
 ├── archive/<YYYY-MM>/<feature>/  # completed features moved here by /mumei:archive
 └── scratch/<feature>.md          # /mumei:brainstorm output (tracked, team-shared)
@@ -165,12 +165,13 @@ spec history but not the in-progress cursor.
 The plugin payload is English; mumei's internal development uses Japanese in a
 parallel set of dev-only files that are gitignored. Distinct boundaries:
 
-| Directory / file                                                                                                                | Distributed?          | Language                                   |
-| ------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------ |
-| `agents/`, `skills/`, `hooks/`, `scripts/`, `.claude-plugin/`                                                                   | Yes                   | English                                    |
-| `README.md`, `README.ja.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`, `ARCHITECTURE.md` | Yes                   | English (README.ja.md mirrors in Japanese) |
-| `CLAUDE.md`, `.claude/`, `docs/`                                                                                                | No (gitignored)       | Japanese                                   |
-| `tests/`, `.github/`, `.editorconfig`, `.markdownlint-cli2.jsonc`, `_typos.toml`, `lychee.toml`, `.pre-commit-config.yaml`      | No (CI / dev tooling) | Mixed                                      |
+| Directory / file                                                                                                                | Distributed?                                 | Language                                        |
+| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------- |
+| `agents/`, `skills/`, `hooks/`, `scripts/`, `.claude-plugin/`                                                                   | Yes                                          | English                                         |
+| `README.md`, `README.ja.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`, `ARCHITECTURE.md` | Yes                                          | English (README.ja.md mirrors in Japanese)      |
+| `CLAUDE.md`, `.claude/`, `docs/` (except `docs/document-corruption.md`)                                                         | No (gitignored)                              | Japanese                                        |
+| `docs/document-corruption.md`                                                                                                   | Yes (single tracked exception under `docs/`) | English (linked from README Philosophy section) |
+| `tests/`, `.github/`, `.editorconfig`, `.markdownlint-cli2.jsonc`, `_typos.toml`, `lychee.toml`, `.pre-commit-config.yaml`      | No (CI / dev tooling)                        | Mixed                                           |
 
 Maintainers: do not add Japanese prose to distributable files; the
 [CONTRIBUTING.md](./CONTRIBUTING.md) Conventions section explains how to use
