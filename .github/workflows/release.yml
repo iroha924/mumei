@@ -27,6 +27,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      # `git tag -v` for SSH-signed tags requires gpg.ssh.allowedSignersFile
+      # to point at a file containing the trusted public keys (git docs:
+      # https://git-scm.com/docs/git#Documentation/git.txt-gpgsshallowedSignersFile).
+      # GitHub Actions runners do not ship one, so the verify step would
+      # always fail with
+      #   error: gpg.ssh.allowedSignersFile needs to be configured and exist
+      #          for ssh signature verification
+      # Build the file dynamically from the repository owner's published
+      # SSH keys (https://github.com/<user>.keys is public). When the
+      # owner rotates keys on GitHub the next workflow run picks them up
+      # automatically; no checked-in key file to maintain.
+      - name: Build allowedSigners file from maintainer's GitHub SSH keys
+        run: |
+          set -e
+          mkdir -p ~/.config/git
+          curl -fsSL "https://github.com/${{ github.repository_owner }}.keys" \
+            | awk 'NF { print "* " $0 }' > ~/.config/git/allowed_signers
+          test -s ~/.config/git/allowed_signers \
+            || { echo "::error::no SSH keys published at https://github.com/${{ github.repository_owner }}.keys"; exit 1; }
+          git config --global gpg.ssh.allowedSignersFile ~/.config/git/allowed_signers
+
       - name: Verify tag is signed
         run: |
           set -e
