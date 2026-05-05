@@ -4,7 +4,9 @@
 !.mumei/
 !.mumei/**
 
-# Keep mumei's own per-developer-state ignores at the example level too,
-# so readers see them as part of the genuine layout.
+# Keep `current` (per-developer cursor) ignored even in the example —
+# matches mumei's actual layout (a fresh clone has no active cursor).
+# `state.json` is INTENTIONALLY tracked here even though mumei's normal
+# `.mumei/.gitignore` excludes it — the example's purpose (REQ-5.19) is to
+# expose every artifact a reader would see, including the state snapshot.
 .mumei/current
-.mumei/specs/*/state.json
