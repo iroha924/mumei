@@ -5,10 +5,12 @@
 max_redirects = 5
 
 # Per-link request retries before flagging as broken.
-max_retries = 2
+max_retries = 5
 
 # Timeout per link (seconds). Defaults to 20.
-timeout = 20
+# Set high to absorb transient slowness from external services
+# (contributor-covenant.org and similar non-CDN-backed sites).
+timeout = 60
 
 # Accept these HTTP status codes as success in addition to 200/204.
 # 403: rate-limited public archives (some readme links).
