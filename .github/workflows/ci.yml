@@ -126,20 +126,18 @@ jobs:
         with:
           fetch-depth: 0  # gitleaks が full history を必要とする
 
-      - name: markdownlint-cli2
-        uses: DavidAnson/markdownlint-cli2-action@v23
+      # Run the local pre-commit hook suite in CI so lint behaviour stays
+      # identical between developer machines and CI (no drift).
+      # Reference: https://github.com/pre-commit/action
+      - uses: actions/setup-python@v5
         with:
-          globs: |
-            **/*.md
-            !**/node_modules/**
-          config: .markdownlint-cli2.jsonc
+          python-version: "3.x"
+      - name: pre-commit (prettier / markdownlint / typos / shfmt / shellcheck / actionlint / gitleaks)
+        uses: pre-commit/action@v3.0.1
 
-      - name: typos
-        # specific tag pin per typos official guidance
-        # (https://github.com/crate-ci/typos/blob/master/docs/github-action.md):
-        # `@v1` floats and may break CI on new releases that introduce new typos.
-        uses: crate-ci/typos@v1.46.0
-
+      # lychee is heavy and rate-limit-sensitive; keep it out of pre-commit
+      # (developer commits should not hammer external sites) but still gate
+      # CI on it. Stays as a dedicated step.
       - name: lychee (link check)
         uses: lycheeverse/lychee-action@v2
         with:
@@ -152,41 +150,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: shfmt (shell format)
-        run: |
-          set -e
-          curl -sL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64" -o /tmp/shfmt
-          chmod +x /tmp/shfmt
-          /tmp/shfmt -d -i 2 hooks/_lib/*.sh hooks/*.sh scripts/*.sh
-
+      # shellharden has no first-party pre-commit hook; install the release
+      # binary and run it as a CI-only check. The pre-commit suite covers
+      # shellcheck (different but complementary tool — shellcheck flags bugs,
+      # shellharden enforces quoting).
       - name: shellharden (quoting hardening)
         run: |
           set -e
-          # Release ships a prebuilt linux x86_64 binary (gnu variant).
           curl -sL "https://github.com/anordal/shellharden/releases/download/v4.3.1/shellharden-x86_64-unknown-linux-gnu.tar.gz" \
             -o /tmp/shellharden.tar.gz
           mkdir -p /tmp/shellharden && tar -xzf /tmp/shellharden.tar.gz -C /tmp/shellharden
           shellharden_bin="$(find /tmp/shellharden -type f -name shellharden | head -n1)"
           chmod +x "$shellharden_bin"
           "$shellharden_bin" --check hooks/_lib/*.sh hooks/*.sh scripts/*.sh
-
-      - name: actionlint
-        # Official guidance (rhysd/actionlint docs/usage.md): no first-party
-        # GitHub Action; recommended path is the download-actionlint.bash script
-        # to install the binary, then invoke it. Avoids third-party action audit.
-        id: get_actionlint
-        run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-        shell: bash
-      - name: actionlint check
-        run: ${{ steps.get_actionlint.outputs.executable }} -color
-        shell: bash
-
-      - name: gitleaks (secret scan)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # GITLEAKS_LICENSE is only required for org repos per gitleaks-action README.
-          # mumei is a personal repo; no license env needed.
 
   # ─────────────────────────────────────────
   # bats による hook / _lib の単体テスト。

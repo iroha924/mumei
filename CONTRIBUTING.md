@@ -107,7 +107,7 @@ before opening a PR.
 mumei follows the [Conventional Commits](https://www.conventionalcommits.org/)
 specification. Use a single-line subject in the imperative mood:
 
-```
+```text
 feat: add per-issue validator memory toggle
 fix(hooks): allow git check-ignore on absolute paths
 docs: clarify Wave gate behaviour in README

@@ -49,7 +49,7 @@ A Wave defined in `design.md#Wave Plan` has no corresponding `## Wave N: <name>`
 
 Each task line MUST have all three meta fields immediately after it:
 
-```
+```text
 - [ ] N.M <task description>
   - _Files: <paths>_
   - _Depends: <dep ids or `-`>_
@@ -62,7 +62,7 @@ Missing any of `_Files:_` / `_Depends:_` / `_Requirements:_` is HIGH. The hooks 
 
 Every Wave header must be followed by:
 
-```
+```text
 **Goal**: <1 line>
 **Verify**: <executable command or observation>
 ```

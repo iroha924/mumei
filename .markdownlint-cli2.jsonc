@@ -41,6 +41,7 @@
   "ignores": [
     "node_modules/**",
     ".mumei/**",
+    ".claude/**",
     "docs/**",
     "examples/**",
     "CODE_OF_CONDUCT.md"

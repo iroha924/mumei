@@ -171,7 +171,7 @@ Tag each AC with `[CONFIRMED]`, `[ASSUMPTION]`, or `[NEEDS CLARIFICATION: ...]`.
 
 Launch the reviewer:
 
-```
+```text
 Task(subagent_type: "requirements-reviewer",
      prompt: "Review .mumei/specs/<feature>/requirements.md against transcript and scratch. Feature: <feature>. Transcript: <transcript_path>. Scratch: <scratch_files_list>.")
 ```
@@ -253,7 +253,7 @@ Do **NOT** ask the user any questions in this phase. If you encounter ambiguity 
 
 Launch the reviewer:
 
-```
+```text
 Task(subagent_type: "design-reviewer",
      prompt: "Review .mumei/specs/<feature>/design.md against requirements.md. Feature: <feature>.")
 ```
@@ -301,7 +301,7 @@ Each task MUST have `_Files:_`, `_Depends:_`, `_Requirements:_`. Each Wave MUST 
 
 Launch the reviewer:
 
-```
+```text
 Task(subagent_type: "tasks-reviewer",
      prompt: "Review .mumei/specs/<feature>/tasks.md against design.md and requirements.md. Feature: <feature>.")
 ```
@@ -448,7 +448,7 @@ Pass each reviewer:
   contains the JSON array from `.findings.HIGH` of the detectors report.
   Build the prompt inline:
 
-  ```
+  ```text
   <detector_findings ground_truth="true">
   [JSON array of HIGH findings, copied verbatim from the report]
   </detector_findings>

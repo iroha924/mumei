@@ -10,7 +10,7 @@ Hook-enforced spec phases, Wave commits, and reviews — at the OS boundary, not
 
 [日本語版 README](./README.ja.md)
 
-```
+```text
 brainstorm → plan (3 spec reviewers + approval) → implement (Wave gate) → review (4-stage + per-issue validation) → done
 ```
 
@@ -72,7 +72,7 @@ mumei is judged by what it prevents, not by what it does.
 
 ### 1. One-time setup per project
 
-```
+```text
 /mumei:init
 ```
 
@@ -80,7 +80,7 @@ Creates `.mumei/` directory structure, proposes additions to `CLAUDE.md` (with d
 
 ### 2. Brainstorm a feature (optional but recommended)
 
-```
+```text
 /mumei:brainstorm user-auth
 ```
 
@@ -88,7 +88,7 @@ Up to 5 questions × 3 rounds. Output saved to `.mumei/scratch/user-auth.md`. Us
 
 ### 3. Generate the spec
 
-```
+```text
 /mumei:plan user-auth
 ```
 
@@ -115,7 +115,7 @@ Implement the tasks in Wave 1. Mark `[x]` as you go. Hooks verify:
 
 When all tasks are `[x]`, `/mumei:plan` invokes the review pipeline:
 
-```
+```text
 Stage 1 (parallel):
   ├─ spec-compliance-reviewer  (Sonnet, memory: project)
   ├─ code-quality-reviewer     (Sonnet, memory: project)
@@ -134,7 +134,7 @@ Each reviewer is independent (fresh context). No reviewer sees its own prior run
 
 When the review verdict is `PASS`, the feature transitions to `phase: done`.
 
-```
+```text
 /mumei:archive user-auth
 ```
 
@@ -190,7 +190,7 @@ After install, run the one-time per-project setup:
 
 `/mumei:init` creates the directory skeleton only. Per-feature files appear later as you run `/mumei:brainstorm`, `/mumei:plan`, and `/mumei:archive`.
 
-```
+```text
 your-project/
 ├── CLAUDE.md         # mumei conventions appended (if you approved the diff)
 ├── .gitignore        # `.claude/agent-memory-local/` appended (per-issue-validator memory)
