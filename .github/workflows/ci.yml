@@ -108,36 +108,25 @@ jobs:
           [[ -f .claude-plugin/plugin.json ]] || { echo "FAIL: plugin.json missing"; exit 1; }
 
   # ─────────────────────────────────────────
-  # Tier 1 — extended lint suite (REQ-5 Wave 3).
-  # markdownlint / typos / lychee / shfmt / shellharden / actionlint / gitleaks
-  # を並列で 1 job に集約する。failure isolation のため lint job とは分離。
+  # CI-only checks (REQ-5 Wave 3): things developers should NOT have to run
+  # on every local commit because they hit the network or pull a release
+  # binary on demand. The format / lint / test suite that runs on every
+  # commit lives in `.pre-commit-config.yaml`; CONTRIBUTING.md instructs
+  # contributors to `pre-commit install` so commits are gated locally
+  # (the global no `--no-verify` rule prevents bypass). Duplicating those
+  # hooks in CI would be redundant; instead we cover the gaps here.
   # ─────────────────────────────────────────
   lint-extra:
     runs-on: ubuntu-latest
     # Minimum permissions per GitHub hardening guide
     # (https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication).
-    # GITHUB_TOKEN is auto-injected by Actions; the explicit block here scopes
-    # it down so a compromised step cannot mutate code or other resources.
     permissions:
       contents: read
-      pull-requests: write # gitleaks-action posts review comments on findings
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # gitleaks が full history を必要とする
-
-      # Run the local pre-commit hook suite in CI so lint behaviour stays
-      # identical between developer machines and CI (no drift).
-      # Reference: https://github.com/pre-commit/action
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - name: pre-commit (prettier / markdownlint / typos / shfmt / shellcheck / actionlint / gitleaks)
-        uses: pre-commit/action@v3.0.1
 
       # lychee is heavy and rate-limit-sensitive; keep it out of pre-commit
-      # (developer commits should not hammer external sites) but still gate
-      # CI on it. Stays as a dedicated step.
+      # (developer commits should not hammer external sites) but gate CI on it.
       - name: lychee (link check)
         uses: lycheeverse/lychee-action@v2
         with:
@@ -151,9 +140,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # shellharden has no first-party pre-commit hook; install the release
-      # binary and run it as a CI-only check. The pre-commit suite covers
-      # shellcheck (different but complementary tool — shellcheck flags bugs,
-      # shellharden enforces quoting).
+      # binary and run it as a CI-only check. shellcheck (which IS in
+      # pre-commit) catches bugs; shellharden enforces quoting — complementary.
       - name: shellharden (quoting hardening)
         run: |
           set -e
