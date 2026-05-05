@@ -39,7 +39,9 @@ flowchart LR
 - [tasks ドキュメントのフォーマット](#tasks-ドキュメントのフォーマット)
 - [Hook ルール一覧](#hook-ルール一覧)
 - [Security and Privacy](#security-and-privacy)
+- [Troubleshooting](#troubleshooting)
 - [`mumei` が **しない** こと](#mumei-が-しない-こと)
+- [Architecture](#architecture)
 - [License](#license)
 
 ## Features
@@ -307,6 +309,23 @@ mumei は **完全にローカルで動作します**。mumei 自身からの ou
 
 詳細: [PRIVACY.md](./PRIVACY.md)
 
+## Troubleshooting
+
+| 症状                                                                                       | 原因                                                                                                       | 解消法                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Hook が `src/...` の `Edit` を `"phase=plan"` で deny                                      | spec が未完成 (P1)                                                                                         | `/mumei:plan <feature>` を実行して requirements / design / tasks を仕上げ、phase が `implement` に進むまで進める                                                                     |
+| `design.md` の `Write` を `[NEEDS CLARIFICATION]` 残存で deny                              | `requirements.md` に未解決マーカーあり (P2)                                                                | 各 `[NEEDS CLARIFICATION: ...]` を解決 (`## Open Questions` への移動でも可) してから再実行                                                                                           |
+| Wave N+1 のファイル `Edit` を deny                                                         | Wave N が未 commit (W1)                                                                                    | Wave N を仕上げて commit (`git status` で残作業確認)                                                                                                                                 |
+| `git commit` が `"Wave has incomplete tasks"` で deny                                      | 現 Wave に `[ ]` タスクあり (W2)                                                                           | 該当タスクを実装してから `[x]` mark、もしくは作業中の変更を revert                                                                                                                   |
+| `git commit` が `"Tests failing"` で deny                                                  | auto-detect されたテストランナー (`npm test` / `pytest` / `cargo test` / `go test ./...`) が非 0 終了 (I3) | テストを直してから commit を retry                                                                                                                                                   |
+| `[x]` mark が `"Phantom completion"` で block                                              | タスクの `_Files:_` パスがこのセッションで変更されていない (I4)                                            | リストされたファイルを実装、または `[x]` を revert                                                                                                                                   |
+| `git push` が `"verdict: MAJOR_ISSUES"` で deny                                            | `.mumei/specs/<feature>/reviews/<ts>.json` の最新 verdict が `MAJOR_ISSUES` (R2)                           | `/mumei:plan` を再実行して finding を解消、再 review                                                                                                                                 |
+| Stop hook が `"All tasks complete but review pending"` で session 終了を block             | レビュー phase 5 がスキップされた (R1)                                                                     | `/mumei:plan` を実行 — orchestrator が `phase=review` を検出して Stage 0 から開始                                                                                                    |
+| Stop hook が `"Feature reached phase=done but is still active in .mumei/current"` で block | archive 未実行 (R3)                                                                                        | `/mumei:archive <feature>` を実行 (もしくは `.mumei/current` をクリアして dismiss)                                                                                                   |
+| `pre-review-detector.sh` が `"missing required detector binaries"` で exit 2               | `semgrep` / `osv-scanner` が `PATH` にない                                                                 | macOS: `brew install semgrep osv-scanner`、Linux: [semgrep docs](https://semgrep.dev/docs/getting-started) と [osv-scanner releases](https://github.com/google/osv-scanner/releases) |
+| `bats` が macOS で fail / Linux で pass                                                    | BSD と GNU の `awk` / `sed` 差異                                                                           | `match($0, /.../, arr)` (3 引数形式)、`gensub()`、`sed -i` の suffix なし版あたりが原因。`ARCHITECTURE.md` に書いた BSD 互換形式に置き換える                                         |
+| 一時的に Hook を bypass したい                                                             | escape hatch                                                                                               | `MUMEI_BYPASS=1 <command>` (その 1 回のコマンドだけ)。永続 export しない。詳細は [docs/document-corruption.md](./docs/document-corruption.md)                                        |
+
 ## `mumei` が **しない** こと
 
 - CI/CD ツールではありません。Hook は Claude Code 内でのみ動きます。
@@ -314,6 +333,10 @@ mumei は **完全にローカルで動作します**。mumei 自身からの ou
 - SDD アダプタではありません。mumei は独自の opinionated な spec フォーマットを持っています。既存の SDD ツールを使っている場合でも、mumei はそれと統合せず並走する形になります。
 - マルチツール対応ではありません。Cursor / Codex / Aider はサポート対象外です。物理強制レイヤーが Claude Code の Hook 固有の機構なので。
 - ストレージシステムではありません。状態はプレーンファイルで、DB も MCP server もありません。
+
+## Architecture
+
+ランタイム構造の詳細 (配布物レイアウト、14 個の Hook ルール、reviewer pipeline、phase 状態機械、ファイルベースの state model) は [ARCHITECTURE.md](./ARCHITECTURE.md) を参照してください。
 
 ## License
 

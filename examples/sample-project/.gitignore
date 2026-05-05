@@ -1,0 +1,10 @@
+# Override the parent gitignore for this examples directory: we WANT to
+# track the .mumei/ tree here so the artifacts are visible to readers
+# browsing examples/ without installing mumei.
+!.mumei/
+!.mumei/**
+
+# Keep mumei's own per-developer-state ignores at the example level too,
+# so readers see them as part of the genuine layout.
+.mumei/current
+.mumei/specs/*/state.json

@@ -39,7 +39,9 @@ flowchart LR
 - [Tasks document format](#tasks-document-format)
 - [Hook rules](#hook-rules-full-list)
 - [Security and Privacy](#security-and-privacy)
+- [Troubleshooting](#troubleshooting)
 - [What `mumei` is NOT](#what-mumei-is-not)
+- [Architecture](#architecture)
 - [License](#license)
 
 ## Features
@@ -309,6 +311,23 @@ mumei operates **entirely locally**. mumei itself makes no outbound requests; th
 
 Full policy: [PRIVACY.md](./PRIVACY.md)
 
+## Troubleshooting
+
+| Symptom                                                                                                | Cause                                                                                                         | Resolution                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hook denies `Edit` on `src/...` with `"phase=plan"` reason                                             | spec is incomplete (P1)                                                                                       | run `/mumei:plan <feature>` and walk through requirements / design / tasks until phase advances to `implement`                                                                            |
+| Hook denies `Write` on `design.md` mentioning `[NEEDS CLARIFICATION]`                                  | unresolved markers in `requirements.md` (P2)                                                                  | resolve every `[NEEDS CLARIFICATION: ...]` marker (move to `## Open Questions` if deferring), then retry                                                                                  |
+| Hook denies `Edit` on a file from Wave N+1                                                             | Wave N is uncommitted (W1)                                                                                    | finish + commit Wave N first (`git status` to see what's pending)                                                                                                                         |
+| Hook denies `git commit` with `"Wave has incomplete tasks"`                                            | `[ ]` tasks remain in current Wave (W2)                                                                       | mark incomplete tasks `[x]` (only after their `_Files:_` actually changed), or revert the work-in-progress                                                                                |
+| Hook denies `git commit` with `"Tests failing"`                                                        | the auto-detected test runner (`npm test` / `pytest` / `cargo test` / `go test ./...`) returned non-zero (I3) | fix the failing tests; `git commit` will retry until they pass                                                                                                                            |
+| `[x]` mark blocked with `"Phantom completion"`                                                         | `_Files:_` paths for that task were not actually modified in this session (I4)                                | implement the listed files first, or revert the `[x]` mark                                                                                                                                |
+| Hook denies `git push` with `"verdict: MAJOR_ISSUES"`                                                  | latest review record at `.mumei/specs/<feature>/reviews/<ts>.json` is `MAJOR_ISSUES` (R2)                     | re-run `/mumei:plan` to address findings, or re-review after fixing                                                                                                                       |
+| Stop hook blocks session end with `"All tasks complete but review pending"`                            | review phase 5 was skipped (R1)                                                                               | run `/mumei:plan` — orchestrator detects `phase=review` and starts Stage 0                                                                                                                |
+| Stop hook blocks session end with `"Feature reached phase=done but is still active in .mumei/current"` | archive not yet run (R3)                                                                                      | `/mumei:archive <feature>` (or clear `.mumei/current` to dismiss)                                                                                                                         |
+| `pre-review-detector.sh` exits 2 with "missing required detector binaries"                             | `semgrep` or `osv-scanner` not on `PATH`                                                                      | macOS: `brew install semgrep osv-scanner`; Linux: see [semgrep docs](https://semgrep.dev/docs/getting-started) and [osv-scanner releases](https://github.com/google/osv-scanner/releases) |
+| `bats` test fails on macOS but passes on Linux                                                         | BSD vs GNU `awk` / `sed` divergence                                                                           | most likely a `match($0, /.../, arr)` (3-arg) form, `gensub()`, or `sed -i` without an explicit `''` suffix — replace with the BSD-compatible form documented in `ARCHITECTURE.md`        |
+| Need to bypass a Hook for a one-off                                                                    | escape hatch                                                                                                  | `MUMEI_BYPASS=1 <command>` for that single shell invocation. Do not export persistently. Documented in [docs/document-corruption.md](./docs/document-corruption.md)                       |
+
 ## What `mumei` is NOT
 
 - Not a CI/CD tool. Hooks run inside Claude Code only.
@@ -316,6 +335,12 @@ Full policy: [PRIVACY.md](./PRIVACY.md)
 - Not a SDD adapter. mumei has its own opinionated spec format. If you already use another SDD tool, mumei does not integrate with it — they live in parallel.
 - Not multi-tool. Cursor / Codex / Aider are not supported. The physical enforcement layer is Claude Code Hooks.
 - Not a storage system. State is plain files. No DB, no MCP server.
+
+## Architecture
+
+For a deeper look at the runtime structure (distribution layout, the 14 hook
+rules, the reviewer pipeline, the phase state machine, and the file-based
+state model), see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## License
 

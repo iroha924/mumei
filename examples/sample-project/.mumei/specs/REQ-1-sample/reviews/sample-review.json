@@ -1,0 +1,27 @@
+{
+  "feature": "REQ-1-sample",
+  "wave": "all",
+  "verdict": "PASS",
+  "detector_report": ".mumei/specs/REQ-1-sample/reviews/2026-04-15T11-25-00Z-detectors.json",
+  "reviewers": {
+    "spec-compliance": {
+      "verdict": "PASS",
+      "summary": "All ACs traced to tasks; no scope creep detected."
+    },
+    "code-quality": {
+      "verdict": "PASS",
+      "summary": "Sample feature has no source code by design (REQ-1.3 [ASSUMPTION])."
+    },
+    "security": {
+      "verdict": "PASS",
+      "summary": "No new attack surface introduced; documentation-only feature."
+    },
+    "adversarial": {
+      "verdict": "PASS",
+      "summary": "No production scenario applies — sample artifacts are static documentation."
+    }
+  },
+  "findings_surfaced": [],
+  "findings_filtered": [],
+  "summary": "Sample feature passes all four reviewers and per-issue validation. Phase advanced to done."
+}
