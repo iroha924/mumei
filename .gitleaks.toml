@@ -1,0 +1,23 @@
+# gitleaks allowlist for mumei.
+# Reference: https://github.com/gitleaks/gitleaks#configuration
+#
+# Scopes gitleaks scans on full git history (`fetch-depth: 0` in CI) so
+# historical false-positives do not become permanent merge blocks under
+# `enforce_admins=true` + `allow_force_pushes=false` branch protection.
+#
+# Append to `commits` if a specific historical commit needs to be allowlisted
+# after triage. Append to `paths` if a directory is reasonably expected to
+# contain example tokens, fixtures, or non-secret high-entropy strings.
+
+title = "mumei gitleaks config"
+
+[allowlist]
+description = "mumei: known false-positive paths and history-bearing files"
+paths = [
+  '''examples/.*''',
+  '''tests/.*''',
+  '''\.mumei/.*''',
+  '''\.mumei/specs/.*/reviews/.*\.json''',
+]
+commits = []
+regexes = []

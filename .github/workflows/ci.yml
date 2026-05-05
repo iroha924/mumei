@@ -152,12 +152,20 @@ jobs:
           mkdir -p /tmp/shfmt
           curl -sLo /tmp/shfmt/shfmt \
             "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64"
+          # Pin the binary by SHA256 to detect release-asset tampering or
+          # accidental rate-limit HTML responses being mistaken for a binary.
+          echo "fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1  /tmp/shfmt/shfmt" \
+            | sha256sum -c -
           chmod +x /tmp/shfmt/shfmt
           /tmp/shfmt/shfmt -d -i 2 hooks/_lib/*.sh hooks/*.sh scripts/*.sh
 
       - name: actionlint
+        # Pin the installer script to the same tag the pre-commit config uses
+        # (v1.7.7) so an upstream rewrite of `main`/scripts/download-actionlint.bash
+        # cannot silently change CI lint behaviour.  Mismatch with pre-commit
+        # rev would make local-vs-CI drift visible in PR; keep them aligned.
         id: get_actionlint
-        run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+        run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash)
         shell: bash
       - name: actionlint check
         run: ${{ steps.get_actionlint.outputs.executable }} -color
@@ -190,14 +198,26 @@ jobs:
         run: |
           set +e
           docker run --rm -v "${PWD}:/src" -w /src semgrep/semgrep \
-            semgrep scan --config=auto --error --quiet
+            semgrep scan --config=auto --error --quiet 2>/tmp/semgrep.err
           rc=$?
+          # Distinguish exit codes so a real semgrep crash is not silently
+          # filed under "rate limit". Reference: semgrep CLI exit codes.
           if (( rc == 0 )); then
             echo "semgrep: clean run, no findings"
           elif (( rc == 1 )); then
             echo "::warning::semgrep self-scan reported findings (advisory; review manually)"
+          elif (( rc == 2 )); then
+            echo "::warning::semgrep CLI / parse error (rc=2 — invalid config or argument; check stderr below)"
+            tail -n 20 /tmp/semgrep.err >&2 || true
+          elif (( rc == 125 )); then
+            echo "::warning::docker container error (rc=125 — image pull rate limit, registry outage, or image moved; NOT a semgrep finding)"
+          elif (( rc >= 128 )); then
+            sig=$((rc - 128))
+            echo "::warning::semgrep killed by signal (rc=$rc, signal=$sig — OOM, segfault, or external kill; check job log + stderr)"
+            tail -n 20 /tmp/semgrep.err >&2 || true
           else
-            echo "::warning::semgrep step infra failure (rc=$rc — likely docker pull rate limit, image moved, or registry outage; not a code finding)"
+            echo "::warning::semgrep step failed with unexpected rc=$rc — check job log + stderr"
+            tail -n 20 /tmp/semgrep.err >&2 || true
           fi
           exit 0
 
@@ -210,6 +230,10 @@ jobs:
           mkdir -p /tmp/shellharden
           curl -sLo /tmp/shellharden/sh.tar.gz \
             "https://github.com/anordal/shellharden/releases/download/v4.3.1/shellharden-x86_64-unknown-linux-gnu.tar.gz"
+          # Pin the tarball by SHA256 (defense against asset overwrite + helps
+          # distinguish a yanked release from a successful download).
+          echo "214ea28c25f6dbc6ac8928757397bf9c64e29af0df3751495beb034e7b5f68db  /tmp/shellharden/sh.tar.gz" \
+            | sha256sum -c -
           tar -xzf /tmp/shellharden/sh.tar.gz -C /tmp/shellharden
           chmod +x /tmp/shellharden/shellharden
           # NOTE: hooks/_lib/detectors.sh is excluded — shellharden v4.3.1 parser

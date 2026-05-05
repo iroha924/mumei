@@ -7,8 +7,11 @@ sufficient for plugin install and daily workflow.
 ## Distribution layout
 
 The repository ships only the directories below as the plugin payload. Other
-top-level files (`CLAUDE.md`, `docs/`, `.claude/`) are gitignored development
-artifacts and never reach the plugin user.
+top-level files (`CLAUDE.md`, `.claude/`, and most of `docs/`) are gitignored
+development artifacts and never reach the plugin user. The single tracked
+exception under `docs/` is `docs/document-corruption.md` (English, linked from
+README's Philosophy section); see the table below for the full distribution
+matrix.
 
 ```text
 mumei/
