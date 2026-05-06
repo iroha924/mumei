@@ -190,6 +190,15 @@ jobs:
           # Keep aligned with .pre-commit-config.yaml gitleaks rev.
           GITLEAKS_VERSION: "8.30.1"
 
+      # trufflehog complements gitleaks: gitleaks rules-based, trufflehog
+      # entropy-based + verified-only mode catches secrets the rules miss.
+      # Both run on every PR and push to main per REQ-8.5.3.
+      - name: trufflehog (secret scan)
+        uses: trufflesecurity/trufflehog@bc2cd3e45e3aa4a6c627bd0c424580f86dde1855 # v3.90.10
+        with:
+          path: ./
+          extra_args: --results=verified
+
       # lychee is heavy and rate-limit-sensitive; keep it out of pre-commit
       # (developer commits should not hammer external sites) but gate CI on it.
       # All knobs (max_retries, timeout, accept-list, exclude_path) live in

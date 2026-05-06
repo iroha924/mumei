@@ -52,9 +52,26 @@ jobs:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
       - name: trufflehog
+        uses: trufflesecurity/trufflehog@bc2cd3e45e3aa4a6c627bd0c424580f86dde1855 # v3.90.10
+        with:
+          path: ./
+          extra_args: --results=verified
+
+      - name: Verify CodeQL + Scorecards latest runs passed
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
-          trufflehog filesystem --no-update --fail --results=verified .
+          set -u
+          for wf in codeql.yml scorecards.yml; do
+            latest="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${wf}/runs" \
+              --jq '.workflow_runs[0] | {status, conclusion}' 2>/dev/null)"
+            status="$(printf '%s' "$latest" | jq -r '.status // empty')"
+            concl="$(printf '%s' "$latest" | jq -r '.conclusion // empty')"
+            if [ "$status" != "completed" ] || [ "$concl" != "success" ]; then
+              echo "::error::${wf} latest run is not green (status=${status} conclusion=${concl}); release blocked until it passes"
+              exit 1
+            fi
+          done
 
   validate-manifest:
     name: validate plugin.json
@@ -259,8 +276,17 @@ jobs:
           TARBALL: ${{ needs.build.outputs.tarball }}
         run: |
           set -eu
-          gh release view "${TAG}" >/dev/null 2>&1 \
-            || gh release create "${TAG}" --title "${TAG}" --notes-file release-notes.md
+          # Always sync release notes with current artifacts. On retag,
+          # `gh release view` succeeds, so we MUST `gh release edit` —
+          # otherwise the notes carry the previous run's SHA256 while
+          # `--clobber` writes a new tarball with a different hash, and
+          # users following the verification commands see FAILED hashes
+          # indistinguishable from a tampering signal.
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" --notes-file release-notes.md
+          else
+            gh release create "${TAG}" --title "${TAG}" --notes-file release-notes.md
+          fi
           # SLSA generator emits provenance files matching `*.intoto.jsonl`.
           # `./*.intoto.jsonl` form prevents shell from interpreting the
           # match as a flag if no file is found.

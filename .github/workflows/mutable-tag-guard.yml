@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  guard:
+  mutable-tag-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -45,17 +45,40 @@ jobs:
             exit 0
           fi
 
-          # A `uses:` line is mutable if it ends in `@vN` (single major
-          # tag), `@main`, `@master`, or `@<bareword>` (branch name).
-          # Lines pinned to a 40-char SHA with optional comment are OK.
-          # Local action references (`./.github/...` or `./...`) are
-          # exempt by virtue of starting with `./`.
-          mutable_pattern='uses:[[:space:]]+[^/[:space:]]+/[^@[:space:]]+@(v[0-9]+|main|master|[a-zA-Z][a-zA-Z0-9_-]*)[[:space:]]*$'
+          # Positive match: a non-local `uses:` line is acceptable iff it
+          # is pinned to a 40-char lowercase hex SHA, optionally followed
+          # by a `# <tag>` comment. Anything else (semver tag, major-only
+          # tag, branch name, partial SHA) is mutable and rejected.
+          # `uses: ./...` references local actions and is exempt.
+          # SLSA reusable workflow form `<repo>/.github/workflows/foo.yml@<sha>`
+          # is also accepted (path between repo and `@`).
+          uses_line='^[[:space:]]*-?[[:space:]]*uses:[[:space:]]+'
+          local_action="${uses_line}\\."  # uses: ./...
+          valid_sha="${uses_line}[^/[:space:]]+/[^@[:space:]]+@[a-f0-9]{40}([[:space:]]+#.*)?[[:space:]]*$"
 
-          violations="$(grep -nE "$mutable_pattern" "${files[@]}" || true)"
+          violations=""
+          for f in "${files[@]}"; do
+            # Every uses: line that is not local AND not SHA-pinned is a violation.
+            while IFS= read -r line_with_no; do
+              [ -n "$line_with_no" ] || continue
+              # split off line number prefix from grep -n
+              n="${line_with_no%%:*}"
+              line="${line_with_no#*:}"
+              # exempt local action refs
+              if printf '%s\n' "$line" | grep -qE "$local_action"; then
+                continue
+              fi
+              # accept SHA-pinned
+              if printf '%s\n' "$line" | grep -qE "$valid_sha"; then
+                continue
+              fi
+              violations+="${f}:${n}:${line}"$'\n'
+            done < <(grep -nE "$uses_line" "$f" || true)
+          done
+
           if [ -n "$violations" ]; then
-            echo "::error::Mutable uses: references detected. Pin to a 40-char commit SHA."
-            echo "$violations"
+            echo "::error::Mutable uses: references detected. Pin to a 40-char commit SHA with a trailing # version comment."
+            printf '%s' "$violations"
             exit 1
           fi
 
