@@ -14,10 +14,11 @@ on:
 permissions:
   # id-token: write — required by sigstore for OIDC-based signing.
   # attestations: write — required to upload the attestation to GitHub.
-  # contents: read — read repo for git-archive.
+  # contents: write — required for `gh release upload` (the read-only scope
+  #   was insufficient and produced HTTP 403 on tarball upload in v0.2.1).
   id-token: write
   attestations: write
-  contents: read
+  contents: write
 
 jobs:
   attest:
