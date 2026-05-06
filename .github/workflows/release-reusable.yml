@@ -56,7 +56,7 @@ jobs:
         with:
           path: ./
           # Pin docker image tag (action invokes ghcr.io/.../trufflehog:${VERSION}).
-          version: "v3.90.10"
+          version: "3.90.10"
           extra_args: --results=verified
 
       - name: Verify CodeQL + Scorecards passed for the tagged commit

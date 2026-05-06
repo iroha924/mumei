@@ -147,7 +147,30 @@ EOF
 
 # ─── Violation: missing _Files:_ path ────────────────────────
 
-@test "flags _Files:_ path that does not exist" {
+@test "flags _Files:_ path that does not exist on a [x]-marked task" {
+  # Existence is enforced only for completed tasks: a [ ] task may
+  # legitimately reference paths it will create. The lint smartens
+  # itself to that distinction (see scripts/lint-tasks.sh task_status
+  # gating) so this test uses [x] to trigger the violation path.
+  _init_feature
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+# foo plan
+## Wave 1: alpha
+- [x] 1.1 first
+  - _Files: src/missing.ts_
+  - _Depends: -_
+  - _Requirements: REQ-1.1_
+EOF
+  _run_lint_for_default_feature
+  [ "$status" -eq 0 ]
+  ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"src/missing.ts"* ]]
+  [[ "$ctx" == *"does not exist"* ]]
+}
+
+@test "tolerates _Files:_ path that does not exist on a [ ] task" {
+  # Inverse of the above: a [ ] task is by definition not yet
+  # implemented, so the file may not exist. Lint must not flag it.
   _init_feature
   cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
 # foo plan
@@ -159,9 +182,11 @@ EOF
 EOF
   _run_lint_for_default_feature
   [ "$status" -eq 0 ]
-  ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"src/missing.ts"* ]]
-  [[ "$ctx" == *"does not exist"* ]]
+  # Either no output (no violations) or output that does NOT mention this file.
+  if [ -n "$output" ]; then
+    ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext // empty')"
+    [[ "$ctx" != *"src/missing.ts"* ]] || [[ "$ctx" != *"does not exist"* ]]
+  fi
 }
 
 # ─── Tolerated: missing _Files:_ path that is gitignored ─────
