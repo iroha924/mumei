@@ -79,6 +79,35 @@ jobs:
           jq empty hooks/hooks.json
 
       # ─────────────────────────────────────────
+      # plan-vehicle hook registration (REQ-9.9 / 9.12 / 9.13)
+      # 新 vehicle が成立する条件: ExitPlanMode capture と Task counter Hook
+      # の 3 event がすべて hooks.json に登録されていること。
+      # 削除されたら plan vehicle が黙って壊れるのでこの step で検出する。
+      # ─────────────────────────────────────────
+      - name: plan-vehicle hooks.json registration check
+        run: |
+          set -euo pipefail
+          missing=()
+          jq -e '.hooks.PreToolUse[]?.matcher | select(. == "ExitPlanMode")' hooks/hooks.json >/dev/null \
+            || missing+=("PreToolUse:ExitPlanMode")
+          jq -e '.hooks.TaskCreated[]?' hooks/hooks.json >/dev/null \
+            || missing+=("TaskCreated")
+          jq -e '.hooks.TaskCompleted[]?' hooks/hooks.json >/dev/null \
+            || missing+=("TaskCompleted")
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::hooks.json missing plan-vehicle events: ${missing[*]}" >&2
+            exit 1
+          fi
+          # And the underlying scripts must exist + be executable.
+          for f in hooks/pre-exitplan-guard.sh hooks/post-task-event.sh; do
+            [[ -x "$f" ]] || { echo "::error::missing or non-executable: $f" >&2; exit 1; }
+          done
+          # /mumei:review skill must exist with proper frontmatter.
+          [[ -f skills/review/SKILL.md ]] || { echo "::error::skills/review/SKILL.md missing" >&2; exit 1; }
+          [[ "$(head -1 skills/review/SKILL.md)" == "---" ]] || { echo "::error::skills/review/SKILL.md missing frontmatter" >&2; exit 1; }
+          echo "plan-vehicle artifacts registered + executable + present"
+
+      # ─────────────────────────────────────────
       # 配布物 frontmatter check
       # ─────────────────────────────────────────
       - name: agent frontmatter check

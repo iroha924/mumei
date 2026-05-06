@@ -17,16 +17,27 @@ Hook-enforced spec phases, Wave commits, and reviews — at the OS boundary, not
 ```mermaid
 flowchart LR
   B["/mumei:brainstorm<br/>(optional)"] --> P
-  P["/mumei:plan<br/>requirements / design / tasks<br/>each auto-iter ≤ 3 ×<br/>3 spec reviewers"] --> A{"single user<br/>approval gate"}
+  P["/mumei:plan<br/>vehicle picker<br/>spec / plan"] --> V{"vehicle?"}
+
+  V -->|spec| S["requirements / design / tasks<br/>each auto-iter ≤ 3 ×<br/>3 spec reviewers"]
+  S --> A{"single user<br/>approval gate"}
   A -->|approve| I["implement<br/>Wave 1 → N<br/>Hook-gated commits<br/>(W1 / W2 / I3 / I4)"]
   I --> R["review (Phase 5)<br/>Stage 0: detectors<br/>Stage 1: 2 reviewers ‖<br/>Stage 2: adversarial<br/>Stage 4: per-issue validator ‖"]
   R -->|verdict PASS| D["phase=done<br/>/mumei:archive"]
   R -->|MAJOR_ISSUES| I
 
+  V -->|plan| PM["plan mode<br/>(Shift+Tab × 2)<br/>ExitPlanMode capture"]
+  PM --> TL["TaskCreate / TaskUpdate<br/>L-T1 / L-T2 counters<br/>pending_review on full"]
+  TL --> RV["/mumei:review<br/>Stage 0 + security ‖ adversarial<br/>+ per-issue validator"]
+  RV -->|verdict PASS| D
+  RV -->|MAJOR_ISSUES| TL
+
   classDef gate fill:#fff3cd,stroke:#856404
   classDef done fill:#d4edda,stroke:#155724
+  classDef pick fill:#e7e0ff,stroke:#4b3f8a
   class A gate
   class D done
+  class V pick
 ```
 
 ## Contents
@@ -65,12 +76,35 @@ AI coding agents skip steps. They mark tasks complete without writing tests. The
 
 ## Commands
 
-| Command                       | Description                                                                                                                                                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/mumei:init`                 | One-time per-project setup. Creates `.mumei/`, proposes additions to `CLAUDE.md` with diff preview.                                                                                                          |
-| `/mumei:brainstorm <feature>` | Optional pre-spec Q&A loop (max 3 rounds × 5 questions). Output saved to `.mumei/scratch/<feature>.md`.                                                                                                      |
-| `/mumei:plan <feature>`       | Drives the full lifecycle: clarification → requirements → design → tasks (each auto-reviewed up to 3 times) → single user approval → Wave-by-Wave implementation → 4-stage review with per-issue validation. |
-| `/mumei:archive <feature>`    | Moves a `done` feature to `.mumei/archive/<YYYY-MM>/<feature>/`. Carries `scratch/<feature>.md` along as `scratch.md`.                                                                                       |
+| Command                       | Description                                                                                                                                                                                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/mumei:init`                 | One-time per-project setup. Creates `.mumei/`, proposes additions to `CLAUDE.md` with diff preview.                                                                                                                                                                     |
+| `/mumei:brainstorm <feature>` | Optional pre-spec Q&A loop (max 3 rounds × 5 questions). Output saved to `.mumei/scratch/<feature>.md`.                                                                                                                                                                 |
+| `/mumei:plan [feature]`       | Vehicle picker for new features (`spec` for full SDD or `plan` for Claude plan-mode wrapper); auto-resumes existing features. Spec vehicle: clarification → requirements → design → tasks (each auto-reviewed up to 3 times) → single approval → Wave-by-Wave → review. |
+| `/mumei:review`               | Plan-vehicle review pipeline. Runs Stage 0 detector + security-reviewer + adversarial-reviewer + per-issue validator against the current diff once `pending_review=true` (set when the last `TaskCompleted` matches `task_created_count`).                              |
+| `/mumei:archive <feature>`    | Moves a `done` feature to `.mumei/archive/<YYYY-MM>/<feature>/`. Auto-detects vehicle (specs/ or plans/) and carries `scratch/<feature>.md` along as `scratch.md`.                                                                                                      |
+
+## Two vehicles: `spec` and `plan`
+
+mumei is a **Quality Enforcement Layer** — its primary job is the Hook-driven physical enforcement of phase transitions, commit / push gates, and review completion. The way you _drive_ a feature toward those gates is called a **vehicle**, and mumei ships two:
+
+- **`spec`** — the full SDD workflow described above. Drafts `requirements.md` / `design.md` / `tasks.md`, runs three independent spec reviewers, opens a single user approval gate, and then implements Wave by Wave with per-Wave commits and a final 4-stage review. Use when a feature is large enough to benefit from explicit user stories, EARS acceptance criteria, and an architecture diagram.
+- **`plan`** — a thin wrapper around Claude Code's native plan mode + `TaskCreate`. After `/mumei:plan` selects this vehicle, you press `Shift+Tab` twice to enter plan mode, accept the plan, and let Claude execute the resulting task list. mumei captures the plan into `.mumei/plans/<slug>/plan.md`, tracks task completion via `TaskCreated` / `TaskCompleted` hooks, and once every task is complete (`pending_review=true`) gates session-end and `git push` until you run `/mumei:review`.
+
+Both vehicles share the same review pipeline (Stage 0 detector + security + adversarial + per-issue validator), the same `MUMEI_BYPASS=1` escape hatch, and the same `/mumei:archive` cleanup. The difference is only how the work _enters_ the pipeline:
+
+| Aspect             | `spec`                                               | `plan`                                                             |
+| ------------------ | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Drafted artifacts  | requirements.md / design.md / tasks.md               | plan.md (captured from `ExitPlanMode`)                             |
+| User approvals     | one (after the three spec reviewers PASS)            | none (handoff to plan mode is the contract)                        |
+| Implementation     | Wave-by-Wave with `_Files:_` scope + commit per Wave | freeform task list executed in plan mode                           |
+| Session-end gate   | Stop hook (R1) — all tasks `[x]` + passing review    | Stop hook (L-R1) — `pending_review=true` + passing review          |
+| `git push` gate    | PreBash (R2) — review verdict ≠ MAJOR_ISSUES         | PreBash (L-R2) — same, but reads `.mumei/plans/<slug>/reviews/`    |
+| Review entry       | `/mumei:plan` Phase 5                                | `/mumei:review`                                                    |
+| Best for           | new features with significant scope                  | bug fixes, small features, projects already using another SDD tool |
+| Reviewers launched | spec-compliance + security + adversarial + validator | security + adversarial + validator (no spec-compliance)            |
+
+Pick `plan` when the SDD workflow feels heavier than the work itself; pick `spec` when explicit traceability between requirements and code is worth the friction.
 
 ## Philosophy: why "mumei" (無名)
 
