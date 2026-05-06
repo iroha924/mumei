@@ -89,23 +89,65 @@ verification steps.
 
 ## MFA policy
 
-To be filled in.
+The maintainer follows standard MFA practice on the GitHub account
+that owns this repository: a hardware-backed second factor is enrolled
+and the recovery codes are stored offline. Any future co-maintainers
+will be required to enable MFA before being granted write access; this
+is the GitHub-org default once the repo is added to an organization.
+
+The specific second-factor device is not documented here on purpose —
+publishing it narrows the threat model in the attacker's favor without
+adding any verification surface for users.
 
 ## PAT policy
 
-To be filled in.
+Personal Access Tokens used for repo automation are **fine-grained**
+(not classic), scoped to the single repository
+(`hir4ta/mumei`) and limited to the minimum required permissions per
+workflow. PAT expiry is capped at **90 days**; tokens are rotated on
+or before expiry. No PAT is ever committed, exported, or stored in a
+location that is not encrypted at rest.
+
+When a workflow can use the built-in `GITHUB_TOKEN` (with explicit
+job-level `permissions:`) instead of a PAT, it must do so. PATs are
+reserved for cross-repo or cross-workspace operations the
+`GITHUB_TOKEN` cannot perform.
 
 ## API key spend limit
 
-To be filled in.
+The `ANTHROPIC_API_KEY` configured as a repository secret is bound to
+an Anthropic workspace that has a per-workspace **spend limit**
+configured. The specific dollar amount is intentionally omitted from
+this document so the limit can be tuned without a docs change. The
+existence of the cap means a runaway loop in any workflow stops at
+the workspace ceiling rather than at the account ceiling, which is a
+materially smaller blast radius.
 
 ## Secret redaction
 
-To be filled in.
+GitHub Actions' built-in **secret redaction** is enabled and is never
+disabled in any workflow. No workflow uses `ACTIONS_STEP_DEBUG=true`
+in a context that would expose secrets, and no `echo`/`printf` of a
+secret value is executed even for diagnostic reasons. Any future
+workflow that needs to consume a secret must do so through environment
+variables on the step that needs them — not via shell substitution
+into a command line, which can leak the value into logs that escape
+redaction.
 
 ## SLSA positioning
 
-To be filled in.
+mumei targets **SLSA Level 3 (official) + Level 4-equivalent
+practices**. Level 3 (formally claimed): hosted, hermetic build via
+the `slsa-framework/slsa-github-generator` reusable workflow attaches
+a verifiable provenance attestation to every release artifact. Level
+4-equivalent practices (claimed informally, since SLSA L4 requires
+two-party review which is structurally incompatible with the
+single-maintainer reality of this project): release pipeline
+isolation in a separate reusable workflow, mandatory pre-flight SAST
+scans (semgrep, gitleaks, trufflehog) before signing, SBOM generation
+(CycloneDX), keyless Sigstore signing, and reproducible artifact
+hashes attached to the GitHub Release. See `docs/security-policy.md`
+for the user-facing verification commands.
 
 ## License
 

@@ -1,0 +1,65 @@
+name: pull-request-target-guard
+
+# Reject any PR that introduces a new workflow using `pull_request_target`.
+# `pull_request_target` runs in the context of the base repository with
+# write access to repository secrets, which is the canonical attack
+# surface for fork-PR-driven secret exfiltration. This guard ensures
+# the trigger never silently lands; if a future workflow legitimately
+# requires it, the maintainer must explicitly add the file's basename
+# to the ALLOWLIST below in the same PR.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Reject new pull_request_target usage
+        run: |
+          set -u
+
+          # Files that are explicitly allowed to use pull_request_target.
+          # Empty by default: mumei has no legitimate use case for the
+          # trigger today. Any future addition requires an entry here
+          # in the same PR that introduces the trigger, so the deletion
+          # of an existing entry is also caught by review.
+          ALLOWLIST=""
+
+          # Self-exclusion: this guard's own grep matches the literal
+          # `pull_request_target` token below, so skip its own file.
+          shopt -s nullglob
+          mapfile -t files < <(
+            find .github/workflows -maxdepth 1 -type f \
+              \( -name '*.yml' -o -name '*.yaml' \) \
+              ! -name 'pull-request-target-guard.yml' \
+              | sort
+          )
+
+          violations=""
+          for f in "${files[@]}"; do
+            base="$(basename "$f")"
+            if grep -qE '^[[:space:]]*-?[[:space:]]*pull_request_target' "$f"; then
+              # Only flag if not in allowlist.
+              if ! printf '%s\n' "$ALLOWLIST" | grep -qFx "$base"; then
+                violations+="$f"$'\n'
+              fi
+            fi
+          done
+
+          if [ -n "$violations" ]; then
+            echo "::error::pull_request_target detected in workflow(s) not on the allowlist:"
+            printf '%s' "$violations"
+            echo ""
+            echo "Either remove the trigger or add the basename to the ALLOWLIST in pull-request-target-guard.yml within this same PR."
+            exit 1
+          fi
+
+          echo "no unauthorized pull_request_target usage"

@@ -1,0 +1,67 @@
+name: signed-commit-verify
+
+# Verify every commit on PRs targeting `main` carries a verified GPG
+# or SSH signature. GitHub already exposes a verified-signatures branch
+# protection setting, but it gates merge, not PR review. Running the
+# check on PR open/sync surfaces unsigned commits to the contributor
+# (and the maintainer) before merge time, so the contributor can
+# amend/sign locally rather than discovering the gate at merge.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify signatures on every PR commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO_FULL: ${{ github.repository }}
+        run: |
+          set -u
+
+          # Enumerate every commit that the PR introduces (base..head,
+          # exclusive on base). For each, ask the GitHub API whether the
+          # signature verified. `verification.verified == true` covers
+          # both GPG and SSH signing equivalently.
+          mapfile -t shas < <(git rev-list --no-merges "${PR_BASE_SHA}..${PR_HEAD_SHA}")
+
+          if [ "${#shas[@]}" -eq 0 ]; then
+            echo "no commits to verify (PR base == head)"
+            exit 0
+          fi
+
+          unsigned=""
+          for sha in "${shas[@]}"; do
+            verified="$(
+              gh api "repos/${REPO_FULL}/commits/${sha}" \
+                --jq '.commit.verification.verified' 2>/dev/null \
+                || echo "false"
+            )"
+            if [ "$verified" != "true" ]; then
+              author="$(git log -1 --format='%an <%ae>' "$sha")"
+              unsigned+="${sha}  ${author}"$'\n'
+            fi
+          done
+
+          if [ -n "$unsigned" ]; then
+            echo "::error::Unverified commits detected on this PR:"
+            printf '%s' "$unsigned"
+            echo ""
+            echo "Sign every commit (e.g. 'git commit -S' or 'git rebase -S') and force-push the branch."
+            exit 1
+          fi
+
+          echo "all ${#shas[@]} commit(s) carry a verified signature"

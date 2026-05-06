@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# Default least-privilege: every job below performs only read-only
+# inspection (shellcheck / bash -n / lint / typos / link check / SAST
+# detector self-test). Per-job overrides are added inline if a job
+# needs to write (none currently).
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
