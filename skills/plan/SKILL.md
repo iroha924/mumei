@@ -189,7 +189,20 @@ echo "$reviewer_output" > ".mumei/specs/${feature}/spec-reviews/${ts}-requiremen
 Branch on `verdict`:
 
 - **`PASS`** → proceed to Phase 2.
-- **`NEEDS_IMPROVEMENT`** or **`MAJOR_ISSUES`** → apply each finding's `suggested_fix` to `requirements.md` (edit the spec — DO NOT ask the user). Then re-launch the reviewer. Up to **3 iterations total**.
+- **REQ-7.6 — LOW-only PASS short-circuit (iter >= 2)**: when `verdict == "NEEDS_IMPROVEMENT"` AND `current_iter >= 2` AND all surfaced findings have `severity == "LOW"`, treat as `PASS`, do NOT launch iter 3, and proceed to Phase 2.
+
+  ```bash
+  verdict="$(jq -r '.verdict' <<<"$reviewer_output")"
+  if [[ "$verdict" == "NEEDS_IMPROVEMENT" && "$current_iter" -ge 2 ]]; then
+    high_med="$(jq -r '[.findings[] | select(.severity != "LOW")] | length' <<<"$reviewer_output")"
+    if [[ "$high_med" == "0" ]]; then
+      echo "iter ${current_iter} で LOW finding のみ → PASS short-circuit (REQ-7.6)"
+      verdict="PASS"
+    fi
+  fi
+  ```
+
+- **`NEEDS_IMPROVEMENT`** or **`MAJOR_ISSUES`** (after the LOW-only check above) → apply each finding's `suggested_fix` to `requirements.md` (edit the spec — DO NOT ask the user). Then re-launch the reviewer. Up to **3 iterations total**.
 - After 3 iterations still not `PASS`: **escalate to user**. Show the remaining findings, and ask one of:
   - "Apply these specific fixes I propose: ..." (Claude proposes concrete edits, user accepts/edits/rejects).
   - "Override and proceed" (requires `MUMEI_BYPASS=1` per the don'ts below, or explicit user "proceed anyway" decision).
@@ -368,19 +381,79 @@ fi
 When `phase=review`, run the 7-stage pipeline. Stage 0 produces deterministic
 detector findings that the LLM reviewers treat as ground truth.
 
-### Stage 0 — Detector run (mandatory)
+### Iteration entry — REQ-7.7 iter-1-all-PASS short-circuit
+
+Before entering Stage 0 for iter N (N >= 2), check the previous iter's
+review JSON. If iter 1 returned overall verdict=PASS with zero
+HIGH/CRITICAL findings, skip iter 2+ entirely and write a final
+`done`-equivalent review JSON. This eliminates a round of detector +
+adversarial launch when iter 1 already reached a clean state.
+
+```bash
+prev_review="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
+  ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
+if [[ -n "$prev_review" ]]; then
+  prev_verdict="$(jq -r '.verdict' "$prev_review")"
+  prev_high="$(jq -r '[.findings_surfaced[] | select(.severity=="HIGH" or .severity=="CRITICAL")] | length' "$prev_review")"
+  if [[ "$prev_verdict" == "PASS" && "$prev_high" == "0" ]]; then
+    echo "Iter 1 was clean (verdict=PASS, no HIGH). Skipping iter ${current_iter}+ (REQ-7.7)."
+    mumei_state_set "$feature" '.phase' '"done"'
+    # No new review JSON written — the previous PASS JSON is the final record.
+    exit 0
+  fi
+fi
+# Otherwise, fall through to Stage 0 of iter N.
+```
+
+Note: this check runs only at iter 2+ entry, not at iter 1. Iter 1
+always proceeds through the full Stage 0 → Stage 6 sequence.
+
+### Stage 0 — Detector run (iter 1 mandatory, iter 2+ ext-diff conditional)
 
 Invoke the detector entry point as a single Bash call before any reviewer
 launches. This satisfies REQ-2.4 (run once, not per-reviewer) and gives the
 orchestrator a HIGH count to branch on.
 
-Capture both stdout and exit status — the script signals partial runs through
-both channels, and you must check both:
+**REQ-7.5 — iter 2+ skip when no detector-relevant file changed:**
+
+On iter 1 the detector is unconditionally invoked. On iter N (N >= 2),
+the orchestrator first reads the previous review JSON's `iter_head`,
+diffs it against the current HEAD, and skips the detector if no file
+matching the detector ext list (`.py` `.js` `.ts` `.jsx` `.tsx` `.rb`
+`.go` `.rs` `.java` `.yml` `.yaml` `.json` `.lock` `.toml`) was touched.
+On iter 1 (no previous review JSON exists) `prev_iter_head` is empty
+and the `[[ -n "$prev_iter_head" ]]` guard falls through to the normal
+detector run — this is the intended iter 1 behavior.
 
 ```bash
-summary="$(bash "${CLAUDE_PLUGIN_ROOT}/hooks/pre-review-detector.sh")"
-rc=$?
+ext_re='\.(py|js|ts|jsx|tsx|rb|go|rs|java|yml|yaml|json|lock|toml)$'
+prev_iter_review="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
+  ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
+prev_iter_head=""
+[[ -n "$prev_iter_review" ]] && prev_iter_head="$(jq -r '.iter_head // empty' "$prev_iter_review")"
+
+if [[ -n "$prev_iter_head" ]] && \
+   ! git diff --name-only "$prev_iter_head" HEAD | grep -qE "$ext_re"; then
+  # No detector-relevant file touched since last iter — reuse previous detector report.
+  last_detector="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f \
+    -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
+  high_count="$(jq -r '.counts.HIGH // 0' "$last_detector")"
+  summary="$(jq -nc --arg p "$last_detector" --argjson hc "$high_count" \
+    '{detectors_ran: false, reused: true, high_count: $hc, report_path: $p, failed_detectors: []}')"
+  rc=0
+  detector_skipped=true
+  detector_reused_from="$last_detector"
+else
+  # iter 1, or iter 2+ with detector-relevant changes → normal run.
+  summary="$(bash "${CLAUDE_PLUGIN_ROOT}/hooks/pre-review-detector.sh")"
+  rc=$?
+  detector_skipped=false
+  detector_reused_from=null
+fi
 ```
+
+Both `detector_skipped` and `detector_reused_from` are propagated to
+Stage 6 review JSON (REQ-7.8).
 
 The script writes `.mumei/specs/<feature>/reviews/<ts>-detectors.json` and
 emits a JSON summary on stdout:
@@ -427,25 +500,48 @@ binaries (rc ≥ 2 from the binary itself) escalate to `rc == 2`.
 
 Read `high_count` from the captured stdout. Stage 1 branches on it.
 
-### Stage 1 — Parallel reviewers (3 agents)
+### Stage 1 — Parallel reviewers (iter 1 baseline / iter 2+ focused)
 
-Branch on `high_count` from Stage 0:
+**REQ-7.3 / REQ-7.10 — Iter-aware launch logic:**
 
-- **`high_count == 0`** (the common case) — launch all 3 reviewers in parallel:
+- **iter 1 (baseline, REQ-7.10)** — launch the full reviewer set (post-REQ-7,
+  this is the surviving 2 agents; `code-quality-reviewer` was removed in
+  REQ-7 — see Wave 1). Branch on `high_count` from Stage 0:
 
-  - `Task(subagent_type: "spec-compliance-reviewer", ...)`
-  - `Task(subagent_type: "code-quality-reviewer", ...)`
-  - `Task(subagent_type: "security-reviewer", ...)`
+  - **`high_count == 0`** — launch both reviewers in parallel:
+    - `Task(subagent_type: "spec-compliance-reviewer", ...)`
+    - `Task(subagent_type: "security-reviewer", ...)`
+  - **`high_count > 0`** — skip `security-reviewer` (detector ground truth):
+    - `Task(subagent_type: "spec-compliance-reviewer", ...)`
 
-- **`high_count > 0`** — skip `security-reviewer`. Detector findings are
-  ground truth for the security category, so duplicating the work in an LLM
-  reviewer wastes tokens and risks the LLM downgrading them. Launch only:
+- **iter 2+ (focused, REQ-7.3)** — read `next_iter_reviewers` from the
+  previous review JSON and launch only the listed reviewers:
 
-  - `Task(subagent_type: "spec-compliance-reviewer", ...)`
-  - `Task(subagent_type: "code-quality-reviewer", ...)`
+  ```bash
+  prev_review="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
+  to_launch="$(jq -r '.next_iter_reviewers[] // empty' < "$prev_review")"
+  for r in $to_launch; do
+    case "$r" in
+      spec-compliance|security)
+        Task(subagent_type: "${r}-reviewer", ...)
+        ;;
+      adversarial)
+        # adversarial is launched in Stage 2 (sequential), do nothing here
+        ;;
+    esac
+  done
+  ```
 
-  Stage 6 will pin the verdict to `MAJOR_ISSUES` regardless of what the two
-  remaining reviewers report.
+  `next_iter_reviewers` always contains `adversarial` (REQ-7.3 invariant);
+  Stage 2 launches `adversarial-reviewer` regardless. The iter-1-all-PASS
+  short-circuit is handled at the iter-loop entry point (REQ-7.7), not
+  here — by the time Stage 1 of iter 2+ is reached, at least one reviewer
+  in `next_iter_reviewers` is guaranteed to need launching.
+
+  When `high_count > 0` for iter 2+, also drop `security` from
+  `next_iter_reviewers` at iter 2+ Stage 1 entry (detector ground truth
+  superseded the LLM reviewer's role for that category).
 
 Pass each reviewer:
 
@@ -484,13 +580,38 @@ vulnerability) without re-flagging them.
 
 Combine all 4 reviewers' `findings` arrays. Deduplicate by `location + category` if any cross-reviewer overlap exists (rare with prior_findings injection, but possible).
 
-### Stage 4 — Per-issue validation (parallel)
+### Stage 4 — Per-issue validation (severity-conditional, parallel)
 
-For EACH finding, launch:
+**REQ-7.4 — Severity-conditional launch:**
 
-- `Task(subagent_type: "issue-validator", prompt: ..., reviewer: <reviewer-name>, finding: <single finding JSON>)`
+- `severity == "HIGH"` or `severity == "CRITICAL"` → validator is **mandatory**.
+- `severity == "MEDIUM"` or `severity == "LOW"` AND `confidence == "HIGH"` →
+  validator is **skipped**; the reviewer's self-judgment is accepted as
+  `valid` and the finding is annotated:
+  `validator: {decision: "valid", confidence: "HIGH (skipped — reviewer self-asserted HIGH confidence)"}`
+- All other cases (MEDIUM/LOW with `confidence != "HIGH"`) → validator is
+  mandatory.
 
-These run in parallel (one validator per finding). Wait for all.
+```bash
+for finding in "${all_findings[@]}"; do
+  sev="$(jq -r '.severity' <<<"$finding")"
+  conf="$(jq -r '.confidence // "MEDIUM"' <<<"$finding")"
+  reviewer="$(jq -r '.reviewer' <<<"$finding")"
+  if [[ "$sev" == "HIGH" || "$sev" == "CRITICAL" ]] || \
+     ! { [[ "$sev" == "MEDIUM" || "$sev" == "LOW" ]] && [[ "$conf" == "HIGH" ]]; }; then
+    Task(subagent_type: "issue-validator", reviewer: "$reviewer", finding: $finding, ...)
+  else
+    # skipped — annotate inline with synthetic validator decision
+    finding="$(jq '. + {validator: {decision: "valid", confidence: "HIGH (skipped — reviewer self-asserted HIGH confidence)"}}' <<<"$finding")"
+  fi
+done
+```
+
+The skipped path preserves `findings_filtered` / `findings_surfaced`
+semantics in Stage 5 (no downstream change required).
+
+These run in parallel (one validator per finding that triggered launch).
+Wait for all.
 
 **Important**: each reviewer numbers findings independently (e.g., `F-001` from spec-compliance is different from `F-001` from security). When passing a finding to the validator, the orchestrator MUST also pass the originating `reviewer` name. The validator echoes both back so the orchestrator can build a unique key `(reviewer, finding.id)` for downstream deduplication and aggregation.
 
@@ -500,19 +621,54 @@ Keep only findings where `decision == "valid"`. Move `invalid` to `filtered_out`
 
 ### Stage 6 — Persist + verdict aggregation
 
-Write the result to `.mumei/specs/<feature>/reviews/<ISO-timestamp>.json`:
+Write the result to `.mumei/specs/<feature>/reviews/<ISO-timestamp>.json`. The
+schema includes 4 REQ-7 fields (`iter_head`, `next_iter_reviewers`,
+`detector_skipped`, `detector_reused_from`) used by Stage 0 / Stage 1 of
+the next iteration:
 
 ```json
 {
   "feature": "<slug>",
   "wave": <n or "all">,
+  "iteration": <N>,
+  "iter_head": "<git rev-parse HEAD at this iter completion>",
   "verdict": "PASS|NEEDS_IMPROVEMENT|MAJOR_ISSUES",
-  "reviewers": { "spec-compliance": {...}, "code-quality": {...}, ... },
+  "reviewers": { "spec-compliance": {...}, "security": {...}, "adversarial": {...} },
   "findings_surfaced": [...],
   "findings_filtered": [...],
-  "summary": "..."
+  "summary": "...",
+  "next_iter_reviewers": ["<reviewer1>", "<reviewer2>", "adversarial"],
+  "detector_skipped": false,
+  "detector_reused_from": null
 }
 ```
+
+**`iter_head` (REQ-7.5/7.8)**: capture `git rev-parse HEAD` at iter
+completion. The next iter's Stage 0 reads this to compute the diff
+since the last iter and decide whether to re-run the detector.
+
+**`next_iter_reviewers` (REQ-7.3/7.8)**: list of reviewer names that
+must launch in iter N+1. Compute as:
+
+```bash
+high_reviewers="$(jq -r '
+  .findings_surfaced
+  | map(select(.severity=="HIGH" or .severity=="CRITICAL"))
+  | map(.reviewer) | unique | .[]
+' < new_review.json)"
+# adversarial-reviewer is always included regardless of HIGH presence (REQ-7.3)
+next_iter_reviewers=$(printf '%s\nadversarial\n' "$high_reviewers" | sort -u | grep -v '^$')
+```
+
+If only `["adversarial"]` remains AND verdict=PASS AND HIGH count=0,
+the iter-1-all-PASS optimization (REQ-7.7) skips iter 2 entirely
+(see Phase 5 iter loop).
+
+**`detector_skipped` / `detector_reused_from` (REQ-7.5)**: set by Stage 0
+when the iter 2+ ext-diff check determines no detector-relevant file
+changed since the previous iter. `detector_reused_from` then points at
+the previous iter's detector report path that was reused as the
+ground-truth substitute.
 
 Verdict aggregation rules:
 
