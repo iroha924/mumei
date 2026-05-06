@@ -82,10 +82,31 @@ The following are explicitly outside mumei's security scope:
 
 ## Hardening adopted
 
-A summary of the controls mumei has adopted (signed releases, SHA-pinned
-third-party actions, SAST scans on every PR, etc.) will be filled in once the
-release pipeline lands. See `docs/security-policy.md` for the user-facing
-verification steps.
+A summary of controls mumei applies to every release and every PR. See
+[`docs/threat-model.md`](./docs/threat-model.md) for the threat model
+each control mitigates and [`docs/security-policy.md`](./docs/security-policy.md)
+for the user-facing verification commands.
+
+- **Build-time** — all third-party `uses:` pinned to 40-char commit
+  SHAs; `mutable-tag-guard` rejects any PR introducing a mutable tag.
+- **PR-time** — `signed-commit-verify` rejects unsigned commits,
+  `pull-request-target-guard` rejects new `pull_request_target`,
+  `plugin-json-validate` strict-validates the plugin manifest.
+- **Code analysis** — CodeQL (PR + weekly), OpenSSF Scorecards
+  (weekly), `shellcheck` + `semgrep` for the bash core.
+- **Secret scanning** — gitleaks on every PR and weekly full-history;
+  trufflehog at pre-commit and in the release pre-flight.
+- **Release pipeline** — Sigstore keyless signing, CycloneDX SBOM,
+  SLSA L3 provenance via the official slsa-github-generator reusable
+  workflow. High-privilege jobs gate on the `release` GitHub
+  Environment with required-reviewer approval.
+- **Branch protection** — `allow_force_pushes=false`,
+  `enforce_admins=true`, `required_signatures=true`, status checks
+  cover all CI + security workflows. See
+  [`.github/branch-protection.md`](./.github/branch-protection.md).
+- **Maintainer hygiene** — MFA on the GitHub account, fine-grained
+  PATs scoped to single repo with ≤ 90-day expiry, signed tags
+  via the maintainer's SSH key registered with GitHub.
 
 ## MFA policy
 

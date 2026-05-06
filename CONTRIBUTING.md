@@ -249,19 +249,72 @@ artwork lives in the maintainer's design folder, not in the source tree.
 
 ## Security requirements for contributors
 
-External pull request contributors must follow the conditions below. The
-detailed rationale and verification steps will be filled in alongside the
-release-hardening rollout (see [SECURITY.md](./SECURITY.md) and the policy
-referenced from `docs/security-policy.md`).
+External pull request contributors must follow the conditions below.
+Each is enforced by a CI gate; PRs that fail the gate cannot merge.
+See [SECURITY.md](./SECURITY.md) and
+[`docs/threat-model.md`](./docs/threat-model.md) for the threat model
+each rule mitigates.
 
-- **Signed commits**: every commit on the PR branch must carry a verified
-  GPG or SSH signature. Unsigned commits are rejected by the CI gate.
-- **No `pull_request_target`**: do not introduce workflows that use
-  `pull_request_target`. PRs that add such a workflow are rejected by the
-  CI gate.
-- **SHA-pinned third-party actions**: any `uses:` reference to a
-  third-party action must be pinned to a commit SHA, with the version tag
-  retained as a trailing comment (`uses: foo/bar@<sha> # v1.2.3`).
+- **Signed commits**. Every commit on the PR branch must carry a
+  verified GPG or SSH signature. The `signed-commit-verify.yml`
+  workflow inspects each commit's `verification.verified` field via
+  the GitHub API and rejects the PR if any commit is unverified.
+
+  How to comply locally:
+
+  ```bash
+  # SSH signing (recommended on macOS / Linux):
+  git config gpg.format ssh
+  git config user.signingkey ~/.ssh/id_ed25519.pub
+  git config commit.gpgsign true
+
+  # GPG signing (alternative):
+  git config gpg.format openpgp
+  git config user.signingkey <YOUR-GPG-KEY-ID>
+  git config commit.gpgsign true
+  ```
+
+  Then make sure the public key is registered as a Signing Key in
+  your GitHub account (Settings → SSH and GPG keys → New SSH key →
+  Key type: Signing). If you forget to sign and the gate flags
+  unsigned commits, rebase + sign:
+
+  ```bash
+  git rebase -S main
+  git push --force-with-lease
+  ```
+
+- **No `pull_request_target`**. Do not introduce a workflow that uses
+  the `pull_request_target` trigger. The trigger runs in the base
+  repository's context with secret access; one fork-PR-driven leak
+  is enough to compromise `ANTHROPIC_API_KEY`. The
+  `pull-request-target-guard.yml` workflow rejects any PR adding the
+  trigger to a workflow that is not on the (currently empty)
+  allowlist.
+
+- **SHA-pinned third-party actions**. Every `uses:` reference to a
+  third-party action must be pinned to a 40-char commit SHA, with
+  the version tag retained as a trailing comment:
+
+  ```yaml
+  - uses: foo/bar@aaaa1111bbbb2222cccc3333dddd4444eeee5555 # v1.2.3
+  ```
+
+  The `mutable-tag-guard.yml` workflow rejects PRs adding `@vN`,
+  `@main`, `@master`, or `@<branch>` references. To resolve a tag
+  to a SHA:
+
+  ```bash
+  gh api repos/<owner>/<repo>/commits/<tag> --jq '.sha'
+  ```
+
+- **Plugin manifest schema**. Edits to `.claude-plugin/plugin.json`
+  must keep the manifest valid against its declared `$schema`. The
+  `plugin-json-validate.yml` workflow runs strict JSON Schema
+  validation on every PR that touches the file. If validation
+  fails, the workflow output names the offending JSON path and
+  message; fix the manifest and re-push. Common causes: typos in
+  field names, unknown properties, type mismatches.
 
 ## Reporting bugs
 
