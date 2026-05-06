@@ -75,31 +75,36 @@ jobs:
             exit 1
           fi
 
-          for check in "analyze (javascript-typescript)" "scorecard analysis"; do
+          # Match by prefix so future codeql matrix expansions (e.g.
+          # adding `actions` or `python`) are auto-included in the gate.
+          # `analyze (` covers every CodeQL language, `scorecard analysis`
+          # is the literal Scorecards run name.
+          for check_prefix in "analyze (" "scorecard analysis"; do
             err="$(mktemp)"
             payload="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${tag_sha}/check-runs" \
-              --paginate --jq ".check_runs[] | select(.name == \"${check}\") | {status, conclusion}" 2>"$err")"
+              --paginate --jq ".check_runs[] | select(.name | startswith(\"${check_prefix}\")) | {name, status, conclusion}" 2>"$err")"
             rc=$?
             if [ "$rc" -ne 0 ]; then
-              echo "::error::gh api failed for check '${check}' on ${tag_sha}: $(cat "$err")"
+              echo "::error::gh api failed for check prefix '${check_prefix}' on ${tag_sha}: $(cat "$err")"
               rm -f "$err"
               exit 1
             fi
             rm -f "$err"
 
             if [ -z "$payload" ]; then
-              echo "::error::no check-run named '${check}' has reported on ${tag_sha} yet; wait for codeql/scorecards to complete on this commit and retry"
+              echo "::error::no check-run starting with '${check_prefix}' has reported on ${tag_sha} yet; wait for codeql/scorecards to complete on this commit and retry"
               exit 1
             fi
 
-            # Walk every match (parallel matrix entries can produce
-            # multiple) and require all to be completed + success.
+            # Walk every match (matrix entries produce one row each) and
+            # require ALL to be completed + success.
             while IFS= read -r row; do
               [ -n "$row" ] || continue
+              name="$(printf '%s' "$row" | jq -r '.name')"
               status="$(printf '%s' "$row" | jq -r '.status')"
               concl="$(printf '%s' "$row" | jq -r '.conclusion // ""')"
               if [ "$status" != "completed" ] || [ "$concl" != "success" ]; then
-                echo "::error::check '${check}' on ${tag_sha} is not green (status=${status} conclusion=${concl})"
+                echo "::error::check '${name}' on ${tag_sha} is not green (status=${status} conclusion=${concl})"
                 exit 1
               fi
             done <<<"$payload"

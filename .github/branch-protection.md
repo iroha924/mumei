@@ -7,18 +7,18 @@ source-controlled record of what _should_ be configured.
 
 ## Target configuration
 
-| Rule                               | Value                                                                                                                                                                    |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `required_pull_request_reviews`    | `null` (no approval-count threshold; single-developer reality)                                                                                                           |
-| `required_status_checks.strict`    | `true` (PR must be up-to-date with `main`)                                                                                                                               |
-| `required_status_checks.contexts`  | `["lint", "lint-extra", "bats (ubuntu-latest)", "bats (macos-latest)", "verify", "mutable-tag-check", "pr-target-check", "validate", "analyze (javascript-typescript)"]` |
-| `enforce_admins`                   | `true` (the maintainer cannot bypass either)                                                                                                                             |
-| `required_linear_history`          | `false` (merge commits OK)                                                                                                                                               |
-| `allow_force_pushes`               | `false`                                                                                                                                                                  |
-| `allow_deletions`                  | `false`                                                                                                                                                                  |
-| `required_conversation_resolution` | `true`                                                                                                                                                                   |
-| `lock_branch`                      | `false`                                                                                                                                                                  |
-| `restrictions`                     | `null` (anyone can open PRs, merge gated by status checks)                                                                                                               |
+| Rule                               | Value                                                                                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `required_pull_request_reviews`    | `null` (no approval-count threshold; single-developer reality)                                                                                               |
+| `required_status_checks.strict`    | `true` (PR must be up-to-date with `main`)                                                                                                                   |
+| `required_status_checks.contexts`  | `["lint", "lint-extra", "bats (ubuntu-latest)", "bats (macos-latest)", "verify", "mutable-tag-check", "pr-target-check", "analyze (javascript-typescript)"]` |
+| `enforce_admins`                   | `true` (the maintainer cannot bypass either)                                                                                                                 |
+| `required_linear_history`          | `false` (merge commits OK)                                                                                                                                   |
+| `allow_force_pushes`               | `false`                                                                                                                                                      |
+| `allow_deletions`                  | `false`                                                                                                                                                      |
+| `required_conversation_resolution` | `true`                                                                                                                                                       |
+| `lock_branch`                      | `false`                                                                                                                                                      |
+| `restrictions`                     | `null` (anyone can open PRs, merge gated by status checks)                                                                                                   |
 
 Rationale:
 
@@ -39,7 +39,6 @@ gh api -X PUT \
   -f "required_status_checks.contexts[]=verify" \
   -f "required_status_checks.contexts[]=mutable-tag-check" \
   -f "required_status_checks.contexts[]=pr-target-check" \
-  -f "required_status_checks.contexts[]=validate" \
   -f "required_status_checks.contexts[]=analyze (javascript-typescript)" \
   -F required_pull_request_reviews= \
   -F enforce_admins=true \
@@ -51,7 +50,9 @@ gh api -X PUT \
   -F restrictions=
 ```
 
-The 5 added contexts come from the security workflows added in REQ-8 Waves 2-4: `verify` (signed-commit-verify.yml), `mutable-tag-check` (mutable-tag-guard.yml), `pr-target-check` (pull-request-target-guard.yml), `validate` (plugin-json-validate.yml), and `analyze (javascript-typescript)` (codeql.yml). All five fire on `pull_request` and must pass before merge to `main`.
+The 4 added contexts come from `signed-commit-verify` (`verify`), `mutable-tag-guard` (`mutable-tag-check`), `pull-request-target-guard` (`pr-target-check`), and `codeql` (`analyze (javascript-typescript)`). All four fire on every `pull_request` and must pass before merge to `main`.
+
+`plugin-json-validate.yml` (`validate`) is intentionally NOT in the required list because it is path-filtered to `.claude-plugin/plugin.json` and would otherwise leave PRs that don't touch the manifest in a permanent "Expected" state. It is still enforced for plugin.json changes via the workflow's exit code (a failed run blocks merge regardless of branch protection).
 
 ## Verification
 

@@ -10,6 +10,15 @@ name: plugin-json-validate
 
 on:
   pull_request:
+    # Restored after iter 2 lockout fix: plugin-json-validate fetches
+    # the remote `$schema` URL on every run, and removing the paths
+    # filter would couple every PR to that host's availability. Keep
+    # the workflow scoped to manifest edits; correspondingly, `validate`
+    # must NOT be a required status check on PRs that don't touch the
+    # manifest.
+    paths:
+      - ".claude-plugin/plugin.json"
+      - ".github/workflows/plugin-json-validate.yml"
 
 permissions:
   contents: read
