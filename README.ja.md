@@ -15,7 +15,7 @@ flowchart LR
   B["/mumei:brainstorm<br/>(任意)"] --> P
   P["/mumei:plan<br/>requirements / design / tasks<br/>各々 auto-iter ≤ 3 回<br/>3 spec reviewer"] --> A{"単一の<br/>user 承認 gate"}
   A -->|approve| I["implement<br/>Wave 1 → N<br/>Hook で commit を gate<br/>(W1 / W2 / I3 / I4)"]
-  I --> R["review (Phase 5)<br/>Stage 0: detectors<br/>Stage 1: 3 reviewer ‖<br/>Stage 2: adversarial<br/>Stage 4: per-issue validator ‖"]
+  I --> R["review (Phase 5)<br/>Stage 0: detectors<br/>Stage 1: 2 reviewer ‖<br/>Stage 2: adversarial<br/>Stage 4: per-issue validator ‖"]
   R -->|verdict PASS| D["phase=done<br/>/mumei:archive"]
   R -->|MAJOR_ISSUES| I
 

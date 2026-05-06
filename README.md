@@ -15,7 +15,7 @@ flowchart LR
   B["/mumei:brainstorm<br/>(optional)"] --> P
   P["/mumei:plan<br/>requirements / design / tasks<br/>each auto-iter ≤ 3 ×<br/>3 spec reviewers"] --> A{"single user<br/>approval gate"}
   A -->|approve| I["implement<br/>Wave 1 → N<br/>Hook-gated commits<br/>(W1 / W2 / I3 / I4)"]
-  I --> R["review (Phase 5)<br/>Stage 0: detectors<br/>Stage 1: 3 reviewers ‖<br/>Stage 2: adversarial<br/>Stage 4: per-issue validator ‖"]
+  I --> R["review (Phase 5)<br/>Stage 0: detectors<br/>Stage 1: 2 reviewers ‖<br/>Stage 2: adversarial<br/>Stage 4: per-issue validator ‖"]
   R -->|verdict PASS| D["phase=done<br/>/mumei:archive"]
   R -->|MAJOR_ISSUES| I
 

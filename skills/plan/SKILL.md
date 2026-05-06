@@ -645,7 +645,7 @@ vulnerability) without re-flagging them.
 
 ### Stage 3 — Aggregate findings
 
-Combine all 4 reviewers' `findings` arrays. Deduplicate by `location + category` if any cross-reviewer overlap exists (rare with prior_findings injection, but possible).
+Combine all 3 reviewers' `findings` arrays (spec-compliance + security + adversarial; post-REQ-7 code-quality was removed). Deduplicate by `location + category` if any cross-reviewer overlap exists (rare with prior_findings injection, but possible).
 
 ### Stage 4 — Per-issue validation (severity-conditional, parallel)
 
@@ -844,7 +844,7 @@ Do NOT redo completed sub-phases unless the user explicitly says to.
 - Don't approve a phase yourself. Phase 4 entry requires `mumei_state_set ... .phase = implement`, but only after the user explicitly approves at Phase 3.5. Hooks would deny anyway.
 - Don't ask the user to approve specs individually. The model is: 3 reviewer-PASSed specs, then ONE user gate. Asking three times defeats the purpose of this redesign.
 - Don't proceed to review (Phase 5) if any task is still `[ ]`. Hook will block; the orchestrator should not propose it either.
-- Don't run Phase 5 reviewers serially. Stage 1's three reviewers MUST be parallel for performance.
+- Don't run Phase 5 reviewers serially. Stage 1's reviewers (post-REQ-7: 2 agents = spec-compliance + security; high_count > 0 reduces to 1 = spec-compliance only) MUST be parallel for performance.
 - Don't run per-issue validators serially. Phase 5 Stage 4 MUST be parallel.
 - Don't skip the spec-reviewer iteration loop. Even if a reviewer returns NEEDS_IMPROVEMENT after iteration 3, escalate to the user — do NOT silently continue.
 - Don't write findings directly to `state.json`. Findings live in `spec-reviews/` (Phase 1-3) and `reviews/` (Phase 5).

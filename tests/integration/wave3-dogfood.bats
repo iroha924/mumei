@@ -7,7 +7,7 @@
 #   1. The Hook produces the field the skill is supposed to branch on.
 #   2. The skill body documents the HIGH > 0 → skip security-reviewer
 #      branching rule.
-#   3. The 4 reviewer agents each carry the "Detector findings
+#   3. The 3 reviewer agents (post-REQ-7 — code-quality removed) each carry the "Detector findings
 #      (ground truth)" instruction so they handle the injected block
 #      consistently.
 #   4. issue-validator carries the skip rule for detector findings.
@@ -93,8 +93,10 @@ JSON
 
 # ─── reviewer agent contract ──────────────────────────────────
 
-@test "all 4 reviewer agents carry the Detector findings section" {
-  for r in spec-compliance-reviewer code-quality-reviewer security-reviewer adversarial-reviewer; do
+@test "all 3 reviewer agents carry the Detector findings section" {
+  # REQ-7 Wave 1: code-quality-reviewer was removed (REQ-6 dogfood net 0 valid).
+  # The remaining 3 reviewers must still carry the detector contract.
+  for r in spec-compliance-reviewer security-reviewer adversarial-reviewer; do
     local agent="$CLAUDE_PLUGIN_ROOT/agents/${r}.md"
     [ -f "$agent" ]
     grep -q "Detector findings (ground truth)" "$agent" ||
@@ -105,8 +107,8 @@ JSON
   done
 }
 
-@test "all 4 reviewer agents instruct: do NOT validate / dispute / downgrade" {
-  for r in spec-compliance-reviewer code-quality-reviewer security-reviewer adversarial-reviewer; do
+@test "all 3 reviewer agents instruct: do NOT validate / dispute / downgrade" {
+  for r in spec-compliance-reviewer security-reviewer adversarial-reviewer; do
     local agent="$CLAUDE_PLUGIN_ROOT/agents/${r}.md"
     grep -qE "Do NOT validate.*dispute.*downgrade" "$agent" ||
       {
