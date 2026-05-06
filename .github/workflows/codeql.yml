@@ -1,0 +1,46 @@
+name: codeql
+
+# CodeQL static analysis. mumei is implemented in bash, which CodeQL
+# does not support natively — `shellcheck` (run by ci.yml + pre-commit)
+# and `semgrep` (run as Stage 0 in /mumei:plan review) cover that gap.
+# This workflow scans for any JavaScript/TypeScript that lands in the
+# repo (currently zero, kept proactively for future tooling).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 03:00 UTC. Off-peak vs. the audit/digest workflows
+    # (see scripts/check-workflow-cron.sh — we deliberately stagger to
+    # avoid contention on the shared 1-runner SMB workspace).
+    - cron: "0 3 * * 1"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@0daab03d71ff584ef619d027a3fd9146679c5d84 # v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@0daab03d71ff584ef619d027a3fd9146679c5d84 # v3
+        with:
+          category: "/language:${{ matrix.language }}"

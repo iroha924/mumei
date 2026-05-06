@@ -1,0 +1,31 @@
+name: gitleaks-weekly
+
+# Weekly full-repository gitleaks scan. The on-commit gitleaks check
+# in ci.yml only inspects the diff of the current PR; this workflow
+# rescans the entire history each week so newly published rule
+# updates apply retroactively to the repo's full timeline.
+#
+# Findings open issues in the repo's Security tab. A non-zero exit
+# fails the workflow so the schedule alert surfaces in the actions
+# log even if the issues feed is unread.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks (full history)
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

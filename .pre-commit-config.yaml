@@ -75,3 +75,14 @@ repos:
     rev: v8.30.1
     hooks:
       - id: gitleaks
+
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.90.10
+    hooks:
+      - id: trufflehog
+        name: trufflehog (filesystem)
+        # Scan the working tree only on commit. Verified-only results
+        # to keep the noise floor low; the weekly gitleaks-weekly
+        # workflow does the deeper full-repo pass against history.
+        entry: bash -c 'trufflehog filesystem --no-update --fail --no-verification --results=verified .'
+        language: system
