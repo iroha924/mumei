@@ -18,15 +18,15 @@ mumei/
 ├── .claude-plugin/
 │   ├── plugin.json         # plugin manifest (name / version / author / homepage)
 │   └── marketplace.json    # self-hosted marketplace catalog
-├── agents/                 # 8 reviewer / validator agents (Sonnet / Opus)
+├── agents/                 # 7 reviewer / validator agents (Sonnet / Opus)
 │   ├── requirements-reviewer.md
 │   ├── design-reviewer.md
 │   ├── tasks-reviewer.md
 │   ├── spec-compliance-reviewer.md
-│   ├── code-quality-reviewer.md
 │   ├── security-reviewer.md
 │   ├── adversarial-reviewer.md
 │   └── issue-validator.md
+│   # (code-quality-reviewer.md was removed in REQ-7 — see docs/mumei-decisions.md)
 ├── skills/                 # user-invocable orchestration
 │   ├── plan/               # /mumei:plan — the orchestrator
 │   ├── brainstorm/         # /mumei:brainstorm — pre-spec Q&A
@@ -109,16 +109,16 @@ flowchart TD
   S0 -->|HIGH = 0| S1A
   S0 -->|HIGH > 0| S1B
 
-  S1A["Stage 1 ‖<br/>spec-compliance / code-quality / security<br/>(3 fresh contexts)"]
-  S1B["Stage 1 ‖ skip security<br/>spec-compliance / code-quality<br/>(detector findings = ground truth)"]
+  S1A["Stage 1 ‖<br/>spec-compliance / security<br/>(2 fresh contexts, post-REQ-7)"]
+  S1B["Stage 1 ‖ skip security<br/>spec-compliance only<br/>(detector findings = ground truth)"]
 
   S1A --> S2
   S1B --> S2
   S2["Stage 2<br/>adversarial-reviewer<br/>(prior_findings injected)"]
   S2 --> S3["Stage 3<br/>aggregate findings"]
-  S3 --> S4["Stage 4 ‖<br/>issue-validator × N<br/>(per finding, fresh local memory)"]
-  S4 --> S5["Stage 5<br/>filter to valid only"]
-  S5 --> S6["Stage 6<br/>persist reviews/&lt;ts&gt;.json<br/>+ verdict aggregation"]
+  S3 --> S4["Stage 4 ‖<br/>issue-validator × N<br/>(severity-conditional, REQ-7.4:<br/>HIGH/CRITICAL mandatory,<br/>MEDIUM/LOW skip + ~19% calibration)"]
+  S4 --> S5["Stage 5<br/>filter to valid (or valid_by_assertion) only"]
+  S5 --> S6["Stage 6<br/>persist reviews/&lt;ts&gt;.json<br/>+ verdict aggregation<br/>(iter_head, next_iter_reviewers,<br/>detector_skipped, detector_reused_from)"]
 
   S6 -->|verdict PASS| D[phase=done]
   S6 -->|MAJOR_ISSUES| F[fix loop]

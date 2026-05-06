@@ -49,7 +49,7 @@ flowchart LR
 - **Hook で物理的に強制される phase**: spec が未完成のうちは `src/` を編集できず、Wave 内に `[ ]` の task が残っているうちは `git commit` できず、verdict が `MAJOR_ISSUES` のままだと `git push` できません。
 - **3 つの spec reviewer**: `requirements` / `design` / `tasks` の reviewer が、それぞれ独立した fresh context (履歴を引き継がない別 session) で動きます。draft → reviewer のループを最大 3 回まで自動で回し、コードを書く前に「会話で出ていた要件の取りこぼし」や「会話に出てこなかった acceptance criteria が混入していないか」を確認します。
 - **Wave 単位の commit**: 1 Wave = 1 commit です。Hook が diff を各 task の `_Files:_` メタと突き合わせて、phantom completion (実装の diff がないのに `[x]` を付ける) をブロックします。
-- **4-stage review pipeline**: `spec-compliance` / `code-quality` / `security` / `adversarial` の 4 つの reviewer が走り、出てきた finding を fresh context の per-issue validator (memory: local、read-only) が再検証します。偽陽性は user に届く前に取り除かれます。
+- **3 reviewer + adversarial の review pipeline**: `spec-compliance` / `security` (Stage 1 並列) と `adversarial` (Stage 2 sequential、prior_findings injection 付き) が走ります。各 finding は severity 条件付きで per-issue validator (fresh context、memory: local、read-only) が再検証します (HIGH/CRITICAL は必須、MEDIUM/LOW は reviewer.confidence=HIGH なら `valid_by_assertion` 化 + 約 19% hash-sample で calibration、REQ-7.4)。偽陽性は user に届く前に取り除かれます。 (post-REQ-7: `code-quality` reviewer は dogfood で valid finding 0 件だったため削除、KISS / over-engineering は `adversarial`、scope creep は `spec-compliance` がカバー。)
 - **決定論的な security ground-truth**: `semgrep` + `osv-scanner` を LLM reviewer の前に走らせます。HIGH の finding が出たら verdict を `MAJOR_ISSUES` に固定するので、LLM が本物の CVE を勝手に「軽い問題」と判定し直すことはできません。
 - **黒子 (kuroko) スタンス**: opt-in していないプロジェクトには副作用ゼロです。`.mumei/current` がなければ Hook はすべて no-op になります。テレメトリも、`.mumei/` の外への書き込みも、auto-commit も、auto-fix もしません。
 
@@ -131,14 +131,16 @@ Wave 1 の task を実装し、終わったものから順次 `[x]` を付けて
 ```text
 Stage 1 (並列):
   ├─ spec-compliance-reviewer  (Sonnet, memory: project)
-  ├─ code-quality-reviewer     (Sonnet, memory: project)
-  └─ security-reviewer         (Opus,   memory: project)
+  └─ security-reviewer         (Opus,   memory: project)  # high_count > 0 で skip
 Stage 2 (順次):
   └─ adversarial-reviewer      (Opus,   memory: project, prior_findings)
 Stage 3: findings を集約
-Stage 4 (並列): per-issue-validator (Sonnet, memory: local, read-only) — finding ごとに 1 体
-Stage 5: valid のみ surface
-Stage 6: reviews/<timestamp>.json に書き込み + state 更新
+Stage 4 (並列、severity 条件付き): per-issue-validator (Sonnet, memory: local, read-only)
+        — HIGH/CRITICAL は必須、MEDIUM/LOW で reviewer.confidence=HIGH の場合は
+          valid_by_assertion で skip + 約 19% hash-sample calibration (REQ-7.4)
+Stage 5: valid (および valid_by_assertion) のみ surface
+Stage 6: reviews/<timestamp>.json に書き込み (iter_head / next_iter_reviewers /
+         detector_skipped / detector_reused_from を含む) + state 更新
 ```
 
 各 reviewer は独立に動きます (fresh context)。自分の過去の実行結果は見えず、プロジェクトの memory に蓄積されたものだけを参照します。

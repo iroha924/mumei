@@ -29,7 +29,7 @@ Refuse with a clear error if any of these fail:
 1. `<feature>` slug must exist as a directory under `.mumei/specs/`.
 2. `state.json` must have `phase: "done"` (or `phase: "review"` with the latest review verdict `PASS`, with explicit confirmation).
 3. Working tree must be clean for files within the feature's `_Files:_` scope. Uncommitted changes in those files = refuse.
-4. `<feature>` must NOT be the active feature in `.mumei/current`. If it is, ask the user to clear `.mumei/current` first or pick another feature to archive.
+4. **`.mumei/current` is exclusively owned by this skill.** No other skill or hook may clear it. If `<feature>` is the active feature in `.mumei/current`, this skill auto-clears the file as part of the archive operation (see Method below). The "owned exclusively" rule prevents session-handoff inconsistency where a prior turn cleared `.mumei/current` while leaving the spec dir behind, causing the next session to lose track of in-progress work.
 
 ## Method
 
@@ -84,6 +84,19 @@ if [[ -n "$slug" && -f "$scratch_src" ]]; then
   scratch_dst="${target_dir}/${feature}/scratch.md"
   git mv "$scratch_src" "$scratch_dst" 2>/dev/null \
     || mv "$scratch_src" "$scratch_dst"
+fi
+
+# Auto-clear .mumei/current if it points at the feature being archived.
+# This is the ONLY allowed mutation point of .mumei/current — plan, hooks,
+# and other skills must not touch the file (rule documented in plan
+# SKILL.md "After phase=done" section). Auto-clearing here keeps the
+# session-handoff invariant: while a feature is in .mumei/specs/<feature>/
+# its slug stays in .mumei/current; archive removes both atomically.
+if [[ -f .mumei/current ]]; then
+  current="$(tr -d '[:space:]' < .mumei/current)"
+  if [[ "$current" == "$feature" ]]; then
+    : > .mumei/current
+  fi
 fi
 ```
 

@@ -49,7 +49,7 @@ flowchart LR
 - **Hook-enforced phases**: Cannot edit `src/` while spec is incomplete, cannot `git commit` with `[ ]` tasks remaining, cannot `git push` while review verdict is `MAJOR_ISSUES`.
 - **3 spec reviewers**: Independent `requirements` / `design` / `tasks` reviewers on fresh contexts, auto-iterating draft → reviewer up to 3 times. Catches missing requirements and hallucinated acceptance criteria before code is written.
 - **Wave-based commits**: 1 Wave = 1 commit. Hooks cross-check the diff against each task's `_Files:_` meta to block phantom completion (marking `[x]` without an actual implementation).
-- **4-stage review pipeline**: `spec-compliance` / `code-quality` / `security` / `adversarial` reviewers, plus a per-issue validator on a fresh context (memory: local, read-only) that filters false positives before findings reach the user.
+- **3-reviewer pipeline + adversarial**: `spec-compliance` / `security` (parallel in Stage 1) plus `adversarial` (sequential, sees prior findings via injection in Stage 2), plus a severity-conditional per-issue validator on a fresh context (memory: local, read-only) that filters false positives before findings reach the user. (Post-REQ-7: `code-quality` reviewer was removed after a dogfood metric showed 0 valid findings — KISS / over-engineering coverage delegated to `adversarial`, scope creep to `spec-compliance`.)
 - **Deterministic security ground-truth**: `semgrep` + `osv-scanner` run before LLM reviewers. HIGH findings pin the verdict to `MAJOR_ISSUES` so the LLM cannot downgrade a real CVE.
 - **Kuroko (黒衣) stance**: Zero side effects on projects that have not opted in. No `.mumei/current` = every Hook is a no-op. No telemetry, no writes outside `.mumei/`, no auto-commit, no auto-fix.
 
@@ -131,14 +131,16 @@ When all tasks are `[x]`, `/mumei:plan` invokes the review pipeline:
 ```text
 Stage 1 (parallel):
   ├─ spec-compliance-reviewer  (Sonnet, memory: project)
-  ├─ code-quality-reviewer     (Sonnet, memory: project)
-  └─ security-reviewer         (Opus,   memory: project)
+  └─ security-reviewer         (Opus,   memory: project)  # skipped when high_count > 0
 Stage 2 (sequential):
   └─ adversarial-reviewer      (Opus,   memory: project, prior_findings)
 Stage 3: aggregate findings
-Stage 4 (parallel): per-issue-validator (Sonnet, memory: local, read-only) — one per finding
-Stage 5: filter to valid only
-Stage 6: write reviews/<timestamp>.json + update state
+Stage 4 (parallel, severity-conditional): per-issue-validator (Sonnet, memory: local, read-only)
+        — mandatory for HIGH/CRITICAL; MEDIUM/LOW with confidence=HIGH skipped via
+          valid_by_assertion + ~19% hash-sample calibration (REQ-7.4)
+Stage 5: filter to valid (and valid_by_assertion) only
+Stage 6: write reviews/<timestamp>.json (incl. iter_head, next_iter_reviewers,
+         detector_skipped, detector_reused_from) + update state
 ```
 
 Each reviewer is independent (fresh context). No reviewer sees its own prior runs — only the project memory it has built up.

@@ -61,7 +61,7 @@ as facts:
 
 # What NOT to flag
 
-- Code quality, naming, performance — out of scope (code-quality-reviewer handles).
+- Code quality, naming, performance — out of scope (post-REQ-7: KISS / over-engineering coverage delegated to adversarial-reviewer; no dedicated code-quality reviewer remains).
 - Security issues — out of scope (security-reviewer handles).
 - Edge cases / silent failures — out of scope (adversarial-reviewer handles).
 - Pre-existing AC violations from prior PRs / Waves. Set those to `severity: PRE_EXISTING` only if they materially block this Wave; otherwise omit.

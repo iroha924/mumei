@@ -28,7 +28,7 @@ You will receive a JSON object with a single finding. The `reviewer` field is se
 {
   "feature": "REQ-1-user-auth",
   "wave": 2,
-  "reviewer": "spec-compliance|code-quality|security|adversarial",
+  "reviewer": "spec-compliance|security|adversarial",
   "finding": {
     "id": "F-001",
     "severity": "...",
@@ -116,7 +116,7 @@ The output MUST echo back BOTH the `reviewer` and `finding_id` from the input so
 ```json
 {
   "validator": "issue-validator",
-  "reviewer": "spec-compliance|code-quality|security|adversarial",
+  "reviewer": "spec-compliance|security|adversarial",
   "finding_id": "F-001",
   "decision": "valid|invalid|unsure",
   "confidence": "HIGH|MEDIUM|LOW",
