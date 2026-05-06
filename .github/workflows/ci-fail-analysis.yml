@@ -50,14 +50,15 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           GH_TOKEN: ${{ github.token }}
+          # WebFetch tool internally summarizes pages with the Haiku tier;
+          # without this override it tries the discontinued
+          # `claude-3-5-haiku-20241022` and every fetch returns a model 404.
+          # Set on the step env (not `claude_env:`) so subprocess WebFetch
+          # inherits it — claude_env did not propagate in practice.
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: claude-haiku-4-5-20251001
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt_file: .github/audit-prompts/ci-fail-analysis.md
           model: claude-sonnet-4-6
           max_turns: "20"
           allowed_tools: "Read,Glob,Grep,Bash(gh run view:*),Bash(gh pr:*),Bash(gh issue:*),Bash(head:*),Bash(tail:*),Bash(grep:*)"
-          # WebFetch tool internally summarizes pages with the Haiku tier;
-          # without this override it tries the discontinued
-          # `claude-3-5-haiku-20241022` and every fetch returns a model 404.
-          claude_env: |
-            ANTHROPIC_DEFAULT_HAIKU_MODEL: claude-haiku-4-5-20251001
