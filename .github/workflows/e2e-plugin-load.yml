@@ -19,7 +19,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  id-token: write # required by claude-code-action@v1 for OIDC
 
 concurrency:
   group: e2e-plugin-load-${{ github.event.pull_request.number || github.run_id }}
@@ -34,23 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Compose prompt
-        id: prompt
-        run: |
-          {
-            echo 'value<<MUMEI_PROMPT_EOF'
-            cat .github/audit-prompts/e2e-plugin-load.md
-            echo 'MUMEI_PROMPT_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-base-action@beta
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: ${{ steps.prompt.outputs.value }}
-          claude_args: |
-            --model claude-sonnet-4-6
-            --max-turns 30
-            --allowedTools "Read,Glob,Grep,Bash(gh pr comment:*),Bash(jq:*)"
+          prompt_file: .github/audit-prompts/e2e-plugin-load.md
+          model: claude-sonnet-4-6
+          max_turns: "30"
+          allowed_tools: "Read,Glob,Grep,Bash(gh pr comment:*),Bash(jq:*)"

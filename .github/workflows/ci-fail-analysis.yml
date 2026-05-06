@@ -14,7 +14,6 @@ permissions:
   issues: write
   pull-requests: write
   actions: read
-  id-token: write # required by claude-code-action@v1 for OIDC
 
 jobs:
   analyze:
@@ -43,16 +42,7 @@ jobs:
           fi
           echo "number=${pr_number}" >> "$GITHUB_OUTPUT"
 
-      - name: Compose prompt
-        id: prompt
-        run: |
-          {
-            echo 'value<<MUMEI_PROMPT_EOF'
-            cat .github/audit-prompts/ci-fail-analysis.md
-            echo 'MUMEI_PROMPT_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-base-action@beta
         env:
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
@@ -62,8 +52,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: ${{ steps.prompt.outputs.value }}
-          claude_args: |
-            --model claude-sonnet-4-6
-            --max-turns 20
-            --allowedTools "Read,Glob,Grep,Bash(gh run view:*),Bash(gh pr:*),Bash(gh issue:*),Bash(head:*),Bash(tail:*),Bash(grep:*)"
+          prompt_file: .github/audit-prompts/ci-fail-analysis.md
+          model: claude-sonnet-4-6
+          max_turns: "20"
+          allowed_tools: "Read,Glob,Grep,Bash(gh run view:*),Bash(gh pr:*),Bash(gh issue:*),Bash(head:*),Bash(tail:*),Bash(grep:*)"

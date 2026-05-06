@@ -14,7 +14,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  id-token: write # required by claude-code-action@v1 for OIDC
 
 concurrency:
   group: audit-distribution-pr-${{ github.event.pull_request.number }}
@@ -29,24 +28,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compose prompt
-        id: prompt
-        run: |
-          {
-            echo 'value<<MUMEI_PROMPT_EOF'
-            cat .github/audit-prompts/distribution-audit-pr.md
-            echo 'MUMEI_PROMPT_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-base-action@beta
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: ${{ steps.prompt.outputs.value }}
-          claude_args: |
-            --model claude-sonnet-4-6
-            --max-turns 25
-            --allowedTools "Read,Glob,Grep,WebFetch,Bash(gh pr comment:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*)"
+          prompt_file: .github/audit-prompts/distribution-audit-pr.md
+          model: claude-sonnet-4-6
+          max_turns: "25"
+          allowed_tools: "Read,Glob,Grep,WebFetch,Bash(gh pr comment:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*)"

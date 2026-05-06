@@ -14,7 +14,6 @@ on:
 permissions:
   contents: read
   issues: write
-  id-token: write # required by claude-code-action@v1 for OIDC
 
 concurrency:
   group: anthropic-blog-digest
@@ -26,22 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Compose prompt
-        id: prompt
-        run: |
-          {
-            echo 'value<<MUMEI_PROMPT_EOF'
-            cat .github/audit-prompts/blog-digest.md
-            echo 'MUMEI_PROMPT_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-base-action@beta
         env:
           GH_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: ${{ steps.prompt.outputs.value }}
-          claude_args: |
-            --model claude-opus-4-7
-            --max-turns 30
-            --allowedTools "Read,Glob,Grep,WebFetch,Bash(gh issue:*),Bash(gh label:*)"
+          prompt_file: .github/audit-prompts/blog-digest.md
+          model: claude-opus-4-7
+          max_turns: "30"
+          allowed_tools: "Read,Glob,Grep,WebFetch,Bash(gh issue:*),Bash(gh label:*)"

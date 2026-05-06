@@ -13,7 +13,6 @@ on:
 permissions:
   contents: read
   issues: write
-  id-token: write # required by claude-code-action@v1 for OIDC
 
 concurrency:
   group: audit-readme-drift
@@ -25,22 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Compose prompt
-        id: prompt
-        run: |
-          {
-            echo 'value<<MUMEI_PROMPT_EOF'
-            cat .github/audit-prompts/readme-drift.md
-            echo 'MUMEI_PROMPT_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-base-action@beta
         env:
           GH_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: ${{ steps.prompt.outputs.value }}
-          claude_args: |
-            --model claude-sonnet-4-6
-            --max-turns 25
-            --allowedTools "Read,Glob,Grep,Bash(gh issue:*),Bash(gh label:*)"
+          prompt_file: .github/audit-prompts/readme-drift.md
+          model: claude-sonnet-4-6
+          max_turns: "25"
+          allowed_tools: "Read,Glob,Grep,Bash(gh issue:*),Bash(gh label:*)"
