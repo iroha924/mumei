@@ -56,3 +56,11 @@ jobs:
       # `gh release create`. softprops/action-gh-release inside SLSA
       # edits an existing release rather than failing on duplicate.
       upload-assets: true
+      # `compile-generator: true` because the workflow is SHA-pinned
+      # (REQ-8 supply-chain stance). The default `false` path requires
+      # BUILDER_REF to be `refs/tags/vX.Y.Z`, which contradicts the
+      # mutable-tag-guard policy. Compiling the generator from source
+      # at the pinned SHA preserves both the SHA-pin integrity and a
+      # working SLSA pipeline, at the cost of an extra ~1-2 min build
+      # step per release.
+      compile-generator: true
