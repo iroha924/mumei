@@ -383,30 +383,61 @@ detector findings that the LLM reviewers treat as ground truth.
 
 ### Iteration entry — REQ-7.7 iter-1-all-PASS short-circuit
 
-Before entering Stage 0 for iter N (N >= 2), check the previous iter's
-review JSON. If iter 1 returned overall verdict=PASS with zero
-HIGH/CRITICAL findings, skip iter 2+ entirely and write a final
-`done`-equivalent review JSON. This eliminates a round of detector +
-adversarial launch when iter 1 already reached a clean state.
+Before entering Stage 0 for iter N (N >= 2) of the **current Wave**,
+check the previous iter's review JSON for the SAME Wave. If iter N-1
+of this Wave returned overall verdict=PASS with zero HIGH/CRITICAL
+findings, skip iter N+ for this Wave and write a synthetic
+short-circuit review JSON that records the skip in the audit trail.
+
+**Wave + iter scoping is mandatory** (review iter 1 fix for F-001 / F-005):
+without filtering by `.wave == $current_wave` AND
+`.iteration == $current_iter - 1`, a Wave N+1 entering Phase 5 would
+inherit Wave N's PASS verdict (or another iter's verdict) and silently
+skip its own review entirely.
 
 ```bash
-prev_review="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
-  ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
-if [[ -n "$prev_review" ]]; then
-  prev_verdict="$(jq -r '.verdict' "$prev_review")"
-  prev_high="$(jq -r '[.findings_surfaced[] | select(.severity=="HIGH" or .severity=="CRITICAL")] | length' "$prev_review")"
-  if [[ "$prev_verdict" == "PASS" && "$prev_high" == "0" ]]; then
-    echo "Iter 1 was clean (verdict=PASS, no HIGH). Skipping iter ${current_iter}+ (REQ-7.7)."
-    mumei_state_set "$feature" '.phase' '"done"'
-    # No new review JSON written — the previous PASS JSON is the final record.
-    exit 0
+# Hard gate: iter 1 always proceeds through full Stage 0 → Stage 6.
+if [[ "$current_iter" -ge 2 ]]; then
+  # Find the most recent review JSON belonging to THIS Wave AND THIS Wave's iter (N-1).
+  prev_iter=$(( current_iter - 1 ))
+  prev_review=""
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    w="$(jq -r '.wave // empty' "$f" 2>/dev/null)"
+    i="$(jq -r '.iteration // empty' "$f" 2>/dev/null)"
+    if { [[ "$w" == "$current_wave" ]] || [[ "$w" == "all" ]]; } && [[ "$i" == "$prev_iter" ]]; then
+      prev_review="$f"
+      break
+    fi
+  done < <(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null | sort -r)
+
+  if [[ -n "$prev_review" ]]; then
+    prev_verdict="$(jq -r '.verdict' "$prev_review")"
+    prev_high="$(jq -r '[.findings_surfaced[] | select(.severity=="HIGH" or .severity=="CRITICAL")] | length' "$prev_review")"
+    if [[ "$prev_verdict" == "PASS" && "$prev_high" == "0" ]]; then
+      echo "Wave ${current_wave} iter ${prev_iter} was clean (verdict=PASS, HIGH=0). Skipping iter ${current_iter} via REQ-7.7."
+      # Synthetic short-circuit review JSON (review iter 1 F-004 fix —
+      # distinguishable from a real iter-N PASS via short_circuited_from field).
+      ts="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
+      out=".mumei/specs/${feature}/reviews/${ts}.json"
+      jq -n \
+        --arg feature "$feature" \
+        --argjson wave "${current_wave:-null}" \
+        --argjson iteration "$current_iter" \
+        --arg short_circuited_from "$prev_review" \
+        '{feature: $feature, wave: $wave, iteration: $iteration, verdict: "PASS",
+          summary: "REQ-7.7 short-circuit — previous iter for this Wave was clean (verdict=PASS, HIGH=0).",
+          short_circuited_from: $short_circuited_from,
+          findings_surfaced: [], findings_filtered: [],
+          next_iter_reviewers: [], detector_skipped: true, detector_reused_from: null}' > "$out"
+      mumei_state_set "$feature" '.phase' '"done"'
+      exit 0
+    fi
   fi
 fi
-# Otherwise, fall through to Stage 0 of iter N.
+# Otherwise (iter 1, or iter 2+ with non-clean prev), fall through to Stage 0.
 ```
-
-Note: this check runs only at iter 2+ entry, not at iter 1. Iter 1
-always proceeds through the full Stage 0 → Stage 6 sequence.
 
 ### Stage 0 — Detector run (iter 1 mandatory, iter 2+ ext-diff conditional)
 
@@ -426,31 +457,49 @@ and the `[[ -n "$prev_iter_head" ]]` guard falls through to the normal
 detector run — this is the intended iter 1 behavior.
 
 ```bash
-ext_re='\.(py|js|ts|jsx|tsx|rb|go|rs|java|yml|yaml|json|lock|toml)$'
+ext_re='\.(sh|bash|py|js|ts|jsx|tsx|cjs|mjs|cts|mts|rb|go|rs|java|yml|yaml|json|lock|toml)$|(^|/)(Dockerfile|Makefile|Gemfile|Pipfile|Cargo\.lock)(\.[^/]+)?$'
 prev_iter_review="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
   ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
 prev_iter_head=""
 [[ -n "$prev_iter_review" ]] && prev_iter_head="$(jq -r '.iter_head // empty' "$prev_iter_review")"
 
+fall_through_to_run=0
 if [[ -n "$prev_iter_head" ]] && \
    ! git diff --name-only "$prev_iter_head" HEAD | grep -qE "$ext_re"; then
-  # No detector-relevant file touched since last iter — reuse previous detector report.
+  # No detector-relevant file touched since last iter — try to reuse previous report.
   last_detector="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f \
     -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
-  high_count="$(jq -r '.counts.HIGH // 0' "$last_detector")"
-  summary="$(jq -nc --arg p "$last_detector" --argjson hc "$high_count" \
-    '{detectors_ran: false, reused: true, high_count: $hc, report_path: $p, failed_detectors: []}')"
-  rc=0
-  detector_skipped=true
-  detector_reused_from="$last_detector"
-else
-  # iter 1, or iter 2+ with detector-relevant changes → normal run.
+  # F-003 fix: validate the reuse target exists AND parses before extracting fields.
+  # Without this guard, an empty $last_detector caused jq to error and high_count
+  # to become an undefined empty string used in downstream branch logic.
+  if [[ -z "$last_detector" || ! -f "$last_detector" ]] || ! jq empty "$last_detector" 2>/dev/null; then
+    echo "WARN: detector reuse path expected a valid detectors.json but found none — falling back to fresh detector run" >&2
+    fall_through_to_run=1
+  else
+    high_count="$(jq -r '.counts.HIGH // 0' "$last_detector")"
+    summary="$(jq -nc --arg p "$last_detector" --argjson hc "$high_count" \
+      '{detectors_ran: false, reused: true, high_count: $hc, report_path: $p, failed_detectors: []}')"
+    rc=0
+    detector_skipped=true
+    detector_reused_from="$last_detector"
+  fi
+fi
+if [[ -z "$prev_iter_head" ]] || [[ "$fall_through_to_run" == "1" ]] || \
+   git diff --name-only "$prev_iter_head" HEAD | grep -qE "$ext_re"; then
+  # iter 1, or iter 2+ with detector-relevant changes, or reuse-fallback → normal run.
   summary="$(bash "${CLAUDE_PLUGIN_ROOT}/hooks/pre-review-detector.sh")"
   rc=$?
   detector_skipped=false
-  detector_reused_from=null
+  detector_reused_from=  # empty — Stage 6 must persist as JSON null via --argjson
 fi
 ```
+
+**Note on `detector_reused_from` JSON typing (review iter 1 F-004 fix):**
+when not reused, `detector_reused_from` is empty string in bash; Stage 6
+MUST write it as JSON null (not the string `"null"`) by using
+`jq --argjson detector_reused_from "${detector_reused_from:+\"$detector_reused_from\"}${detector_reused_from:-null}"`
+or equivalent argjson plumbing. Schema-correctness matters because
+downstream tooling filters on `detector_reused_from != null`.
 
 Both `detector_skipped` and `detector_reused_from` are propagated to
 Stage 6 review JSON (REQ-7.8).
@@ -515,11 +564,29 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
     - `Task(subagent_type: "spec-compliance-reviewer", ...)`
 
 - **iter 2+ (focused, REQ-7.3)** — read `next_iter_reviewers` from the
-  previous review JSON and launch only the listed reviewers:
+  previous review JSON for the **same Wave** and **iter N-1**, then
+  launch only the listed reviewers. Wave + iter scoping is mandatory
+  (review iter 1 fix for F-005): without it Stage 1 of Wave N+1 could
+  inherit Wave N's stale `next_iter_reviewers` after a crash/resume.
 
   ```bash
-  prev_review="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
-    ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
+  prev_iter=$(( current_iter - 1 ))
+  prev_review=""
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    w="$(jq -r '.wave // empty' "$f" 2>/dev/null)"
+    i="$(jq -r '.iteration // empty' "$f" 2>/dev/null)"
+    if { [[ "$w" == "$current_wave" ]] || [[ "$w" == "all" ]]; } && [[ "$i" == "$prev_iter" ]]; then
+      prev_review="$f"
+      break
+    fi
+  done < <(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null | sort -r)
+
+  if [[ -z "$prev_review" ]]; then
+    echo "::error::iter ${current_iter} entered but no Wave ${current_wave} iter ${prev_iter} review JSON found" >&2
+    exit 2  # fail loud rather than silently launching only adversarial
+  fi
   to_launch="$(jq -r '.next_iter_reviewers[] // empty' < "$prev_review")"
   for r in $to_launch; do
     case "$r" in
@@ -582,13 +649,20 @@ Combine all 4 reviewers' `findings` arrays. Deduplicate by `location + category`
 
 ### Stage 4 — Per-issue validation (severity-conditional, parallel)
 
-**REQ-7.4 — Severity-conditional launch:**
+**REQ-7.4 — Severity-conditional launch with sampling calibration:**
 
 - `severity == "HIGH"` or `severity == "CRITICAL"` → validator is **mandatory**.
 - `severity == "MEDIUM"` or `severity == "LOW"` AND `confidence == "HIGH"` →
-  validator is **skipped**; the reviewer's self-judgment is accepted as
-  `valid` and the finding is annotated:
-  `validator: {decision: "valid", confidence: "HIGH (skipped — reviewer self-asserted HIGH confidence)"}`
+  validator is **conditionally skipped** with a 1-in-5 sampling
+  calibration check (review iter 1 F-006 fix). The reviewer's
+  self-judgment is recorded as a _distinct_ `decision` value
+  (`"valid_by_assertion"`, NOT `"valid"`) so downstream tooling can
+  discriminate validator-confirmed findings from reviewer-self-asserted
+  ones:
+  `validator: {decision: "valid_by_assertion", confidence: "HIGH (skipped — reviewer self-asserted HIGH confidence)"}`
+  Stage 5 filtering treats `valid_by_assertion` as `valid` for
+  surfacing / verdict aggregation but the `findings_surfaced` array
+  preserves the distinction for analysis.
 - All other cases (MEDIUM/LOW with `confidence != "HIGH"`) → validator is
   mandatory.
 
@@ -597,18 +671,38 @@ for finding in "${all_findings[@]}"; do
   sev="$(jq -r '.severity' <<<"$finding")"
   conf="$(jq -r '.confidence // "MEDIUM"' <<<"$finding")"
   reviewer="$(jq -r '.reviewer' <<<"$finding")"
-  if [[ "$sev" == "HIGH" || "$sev" == "CRITICAL" ]] || \
-     ! { [[ "$sev" == "MEDIUM" || "$sev" == "LOW" ]] && [[ "$conf" == "HIGH" ]]; }; then
+  skippable="$( [[ ("$sev" == "MEDIUM" || "$sev" == "LOW") && "$conf" == "HIGH" ]] && echo yes || echo no )"
+  # 1-in-5 sampling: even when skippable, every 5th eligible finding
+  # still launches the validator as a calibration check (F-006).
+  # Use a deterministic counter scoped to this Stage 4 invocation.
+  if [[ "$skippable" == "yes" ]]; then
+    sampling_counter=$(( ${sampling_counter:-0} + 1 ))
+    if (( sampling_counter % 5 == 0 )); then
+      skippable=no  # forced launch for calibration
+    fi
+  fi
+
+  if [[ "$skippable" == "no" ]]; then
     Task(subagent_type: "issue-validator", reviewer: "$reviewer", finding: $finding, ...)
   else
-    # skipped — annotate inline with synthetic validator decision
-    finding="$(jq '. + {validator: {decision: "valid", confidence: "HIGH (skipped — reviewer self-asserted HIGH confidence)"}}' <<<"$finding")"
+    # skipped — annotate inline with valid_by_assertion (distinct from "valid")
+    finding="$(jq '. + {validator: {decision: "valid_by_assertion", confidence: "HIGH (skipped — reviewer self-asserted HIGH confidence)"}}' <<<"$finding")"
   fi
 done
 ```
 
-The skipped path preserves `findings_filtered` / `findings_surfaced`
-semantics in Stage 5 (no downstream change required).
+Stage 5 filter rule (post-REQ-7.4 sampling): treat both `"valid"` and
+`"valid_by_assertion"` as keep-conditions for `findings_surfaced`. The
+`valid_by_assertion` label preserves audit trail so future analysis
+can compute reviewer-vs-validator agreement rate per reviewer.
+
+**Long-term tracking goal**: when accumulated `valid_by_assertion`
+findings reach a sample size where validator agreement rate (sampled
+1/5) drops below a threshold (e.g., agreement < 80%) for a specific
+reviewer, the orchestrator should flag this in `docs/mumei-decisions.md`
+and that reviewer's MEDIUM/LOW + confidence=HIGH path should revert to
+mandatory validation. Implementation of this metric tracking is
+deferred (out of REQ-7 scope, candidate for a future REQ).
 
 These run in parallel (one validator per finding that triggered launch).
 Wait for all.
