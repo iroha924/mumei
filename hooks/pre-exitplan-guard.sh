@@ -31,9 +31,10 @@ source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 INPUT="$(cat)"
 
 PLAN_FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.planFilePath // empty')"
+PLAN_BODY="$(printf '%s' "$INPUT" | jq -r '.tool_input.plan // empty')"
 
-# No planFilePath means the tool_input shape is unexpected — bail silently.
-if [[ -z "$PLAN_FILE_PATH" ]]; then
+# Need at least one of planFilePath / plan body to do anything useful.
+if [[ -z "$PLAN_FILE_PATH" ]] && [[ -z "$PLAN_BODY" ]]; then
   exit 0
 fi
 
@@ -42,8 +43,8 @@ SLUG=""
 if [[ -f .mumei/current ]]; then
   SLUG="$(head -n1 .mumei/current | tr -d '[:space:]')"
 fi
-if [[ -z "$SLUG" ]]; then
-  # Derive from planFilePath basename, dropping .md
+if [[ -z "$SLUG" ]] && [[ -n "$PLAN_FILE_PATH" ]]; then
+  # Derive from planFilePath basename, dropping .md (REQ-9.34)
   SLUG="$(basename "$PLAN_FILE_PATH")"
   SLUG="${SLUG%.md}"
 fi
@@ -65,15 +66,33 @@ if [[ -f ".mumei/plans/${SLUG}/state.json" ]]; then
   exit 0
 fi
 
-# Capture plan markdown into the plan-vehicle dir.
+# Capture plan markdown into the plan-vehicle dir. Prefer copying the
+# planFilePath to preserve byte-for-byte fidelity; fall back to the
+# tool_input.plan markdown string when the file is missing or unreadable
+# (REQ-9.34 — Open Question U6 resolution).
 mkdir -p ".mumei/plans/${SLUG}"
 DEST=".mumei/plans/${SLUG}/plan.md"
-if [[ -f "$PLAN_FILE_PATH" ]]; then
-  if ! cp "$PLAN_FILE_PATH" "$DEST" 2>/dev/null; then
-    mumei_log_warn "L-P1: failed to copy plan from ${PLAN_FILE_PATH} to ${DEST}"
+plan_written=0
+if [[ -n "$PLAN_FILE_PATH" ]] && [[ -f "$PLAN_FILE_PATH" ]]; then
+  if cp "$PLAN_FILE_PATH" "$DEST" 2>/dev/null; then
+    plan_written=1
+  else
+    mumei_log_warn "L-P1: failed to copy plan from ${PLAN_FILE_PATH} to ${DEST}; trying tool_input.plan fallback"
   fi
-else
-  mumei_log_warn "L-P1: planFilePath does not exist on disk: ${PLAN_FILE_PATH} (state.json will still be initialized; plan.md fallback handled by Wave 3 task 3.4)"
+fi
+if [[ "$plan_written" == "0" ]] && [[ -n "$PLAN_BODY" ]]; then
+  # Fallback: tool_input.plan was always provided in V1 capture, and the
+  # mumei copy is the source of truth for archive anyway. Atomic write.
+  tmp_plan="$(mktemp "${DEST}.XXXXXX")"
+  printf '%s' "$PLAN_BODY" >"$tmp_plan"
+  mv "$tmp_plan" "$DEST"
+  plan_written=1
+  if [[ -z "$PLAN_FILE_PATH" || ! -f "$PLAN_FILE_PATH" ]]; then
+    mumei_log_info "L-P1: planFilePath unavailable; wrote ${DEST} from tool_input.plan body"
+  fi
+fi
+if [[ "$plan_written" == "0" ]]; then
+  mumei_log_warn "L-P1: could not capture plan markdown (no planFilePath and no tool_input.plan); state.json will still be initialized"
 fi
 
 # Initialize state.json (idempotent — function returns 0 if file exists).

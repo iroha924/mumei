@@ -564,6 +564,15 @@ fi
 When `phase=review`, run the 7-stage pipeline. Stage 0 produces deterministic
 detector findings that the LLM reviewers treat as ground truth.
 
+This phase relies on shared helpers in `hooks/_lib/review.sh` (extracted in
+Wave 3 of REQ-9 so the plan-vehicle `/mumei:review` skill can reuse them).
+Source the lib once at the top of Phase 5:
+
+```bash
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
+review_dir=".mumei/specs/${feature}/reviews"
+```
+
 ### Iteration entry — REQ-7.7 iter-1-all-PASS short-circuit
 
 Before entering Stage 0 for iter N (N >= 2) of the **current Wave**,
@@ -573,55 +582,31 @@ findings, skip iter N+ for this Wave and write a synthetic
 short-circuit review JSON that records the skip in the audit trail.
 
 **Wave + iter scoping is mandatory** (review iter 1 fix for F-001 / F-005):
-without filtering by `.wave == $current_wave` AND
-`.iteration == $current_iter - 1`, a Wave N+1 entering Phase 5 would
-inherit Wave N's PASS verdict (or another iter's verdict) and silently
-skip its own review entirely.
+the helper `mumei_review_should_short_circuit` filters by `.wave == $current_wave`
+AND `.iteration == $current_iter - 1`, so a Wave N+1 entering Phase 5 cannot
+inherit Wave N's PASS verdict.
 
 ```bash
 # Hard gate: iter 1 always proceeds through full Stage 0 → Stage 6.
-if [[ "$current_iter" -ge 2 ]]; then
-  # Find the most recent review JSON belonging to THIS Wave AND THIS Wave's iter (N-1).
-  prev_iter=$(( current_iter - 1 ))
-  prev_review=""
-  while IFS= read -r f; do
-    [[ -z "$f" ]] && continue
-    w="$(jq -r '.wave // empty' "$f" 2>/dev/null)"
-    i="$(jq -r '.iteration // empty' "$f" 2>/dev/null)"
-    if { [[ "$w" == "$current_wave" ]] || [[ "$w" == "all" ]]; } && [[ "$i" == "$prev_iter" ]]; then
-      prev_review="$f"
-      break
-    fi
-  done < <(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
-    ! -name '*-detectors.json' 2>/dev/null | sort -r)
-
-  if [[ -n "$prev_review" ]]; then
-    prev_verdict="$(jq -r '.verdict' "$prev_review")"
-    prev_high="$(jq -r '[.findings_surfaced[] | select(.severity=="HIGH" or .severity=="CRITICAL")] | length' "$prev_review")"
-    if [[ "$prev_verdict" == "PASS" && "$prev_high" == "0" ]]; then
-      echo "Wave ${current_wave} iter ${prev_iter} was clean (verdict=PASS, HIGH=0). Skipping iter ${current_iter} via REQ-7.7."
-      # Synthetic short-circuit review JSON (review iter 1 F-004 fix —
-      # distinguishable from a real iter-N PASS via short_circuited_from field).
-      ts="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
-      # Synthetic short-circuit JSON uses a `-shortcircuit` suffix so it
-      # cannot collide with Stage 6's `<ts>.json` filename even when
-      # iter-1 Stage 6 and iter-2 entry happen within the same UTC second
-      # (review iter 2 F-001 fix — preserves iter-1 audit trail).
-      out=".mumei/specs/${feature}/reviews/${ts}-shortcircuit.json"
-      jq -n \
-        --arg feature "$feature" \
-        --argjson wave "${current_wave:-null}" \
-        --argjson iteration "$current_iter" \
-        --arg short_circuited_from "$prev_review" \
-        '{feature: $feature, wave: $wave, iteration: $iteration, verdict: "PASS",
-          summary: "REQ-7.7 short-circuit — previous iter for this Wave was clean (verdict=PASS, HIGH=0).",
-          short_circuited_from: $short_circuited_from,
-          findings_surfaced: [], findings_filtered: [],
-          next_iter_reviewers: [], detector_skipped: true, detector_reused_from: null}' > "$out"
-      mumei_state_set "$feature" '.phase' '"done"'
-      exit 0
-    fi
-  fi
+if prev_review="$(mumei_review_should_short_circuit "$review_dir" "$current_wave" "$current_iter")"; then
+  echo "Wave ${current_wave} iter $((current_iter - 1)) was clean (verdict=PASS, HIGH=0). Skipping iter ${current_iter} via REQ-7.7."
+  # Synthetic short-circuit JSON uses a `-shortcircuit` suffix so it
+  # cannot collide with Stage 6's `<ts>.json` filename even when
+  # iter-1 Stage 6 and iter-2 entry happen within the same UTC second
+  # (review iter 2 F-001 fix — preserves iter-1 audit trail).
+  jq -n \
+    --arg feature "$feature" \
+    --argjson wave "${current_wave:-null}" \
+    --argjson iteration "$current_iter" \
+    --arg short_circuited_from "$prev_review" \
+    '{feature: $feature, wave: $wave, iteration: $iteration, verdict: "PASS",
+      summary: "REQ-7.7 short-circuit — previous iter for this Wave was clean (verdict=PASS, HIGH=0).",
+      short_circuited_from: $short_circuited_from,
+      findings_surfaced: [], findings_filtered: [],
+      next_iter_reviewers: [], detector_skipped: true, detector_reused_from: null}' \
+    | mumei_review_persist "$review_dir" "shortcircuit" >/dev/null
+  mumei_state_set "$feature" '.phase' '"done"'
+  exit 0
 fi
 # Otherwise (iter 1, or iter 2+ with non-clean prev), fall through to Stage 0.
 ```
@@ -638,62 +623,24 @@ On iter 1 the detector is unconditionally invoked. On iter N (N >= 2),
 the orchestrator first reads the previous review JSON's `iter_head`,
 diffs it against the current HEAD, and skips the detector if no file
 matching the detector ext list (`.py` `.js` `.ts` `.jsx` `.tsx` `.rb`
-`.go` `.rs` `.java` `.yml` `.yaml` `.json` `.lock` `.toml`) was touched.
-On iter 1 (no previous review JSON exists) `prev_iter_head` is empty
-and the `[[ -n "$prev_iter_head" ]]` guard falls through to the normal
-detector run — this is the intended iter 1 behavior.
+`.go` `.rs` `.java` `.yml` `.yaml` `.json` `.lock` `.toml`, plus a few
+build-config filenames) was touched. The exact list lives in
+`mumei_review_detector_ext_re` inside `hooks/_lib/review.sh`. On iter 1
+the helper unconditionally invokes `hooks/pre-review-detector.sh` (the
+deterministic detector entry point).
+
+`mumei_review_run_detector` already returns the augmented summary with
+`detector_skipped` and `detector_reused_from` baked in (set by the
+helper based on whether the iter-2+ skip path was taken or a fresh run
+happened), so Stage 6 only needs to read those fields back from
+`$summary`.
 
 ```bash
-ext_re='\.(sh|bash|py|js|ts|jsx|tsx|cjs|mjs|cts|mts|rb|go|rs|java|yml|yaml|json|lock|toml)$|(^|/)(Dockerfile|Makefile|Gemfile|Pipfile|Cargo\.lock)(\.[^/]+)?$'
-prev_iter_review="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
-  ! -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
-prev_iter_head=""
-[[ -n "$prev_iter_review" ]] && prev_iter_head="$(jq -r '.iter_head // empty' "$prev_iter_review")"
-
-fall_through_to_run=0
-# REQ-7.5 + iter 2 F-002 fix: gate the skip path on current_iter >= 2 (matches
-# spec literal — iter 2+ skip only) so a Wave N+1 entering Phase 5 cannot
-# inherit Wave N's iter_head and falsely skip the detector for its iter 1.
-if [[ "$current_iter" -ge 2 ]] && [[ -n "$prev_iter_head" ]] && \
-   ! git diff --name-only "$prev_iter_head" HEAD | grep -qE "$ext_re"; then
-  # No detector-relevant file touched since last iter — try to reuse previous report.
-  last_detector="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f \
-    -name '*-detectors.json' 2>/dev/null | sort | tail -n1)"
-  # F-003 fix: validate the reuse target exists AND parses before extracting fields.
-  # Without this guard, an empty $last_detector caused jq to error and high_count
-  # to become an undefined empty string used in downstream branch logic.
-  if [[ -z "$last_detector" || ! -f "$last_detector" ]] || ! jq empty "$last_detector" 2>/dev/null; then
-    echo "WARN: detector reuse path expected a valid detectors.json but found none — falling back to fresh detector run" >&2
-    fall_through_to_run=1
-  else
-    high_count="$(jq -r '.counts.HIGH // 0' "$last_detector")"
-    summary="$(jq -nc --arg p "$last_detector" --argjson hc "$high_count" \
-      '{detectors_ran: false, reused: true, high_count: $hc, report_path: $p, failed_detectors: []}')"
-    rc=0
-    detector_skipped=true
-    detector_reused_from="$last_detector"
-  fi
-fi
-if [[ "$current_iter" -lt 2 ]] || [[ -z "$prev_iter_head" ]] || \
-   [[ "$fall_through_to_run" == "1" ]] || \
-   git diff --name-only "$prev_iter_head" HEAD | grep -qE "$ext_re"; then
-  # iter 1, or iter 2+ with detector-relevant changes, or reuse-fallback → normal run.
-  summary="$(bash "${CLAUDE_PLUGIN_ROOT}/hooks/pre-review-detector.sh")"
-  rc=$?
-  detector_skipped=false
-  detector_reused_from=  # empty — Stage 6 must persist as JSON null via --argjson
-fi
+summary="$(mumei_review_run_detector "$review_dir" "$current_iter" "$CLAUDE_PLUGIN_ROOT")"
+rc=$?
+detector_skipped="$(jq -r '.detector_skipped // false' <<<"$summary")"
+detector_reused_from="$(jq -r '.detector_reused_from // empty' <<<"$summary")"
 ```
-
-**Note on `detector_reused_from` JSON typing (review iter 1 F-004 fix):**
-when not reused, `detector_reused_from` is empty string in bash; Stage 6
-MUST write it as JSON null (not the string `"null"`) by using
-`jq --argjson detector_reused_from "${detector_reused_from:+\"$detector_reused_from\"}${detector_reused_from:-null}"`
-or equivalent argjson plumbing. Schema-correctness matters because
-downstream tooling filters on `detector_reused_from != null`.
-
-Both `detector_skipped` and `detector_reused_from` are propagated to
-Stage 6 review JSON (REQ-7.8).
 
 The script writes `.mumei/specs/<feature>/reviews/<ts>-detectors.json` and
 emits a JSON summary on stdout:
@@ -936,17 +883,16 @@ completion. The next iter's Stage 0 reads this to compute the diff
 since the last iter and decide whether to re-run the detector.
 
 **`next_iter_reviewers` (REQ-7.3/7.8)**: list of reviewer names that
-must launch in iter N+1. Compute as:
+must launch in iter N+1. Use the helper:
 
 ```bash
-high_reviewers="$(jq -r '
-  .findings_surfaced
-  | map(select(.severity=="HIGH" or .severity=="CRITICAL"))
-  | map(.reviewer) | unique | .[]
-' < new_review.json)"
-# adversarial-reviewer is always included regardless of HIGH presence (REQ-7.3)
-next_iter_reviewers=$(printf '%s\nadversarial\n' "$high_reviewers" | sort -u | grep -v '^$')
+# surfaced_json is the findings_surfaced array built earlier in this stage.
+next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers "$surfaced_json")"
 ```
+
+The helper always includes `"adversarial"` (REQ-7.3 invariant) and
+de-duplicates the HIGH/CRITICAL reviewer set across all surfaced
+findings.
 
 If only `["adversarial"]` remains AND verdict=PASS AND HIGH count=0,
 the iter-1-all-PASS optimization (REQ-7.7) skips iter 2 entirely
@@ -958,12 +904,26 @@ changed since the previous iter. `detector_reused_from` then points at
 the previous iter's detector report path that was reused as the
 ground-truth substitute.
 
-Verdict aggregation rules:
+Verdict aggregation rules (encoded in `mumei_review_aggregate_verdict`):
 
 - **HIGH detector findings present** (`high_count > 0` from Stage 0) → overall `MAJOR_ISSUES`. This is non-negotiable; the deterministic detector is ground truth.
 - ANY reviewer returns `MAJOR_ISSUES` → overall `MAJOR_ISSUES`.
 - ANY surfaced finding has `severity: CRITICAL` or `HIGH` → at least `NEEDS_IMPROVEMENT`.
 - All clean → `PASS`.
+
+```bash
+verdict="$(mumei_review_aggregate_verdict "$high_count" "$surfaced_json" "$reviewer_verdicts_json")"
+```
+
+To persist the final review JSON atomically, pipe it through
+`mumei_review_persist`:
+
+```bash
+printf '%s\n' "$review_json" | mumei_review_persist "$review_dir" >/dev/null
+```
+
+(Pass `"shortcircuit"` as the second arg only for REQ-7.7 synthetic
+records; Stage 6 leaves it empty.)
 
 The persisted JSON SHOULD include the detector report path under a
 `detector_report` field so downstream tooling (and the Stop hook) can
