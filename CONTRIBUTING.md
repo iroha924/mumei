@@ -222,6 +222,22 @@ Replace the image when the design language or scope of the project changes
 materially. Do not commit the source PSD / source PNG into the repo;
 artwork lives in the maintainer's design folder, not in the source tree.
 
+## Security requirements for contributors
+
+External pull request contributors must follow the conditions below. The
+detailed rationale and verification steps will be filled in alongside the
+release-hardening rollout (see [SECURITY.md](./SECURITY.md) and the policy
+referenced from `docs/security-policy.md`).
+
+- **Signed commits**: every commit on the PR branch must carry a verified
+  GPG or SSH signature. Unsigned commits are rejected by the CI gate.
+- **No `pull_request_target`**: do not introduce workflows that use
+  `pull_request_target`. PRs that add such a workflow are rejected by the
+  CI gate.
+- **SHA-pinned third-party actions**: any `uses:` reference to a
+  third-party action must be pinned to a commit SHA, with the version tag
+  retained as a trailing comment (`uses: foo/bar@<sha> # v1.2.3`).
+
 ## Reporting bugs
 
 Use the **Bug report** template under

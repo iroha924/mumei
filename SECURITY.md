@@ -80,6 +80,33 @@ The following are explicitly outside mumei's security scope:
   before pushing; the review verdict pins to `MAJOR_ISSUES` automatically when
   HIGH findings exist, so a forced push would skip a real CVE.
 
+## Hardening adopted
+
+A summary of the controls mumei has adopted (signed releases, SHA-pinned
+third-party actions, SAST scans on every PR, etc.) will be filled in once the
+release pipeline lands. See `docs/security-policy.md` for the user-facing
+verification steps.
+
+## MFA policy
+
+To be filled in.
+
+## PAT policy
+
+To be filled in.
+
+## API key spend limit
+
+To be filled in.
+
+## Secret redaction
+
+To be filled in.
+
+## SLSA positioning
+
+To be filled in.
+
 ## License
 
 This security policy is published under the same MIT License as the rest of the

@@ -12,6 +12,8 @@
 # リサーチ・決定ログ (dev 専用、ただし配布対象の英語ドキュメントは個別に許可)
 /docs/*
 !/docs/document-corruption.md
+!/docs/threat-model.md
+!/docs/security-policy.md
 
 # mumei plugin を mumei 自身で利用する場合の状態 (dogfood 想定)
 /.mumei/
@@ -52,6 +54,14 @@ desktop.ini
 .env
 .env.*
 !.env.example
+
+# 鍵・証明書・パスワードストア
+*.pem
+*.key
+id_rsa*
+.aws/credentials
+.ssh/
+*.kdbx
 
 # =============================================================================
 # テスト・カバレッジ (将来 bats を入れたとき)
