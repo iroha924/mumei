@@ -420,7 +420,11 @@ if [[ "$current_iter" -ge 2 ]]; then
       # Synthetic short-circuit review JSON (review iter 1 F-004 fix —
       # distinguishable from a real iter-N PASS via short_circuited_from field).
       ts="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
-      out=".mumei/specs/${feature}/reviews/${ts}.json"
+      # Synthetic short-circuit JSON uses a `-shortcircuit` suffix so it
+      # cannot collide with Stage 6's `<ts>.json` filename even when
+      # iter-1 Stage 6 and iter-2 entry happen within the same UTC second
+      # (review iter 2 F-001 fix — preserves iter-1 audit trail).
+      out=".mumei/specs/${feature}/reviews/${ts}-shortcircuit.json"
       jq -n \
         --arg feature "$feature" \
         --argjson wave "${current_wave:-null}" \
@@ -464,7 +468,10 @@ prev_iter_head=""
 [[ -n "$prev_iter_review" ]] && prev_iter_head="$(jq -r '.iter_head // empty' "$prev_iter_review")"
 
 fall_through_to_run=0
-if [[ -n "$prev_iter_head" ]] && \
+# REQ-7.5 + iter 2 F-002 fix: gate the skip path on current_iter >= 2 (matches
+# spec literal — iter 2+ skip only) so a Wave N+1 entering Phase 5 cannot
+# inherit Wave N's iter_head and falsely skip the detector for its iter 1.
+if [[ "$current_iter" -ge 2 ]] && [[ -n "$prev_iter_head" ]] && \
    ! git diff --name-only "$prev_iter_head" HEAD | grep -qE "$ext_re"; then
   # No detector-relevant file touched since last iter — try to reuse previous report.
   last_detector="$(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f \
@@ -484,7 +491,8 @@ if [[ -n "$prev_iter_head" ]] && \
     detector_reused_from="$last_detector"
   fi
 fi
-if [[ -z "$prev_iter_head" ]] || [[ "$fall_through_to_run" == "1" ]] || \
+if [[ "$current_iter" -lt 2 ]] || [[ -z "$prev_iter_head" ]] || \
+   [[ "$fall_through_to_run" == "1" ]] || \
    git diff --name-only "$prev_iter_head" HEAD | grep -qE "$ext_re"; then
   # iter 1, or iter 2+ with detector-relevant changes, or reuse-fallback → normal run.
   summary="$(bash "${CLAUDE_PLUGIN_ROOT}/hooks/pre-review-detector.sh")"
@@ -672,14 +680,17 @@ for finding in "${all_findings[@]}"; do
   conf="$(jq -r '.confidence // "MEDIUM"' <<<"$finding")"
   reviewer="$(jq -r '.reviewer' <<<"$finding")"
   skippable="$( [[ ("$sev" == "MEDIUM" || "$sev" == "LOW") && "$conf" == "HIGH" ]] && echo yes || echo no )"
-  # 1-in-5 sampling: even when skippable, every 5th eligible finding
-  # still launches the validator as a calibration check (F-006).
-  # Use a deterministic counter scoped to this Stage 4 invocation.
+  # ~20% sampling calibration: even when skippable, hash-sample on
+  # (reviewer + finding.id) for stateless feature-wide determinism.
+  # Earlier per-Stage-4 counter approach reset every iter and never
+  # triggered for features with <5 skippable findings (review iter 2 F-003 fix).
+  # First hex char of SHA256: values 0-2 (3/16 ≈ 19%) force calibration.
   if [[ "$skippable" == "yes" ]]; then
-    sampling_counter=$(( ${sampling_counter:-0} + 1 ))
-    if (( sampling_counter % 5 == 0 )); then
-      skippable=no  # forced launch for calibration
-    fi
+    finding_id="$(jq -r '.id // empty' <<<"$finding")"
+    sample_hex="$(printf '%s' "${reviewer}:${finding_id}" | shasum -a 256 | cut -c1)"
+    case "$sample_hex" in
+      0|1|2) skippable=no ;;  # forced launch for calibration (~19%)
+    esac
   fi
 
   if [[ "$skippable" == "no" ]]; then
