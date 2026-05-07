@@ -93,9 +93,12 @@ mumei_memory_validate_curator_output() {
   fi
   # Cap final_text bytes — prevents curator drift from blowing past the
   # 8KB MEMORY.md cap. SKIP can have empty final_text (length 0).
+  # Use jq's utf8bytelength to get the exact UTF-8 byte count of the string
+  # value (avoids the +1 off-by-one from `jq -r | wc -c` where jq -r appends
+  # a trailing newline).
   if [[ "$op" != "SKIP" ]]; then
     local ft_bytes
-    ft_bytes="$(printf '%s' "$input" | jq -r '.final_text' | wc -c | tr -d ' ')"
+    ft_bytes="$(printf '%s' "$input" | jq -r '.final_text | utf8bytelength')"
     if ((ft_bytes > MUMEI_MEMORY_FINAL_TEXT_MAX_BYTES)); then
       printf 'final_text too long: %d bytes (cap %d)\n' "$ft_bytes" "$MUMEI_MEMORY_FINAL_TEXT_MAX_BYTES" >&2
       return 1
@@ -128,50 +131,32 @@ mumei_memory_apply_operation() {
     mumei_log_error "mkdir failed: ${dir}"
     return 1
   }
-  [[ -f "$mfile" ]] || : >"$mfile"
 
-  # Acquire flock against ${mfile}.lock so concurrent ADDs do not lose updates.
-  # flock auto-releases when fd closes (return / exit).
-  local lockfile="${mfile}.lock"
-  : >"$lockfile" 2>/dev/null || true
-  exec 9>"$lockfile" || {
-    mumei_log_error "flock fd open failed: ${lockfile}"
-    return 1
-  }
-  if command -v flock >/dev/null 2>&1; then
-    flock -x 9 || {
-      mumei_log_error "flock acquire failed: ${lockfile}"
-      exec 9>&-
-      return 1
-    }
-  fi
-  # macOS lacks flock(1) by default; fall back to mkdir-lock as a soft mutex
-  # (best-effort; not POSIX-strict).
+  # Use mkdir as the unconditional cross-platform mutex (atomic on all
+  # POSIX systems, works on macOS without coreutils flock(1)). Drops the
+  # earlier flock primitive entirely so two concurrent sessions never
+  # disagree about which mutex they are taking. Register the cleanup trap
+  # FIRST so a SIGINT after acquisition still removes the lock dir.
   local mkdir_lock="${mfile}.mkdirlock"
   local mkdir_lock_acquired=0
-  if ! command -v flock >/dev/null 2>&1; then
-    local tries=0
-    while ! mkdir "$mkdir_lock" 2>/dev/null; do
-      tries=$((tries + 1))
-      if ((tries > 50)); then
-        mumei_log_error "mkdir-lock timeout: ${mkdir_lock}"
-        exec 9>&-
-        return 1
-      fi
-      sleep 0.1
-    done
-    mkdir_lock_acquired=1
-  fi
-
-  # trap cleanup: tmp files + locks released on any return path
   tmp=""
   newtext_file=""
   # shellcheck disable=SC2064
   trap "rm -rf -- \"\${tmp:-}\" \"\${newtext_file:-}\" 2>/dev/null; \
-        if [[ \"$mkdir_lock_acquired\" == \"1\" ]]; then rmdir \"$mkdir_lock\" 2>/dev/null || true; fi; \
-        exec 9>&-" RETURN
+        if [[ \"\${mkdir_lock_acquired}\" == \"1\" ]]; then rmdir \"$mkdir_lock\" 2>/dev/null || true; fi" RETURN
+  local tries=0
+  while ! mkdir "$mkdir_lock" 2>/dev/null; do
+    tries=$((tries + 1))
+    if ((tries > 50)); then
+      mumei_log_error "mkdir-lock timeout: ${mkdir_lock} (rmdir manually if no other mumei session is active)"
+      return 1
+    fi
+    sleep 0.1
+  done
+  mkdir_lock_acquired=1
 
   if [[ "$op" == "ADD" ]]; then
+    [[ -f "$mfile" ]] || : >"$mfile"
     final_text="$(printf '%s' "$input" | jq -r '.final_text')"
     id="$(mumei_memory__slugify "$final_text")"
     if [[ -z "$id" ]]; then

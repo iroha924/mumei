@@ -235,18 +235,17 @@ setup() {
   ! grep -qF 'replacement' "$dir/MEMORY.md"
 }
 
-@test "apply: UPDATE on missing MEMORY.md is silently no-op (file created empty, target not found)" {
+@test "apply: UPDATE on missing MEMORY.md fails with explicit error" {
   local dir=".claude/agent-memory/mumei-test-reviewer"
   local input='{"operation":"UPDATE","score_total":18,"score_breakdown":{"generality":3,"recurrence":3,"longevity":3,"coverage_gap":3,"actionability":2,"density":2,"confidence":2},"final_text":"x","merge_target_id":"some-id","reason":"r"}'
-  run bash -c "
+  run --separate-stderr bash -c "
     source \"\$CLAUDE_PLUGIN_ROOT/hooks/_lib/memory.sh\"
     printf '%s' '${input}' | mumei_memory_apply_operation '${dir}'
   "
-  [ "$status" -eq 0 ]
-  # File is touched empty (mkdir + : >"$mfile" upfront); UPDATE awk finds no
-  # match, output is empty, mv leaves empty file. No data written.
-  [ -f "$dir/MEMORY.md" ]
-  [ ! -s "$dir/MEMORY.md" ]
+  [ "$status" -ne 0 ]
+  [[ "$stderr" == *"UPDATE failed"* ]]
+  # MEMORY.md must NOT have been pre-created (only ADD touches an empty file).
+  [ ! -f "$dir/MEMORY.md" ]
 }
 
 @test "apply: ADD with Japanese-only final_text uses sha-prefixed id (slug fallback)" {
@@ -272,4 +271,29 @@ setup() {
   "
   [ "$status" -eq 1 ]
   [[ "$stderr" == *"final_text too long"* ]]
+}
+
+@test "validate: final_text at exactly 1024 bytes is accepted (no off-by-one)" {
+  local exact_text
+  exact_text="$(printf 'a%.0s' {1..1024})"
+  local input
+  input="$(jq -nc --arg ft "$exact_text" '{operation:"ADD",score_total:18,score_breakdown:{generality:3,recurrence:3,longevity:3,coverage_gap:3,actionability:2,density:2,confidence:2},final_text:$ft,merge_target_id:null,reason:"r"}')"
+  run --separate-stderr bash -c "
+    source \"\$CLAUDE_PLUGIN_ROOT/hooks/_lib/memory.sh\"
+    printf '%s' '${input}' | mumei_memory_validate_curator_output
+  "
+  [ "$status" -eq 0 ]
+}
+
+@test "validate: final_text at 1025 bytes is rejected (boundary)" {
+  local over_text
+  over_text="$(printf 'a%.0s' {1..1025})"
+  local input
+  input="$(jq -nc --arg ft "$over_text" '{operation:"ADD",score_total:18,score_breakdown:{generality:3,recurrence:3,longevity:3,coverage_gap:3,actionability:2,density:2,confidence:2},final_text:$ft,merge_target_id:null,reason:"r"}')"
+  run --separate-stderr bash -c "
+    source \"\$CLAUDE_PLUGIN_ROOT/hooks/_lib/memory.sh\"
+    printf '%s' '${input}' | mumei_memory_validate_curator_output
+  "
+  [ "$status" -eq 1 ]
+  [[ "$stderr" == *"1025"* ]]
 }
