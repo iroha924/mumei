@@ -48,6 +48,11 @@ exclude = [
   # runners (~5-10% of recent runs). The page is real and stable; the
   # network path between Azure runners and the SLSA host is the flake.
   "slsa\\.dev/spec/",
+  # scorecard.dev viewer occasionally drops the connection from CI
+  # runners (Connection failed, no HTTP response). The badge URL is
+  # documented and the page is real; transient network issue between
+  # runners and the host. Pattern matches both / and ?uri= forms.
+  "scorecard\\.dev/viewer",
 ]
 
 # Local-only file:// or relative anchor checks. "none" focuses on http(s);
