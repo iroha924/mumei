@@ -45,15 +45,15 @@ flowchart LR
 - [Features](#features)
 - [Why](#why)
 - [Commands](#commands)
+- [Two vehicles: `spec` and `plan`](#two-vehicles-spec-and-plan)
+- [Security & supply chain](#security--supply-chain)
 - [Philosophy: why "mumei" (無名)](#philosophy-why-mumei-無名)
 - [Workflow](#workflow)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Project layout](#project-layout-after-mumeiinit)
-- [Spec document format](#spec-document-format)
-- [Tasks document format](#tasks-document-format)
-- [Hook rules](#hook-rules-full-list)
-- [Security and Privacy](#security-and-privacy)
+- [Spec & tasks format](#spec--tasks-format)
+- [Hook rules](#hook-rules)
 - [Troubleshooting](#troubleshooting)
 - [What `mumei` is NOT](#what-mumei-is-not)
 - [Architecture](#architecture)
@@ -61,13 +61,14 @@ flowchart LR
 
 ## Features
 
-- **Hook-enforced phases**: Cannot edit `src/` while spec is incomplete, cannot `git commit` with `[ ]` tasks remaining, cannot `git push` while review verdict is `MAJOR_ISSUES`.
-- **3 spec reviewers**: Independent `requirements` / `design` / `tasks` reviewers on fresh contexts, auto-iterating draft → reviewer up to 3 times. Catches missing requirements and hallucinated acceptance criteria before code is written.
-- **Wave-based commits**: 1 Wave = 1 commit. Hooks cross-check the diff against each task's `_Files:_` meta to block phantom completion (marking `[x]` without an actual implementation).
-- **3-reviewer pipeline + adversarial**: `spec-compliance` / `security` (parallel in Stage 1) plus `adversarial` (sequential, sees prior findings via injection in Stage 2), plus a severity-conditional per-issue validator on a fresh context (memory: local, read-only) that filters false positives before findings reach the user. (Post-REQ-7: `code-quality` reviewer was removed after a dogfood metric showed 0 valid findings — KISS / over-engineering coverage delegated to `adversarial`, scope creep to `spec-compliance`.)
-- **Deterministic security ground-truth**: `semgrep` + `osv-scanner` run before LLM reviewers. HIGH findings pin the verdict to `MAJOR_ISSUES` so the LLM cannot downgrade a real CVE.
-- **Curator-gated reviewer memory**: reviewer agents do not write to their `.claude/agent-memory/<r>/MEMORY.md` directly (denied by M1 hook). Instead they emit up to 5 candidates per review; an independent `memory-curator` (sonnet, read-only) scores each on a 7-axis rubric and only candidates scoring `≥ 15/21` are persisted via `hooks/_lib/memory.sh` atomic helpers. Keeps reviewer memory under the 30-entry / 8 KB cap that mumei targets (vs the 25 KB Claude Code auto-inject ceiling).
-- **Kuroko (黒衣) stance**: Zero side effects on projects that have not opted in. No `.mumei/current` = every Hook is a no-op. No telemetry, no writes outside `.mumei/`, no auto-commit, no auto-fix.
+- **Hook-enforced phases** — Cannot edit `src/` while spec is incomplete, cannot `git commit` with `[ ]` tasks remaining, cannot `git push` while review verdict is `MAJOR_ISSUES`. Enforcement is at the tool-call boundary; the agent cannot prompt its way around it.
+- **Deterministic security ground-truth** — `semgrep` + `osv-scanner` run before LLM reviewers. HIGH findings pin the verdict to `MAJOR_ISSUES` so the LLM cannot downgrade a real CVE.
+- **3 spec reviewers** — Independent `requirements` / `design` / `tasks` reviewers on fresh contexts, auto-iterating draft → reviewer up to 3 times. Catches missing requirements and hallucinated acceptance criteria before code is written.
+- **Wave-based commits** — 1 Wave = 1 commit. Hooks cross-check the diff against each task's `_Files:_` meta to block phantom completion (marking `[x]` without an actual implementation).
+- **3-reviewer pipeline + adversarial + validator** — `spec-compliance` / `security` (parallel) plus `adversarial` (sequential, sees prior findings via injection), plus a severity-conditional per-issue validator on a fresh context that filters false positives before findings reach the user.
+- **Curator-gated reviewer memory** — Reviewer agents do not write to their own memory; an independent `memory-curator` (sonnet, read-only) scores candidates on a 7-axis rubric and only `≥ 15/21` is persisted via atomic helpers. Direct LLM Edit/Write to reviewer memory is denied at the hook layer.
+- **Signed, attestable releases** — Sigstore keyless signing, SLSA Level 3 provenance, CycloneDX SBOM, signed commits + tags. See [Security & supply chain](#security--supply-chain).
+- **Kuroko (黒衣) stance** — Zero side effects on projects that have not opted in. No `.mumei/current` = every Hook is a no-op. No telemetry, no writes outside `.mumei/`, no auto-commit, no auto-fix.
 
 ## Why
 
@@ -89,23 +90,45 @@ AI coding agents skip steps. They mark tasks complete without writing tests. The
 
 mumei is a **Quality Enforcement Layer** — its primary job is the Hook-driven physical enforcement of phase transitions, commit / push gates, and review completion. The way you _drive_ a feature toward those gates is called a **vehicle**, and mumei ships two:
 
-- **`spec`** — the full SDD workflow described above. Drafts `requirements.md` / `design.md` / `tasks.md`, runs three independent spec reviewers, opens a single user approval gate, and then implements Wave by Wave with per-Wave commits and a final 4-stage review. Use when a feature is large enough to benefit from explicit user stories, EARS acceptance criteria, and an architecture diagram.
+- **`spec`** — the full SDD workflow. Drafts `requirements.md` / `design.md` / `tasks.md`, runs three independent spec reviewers, opens a single user approval gate, then implements Wave by Wave with per-Wave commits and a final 4-stage review. Use when a feature is large enough to benefit from explicit user stories, EARS acceptance criteria, and an architecture diagram.
 - **`plan`** — a thin wrapper around Claude Code's native plan mode + `TaskCreate`. After `/mumei:plan` selects this vehicle, you press `Shift+Tab` twice to enter plan mode, accept the plan, and let Claude execute the resulting task list. mumei captures the plan into `.mumei/plans/<slug>/plan.md`, tracks task completion via `TaskCreated` / `TaskCompleted` hooks, and once every task is complete (`pending_review=true`) gates session-end and `git push` until you run `/mumei:review`.
 
-Both vehicles share the same review pipeline (Stage 0 detector + security + adversarial + per-issue validator), the same `MUMEI_BYPASS=1` escape hatch, and the same `/mumei:archive` cleanup. The difference is only how the work _enters_ the pipeline:
+Both vehicles share the same review pipeline (Stage 0 detector + security + adversarial + per-issue validator + memory-curator), the same `MUMEI_BYPASS=1` escape hatch, and the same `/mumei:archive` cleanup. Pick `plan` when the SDD workflow feels heavier than the work itself; pick `spec` when explicit traceability between requirements and code is worth the friction.
 
-| Aspect             | `spec`                                               | `plan`                                                             |
-| ------------------ | ---------------------------------------------------- | ------------------------------------------------------------------ |
-| Drafted artifacts  | requirements.md / design.md / tasks.md               | plan.md (captured from `ExitPlanMode`)                             |
-| User approvals     | one (after the three spec reviewers PASS)            | none (handoff to plan mode is the contract)                        |
-| Implementation     | Wave-by-Wave with `_Files:_` scope + commit per Wave | freeform task list executed in plan mode                           |
-| Session-end gate   | Stop hook (R1) — all tasks `[x]` + passing review    | Stop hook (L-R1) — `pending_review=true` + passing review          |
-| `git push` gate    | PreBash (R2) — review verdict ≠ MAJOR_ISSUES         | PreBash (L-R2) — same, but reads `.mumei/plans/<slug>/reviews/`    |
-| Review entry       | `/mumei:plan` Phase 5                                | `/mumei:review`                                                    |
-| Best for           | new features with significant scope                  | bug fixes, small features, projects already using another SDD tool |
-| Reviewers launched | spec-compliance + security + adversarial + validator | security + adversarial + validator (no spec-compliance)            |
+## Security & supply chain
 
-Pick `plan` when the SDD workflow feels heavier than the work itself; pick `spec` when explicit traceability between requirements and code is worth the friction.
+mumei takes a defense-in-depth posture for both runtime safety and the artifacts you install.
+
+**Runtime (your local environment):**
+
+| Aspect                     | Behaviour                                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **External communication** | None initiated by mumei. `osv-scanner` (third-party detector) queries `osv.dev` for CVE data; mumei does not control its network. |
+| **Telemetry**              | None. No analytics, no error reporting, no usage tracking.                                                                        |
+| **Data storage**           | All state under project-local `.mumei/`. Nothing written to `~/.claude/` or any global location.                                  |
+| **Tools used**             | `bash`, `jq`, `git` (required); `semgrep`, `osv-scanner` (required for review phase). All locally executable.                     |
+| **Escape hatch**           | `MUMEI_BYPASS=1` env var, single rule, audited. No per-rule bypass, no feature flags.                                             |
+
+**Distribution (the artifacts you install):**
+
+- **Sigstore keyless signing** — every release tarball is signed via OIDC; cosign-verifiable, no private keys to manage.
+- **SLSA Level 3 provenance** — build provenance attestation generated by the `slsa-github-generator` reusable workflow.
+- **CycloneDX SBOM** — `mumei-sbom.cdx.json` published as a release asset, ingestable by Grype / Syft / etc.
+- **Signed commits + tags** — `main` requires verified GPG/SSH signatures; release tags are annotated and signed.
+- **Strict cosign cert-identity** — verification pins to the exact `release-reusable.yml@refs/tags/` path so a malicious sibling workflow cannot forge a signature.
+
+Verify a downloaded release:
+
+```bash
+cosign verify-blob \
+  --bundle "mumei-${TAG}.tar.gz.cosign.bundle" \
+  --certificate-identity-regexp '^https://github.com/hir4ta/mumei/\.github/workflows/release-reusable\.yml@refs/tags/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  "mumei-${TAG}.tar.gz"
+# Expect: Verified OK
+```
+
+Full security model: [SECURITY.md](./SECURITY.md) (vulnerability reporting), [docs/security-policy.md](./docs/security-policy.md) (verification recipes for tarball / SBOM / SLSA / signed tag), [docs/threat-model.md](./docs/threat-model.md) (threat surface and mitigations), [PRIVACY.md](./PRIVACY.md).
 
 ## Philosophy: why "mumei" (無名)
 
@@ -115,112 +138,61 @@ Pick `plan` when the SDD workflow feels heavier than the work itself; pick `spec
 
 - **The user works with Claude Code, not with mumei.** mumei stays out of the prompt, out of the conversation, out of the way.
 - **It only acts at the OS boundary.** When the agent is about to skip a phase, commit a broken Wave, or push a `MAJOR_ISSUES` verdict, a Hook silently denies the action with a one-line factual reason. No nagging, no banners, no opinions.
-- **It does nothing for projects that have not opted in.** Without `.mumei/current` set, every Hook is a no-op. mumei never interrupts work it was not invited to.
-- **The existing gates (Wave commits, spec reviewers, fresh-context implementation reviewers, file-based state) are not just convenience features.** They are structural countermeasures against the degradation patterns documented in research like Microsoft Research's [DELEGATE-52](./docs/document-corruption.md) — frontier LLMs corrupt 25% of document content over 20 delegated edits, and agentic harnesses don't help. mumei's "strict workflow" is the kuroko's hand catching a fall the actor never sees.
+- **It does nothing for projects that have not opted in.** Without `.mumei/current` set, every Hook is a no-op.
+- **The existing gates are structural countermeasures, not convenience features.** They counter the degradation patterns documented in research like Microsoft Research's [DELEGATE-52](./docs/document-corruption.md) — frontier LLMs corrupt 25% of document content over 20 delegated edits, and agentic harnesses don't help. mumei's "strict workflow" is the kuroko's hand catching a fall the actor never sees.
 
 mumei is judged by what it prevents, not by what it does.
 
 ## Workflow
 
-### 1. One-time setup per project
+### 1. Setup and (optionally) brainstorm
 
 ```text
-/mumei:init
+/mumei:init                       # one-time per project
+/mumei:brainstorm user-auth       # optional pre-spec Q&A → .mumei/scratch/user-auth.md
 ```
 
-Creates `.mumei/` directory structure, proposes additions to `CLAUDE.md` (with diff preview and explicit approval), and verifies the setup.
+`/mumei:init` creates `.mumei/` and proposes additions to `CLAUDE.md` with a diff preview. `/mumei:brainstorm` runs up to 3 rounds × 5 questions, captured for the next step.
 
-### 2. Brainstorm a feature (optional but recommended)
-
-```text
-/mumei:brainstorm user-auth
-```
-
-Up to 5 questions × 3 rounds. Output saved to `.mumei/scratch/user-auth.md`. Used as input for `/mumei:plan`.
-
-### 3. Generate the spec
+### 2. Generate the spec
 
 ```text
 /mumei:plan user-auth
 ```
 
-Walks through:
+Walks through clarification → requirements → design → tasks. Each draft is independently audited by a fresh-context reviewer (`requirements-reviewer` / `design-reviewer` / `tasks-reviewer`), auto-iterating up to 3 times. Phase transitions are hook-gated: you cannot draft `design.md` while `requirements.md` has unresolved `[NEEDS CLARIFICATION]` markers, etc. After all three reviewers PASS, you approve the whole package once before phase advances to `implement`.
 
-- **Phase 1.1 — Clarification**: a brainstorm-style question loop (max 3 rounds × 5 questions). When `.mumei/scratch/<feature>.md` exists, only the residual gaps are queried.
-- **Phase 1.2/1.3 — Requirements draft + reviewer**: User Story + EARS-format acceptance criteria + assumptions. The `requirements-reviewer` agent (fresh context) audits the draft against the conversation/scratch for coverage gaps, hallucinated ACs, and structural defects, and the orchestrator iterates `draft → reviewer` automatically up to 3 times.
-- **Phase 2 — Design draft + reviewer**: architecture diagram, data model, components, trade-offs, Wave plan. `design-reviewer` audits requirements vs design coverage and structural quality. Same 3-iteration auto-loop.
-- **Phase 3 — Tasks draft + reviewer**: Wave > Task hierarchy with `_Files:_`, `_Depends:_`, `_Requirements:_` meta. `tasks-reviewer` validates Wave Plan coverage, REQ-N.M traceability, and that every `_Files:_` path either exists or is gitignored.
-- **Phase 3.5 — User approval gate**: a single approval gate (the only one). After the three spec reviewers all return PASS, the user reviews the whole package and approves once before phase advances to `implement`.
+### 3. Implement Wave by Wave
 
-Phase entry is hook-gated. You cannot draft `design.md` while `requirements.md` has unresolved `[NEEDS CLARIFICATION]` markers, etc.
+Implement Wave 1's tasks. Mark `[x]` as you go. Hooks verify: implementation files actually changed (no phantom completion), no editing outside `_Files:_` scope, tests pass before commit, commit happens before starting the next Wave.
 
-### 4. Implement Wave by Wave
+### 4. Review, done, archive
 
-Implement the tasks in Wave 1. Mark `[x]` as you go. Hooks verify:
-
-- The implementation files actually changed (no phantom completion).
-- You did not edit files outside the task's `_Files:_` scope.
-- Tests pass before commit.
-- Commit happens before starting the next Wave.
-
-### 5. Review
-
-When all tasks are `[x]`, `/mumei:plan` invokes the review pipeline:
+When all tasks are `[x]`, the review pipeline runs:
 
 ```text
-Stage 1 (parallel):
-  ├─ spec-compliance-reviewer  (Sonnet, memory: project)
-  └─ security-reviewer         (Opus,   memory: project)  # skipped when high_count > 0
-Stage 2 (sequential):
-  └─ adversarial-reviewer      (Opus,   memory: project, prior_findings)
-Stage 3: aggregate findings
-Stage 4 (parallel, severity-conditional): per-issue-validator (Sonnet, memory: local, read-only)
-        — mandatory for HIGH/CRITICAL; MEDIUM/LOW with confidence=HIGH skipped via
-          valid_by_assertion + ~19% hash-sample calibration (REQ-7.4)
-Stage 5: filter to valid (and valid_by_assertion) only
-Stage 6: write reviews/<timestamp>.json (incl. iter_head, next_iter_reviewers,
-         detector_skipped, detector_reused_from) + update state
-Stage 6.5: memory-curator (sonnet, read-only) scores each reviewer's
-         memory_candidates on a 7-axis rubric (≥15/21 → ADD/UPDATE; SKIP
-         otherwise). orchestrator atomically applies ADD/UPDATE via
-         hooks/_lib/memory.sh. plan vehicle runs the equivalent as Step 8.5
-         in /mumei:review.
+Stage 0:    pre-review-detector (semgrep + osv-scanner)            ← deterministic ground-truth
+Stage 1 ‖:  spec-compliance + security (skipped if HIGH detector findings)
+Stage 2:    adversarial-reviewer (prior_findings injected)
+Stage 3:    aggregate findings
+Stage 4 ‖:  per-issue validator × N (severity-conditional)
+Stage 5:    filter to valid (or valid_by_assertion) only
+Stage 6:    persist reviews/<ts>.json + verdict aggregation
+Stage 6.5:  memory-curator scores reviewer-emitted candidates (7-axis ≥15/21 → ADD/UPDATE)
 ```
 
-Each reviewer is independent (fresh context). No reviewer sees its own prior runs — only the project memory it has built up (which is itself gated by the curator at write time).
-
-### 6. Done
-
-When the review verdict is `PASS`, the feature transitions to `phase: done`.
-
-```text
-/mumei:archive user-auth
-```
-
-Moves the feature to `.mumei/archive/<YYYY-MM>/user-auth/`.
+Verdict `PASS` → `phase: done`. Run `/mumei:archive <feature>` to move the feature under `.mumei/archive/<YYYY-MM>/`.
 
 ## Prerequisites
 
-mumei's review pipeline relies on two deterministic detectors as ground
-truth for security findings. These are **hard prerequisites** — the
-review-phase Hook fails closed when either is missing (set
-`MUMEI_BYPASS=1` to override, not recommended).
+mumei's review pipeline relies on two deterministic detectors as ground truth for security findings. These are **hard prerequisites** — the review-phase Hook fails closed when either is missing.
 
 | Tool                    | Purpose                              | Install                                                                                                      |
 | ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `semgrep` (≥ 1.50.0)    | SAST, OWASP Top 10 patterns          | `brew install semgrep` (macOS), `pip install semgrep` (Linux)                                                |
 | `osv-scanner` (≥ 1.7.0) | CVE / dependency vulnerability check | `brew install osv-scanner` (macOS), [release binary](https://github.com/google/osv-scanner/releases) (Linux) |
 
-### Detector tunables
-
-These are **not** escape hatches — the detectors still run. They tune
-the detector behaviour for edge cases (slow scans, oversized
-manifests). Defaults are appropriate for typical projects; override
-only when needed.
-
-| Variable                 | Default | Effect                                                                                                                                                            |
-| ------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MUMEI_DETECTOR_TIMEOUT` | `600`   | Per-detector wall-clock timeout in seconds (`semgrep` / `osv-scanner`). Raise for very large repos; lower in CI when a hung detector is worse than a missed scan. |
+`MUMEI_DETECTOR_TIMEOUT` (default `600` seconds) tunes the per-detector wall-clock timeout; raise for very large repos.
 
 ## Installation
 
@@ -229,11 +201,6 @@ mumei ships its own self-hosted marketplace. Inside Claude Code, run:
 ```text
 /plugin marketplace add hir4ta/mumei
 /plugin install mumei@mumei
-```
-
-That registers the marketplace catalog at `hir4ta/mumei` and installs the `mumei` plugin from it (user scope by default). Reload to activate:
-
-```text
 /reload-plugins
 ```
 
@@ -243,27 +210,25 @@ After install, run the one-time per-project setup:
 /mumei:init
 ```
 
-- **Uninstall**: `/plugin uninstall mumei@mumei` (the `.mumei/` directory in your project is left intact).
+Uninstall: `/plugin uninstall mumei@mumei` (the `.mumei/` directory in your project is left intact).
 
 ## Project layout (after `/mumei:init`)
-
-`/mumei:init` creates the directory skeleton only. Per-feature files appear later as you run `/mumei:brainstorm`, `/mumei:plan`, and `/mumei:archive`.
 
 ```text
 your-project/
 ├── CLAUDE.md         # mumei conventions appended (if you approved the diff)
-├── .gitignore        # `.claude/agent-memory-local/` appended (per-issue-validator memory)
+├── .gitignore        # `.claude/agent-memory-local/` appended
 └── .mumei/
     ├── .gitignore    # ignores per-developer state (`current`, `specs/*/state.json`)
-    ├── current       # empty until the first /mumei:plan writes a feature slug
-    ├── specs/        # populated by /mumei:plan <feature>: requirements.md, design.md, tasks.md, state.json, spec-reviews/, reviews/
-    ├── archive/      # populated by /mumei:archive <feature>: moved under <YYYY-MM>/<feature>/
-    └── scratch/      # populated by /mumei:brainstorm <feature>; tracked intentionally so brainstorm history is shared with the team
+    ├── current       # active feature slug (empty until first /mumei:plan)
+    ├── specs/        # per /mumei:plan: requirements.md, design.md, tasks.md, state.json, spec-reviews/, reviews/
+    ├── archive/      # per /mumei:archive: moved under <YYYY-MM>/<feature>/
+    └── scratch/      # per /mumei:brainstorm; tracked intentionally so brainstorm history is shared
 ```
 
-## Spec document format
+## Spec & tasks format
 
-`mumei` uses **User Story + EARS acceptance criteria + inline annotations**:
+**Spec (User Story + EARS + inline annotations):**
 
 ```markdown
 # User Auth Requirements
@@ -275,30 +240,15 @@ As a registered user, I want to log in with email and password, so that I can ac
 ## Acceptance Criteria
 
 - REQ-1.1 [CONFIRMED] WHEN the user submits valid credentials, the system SHALL issue a session cookie.
-- REQ-1.2 [CONFIRMED] IF 5 consecutive logins fail, then the system SHALL lock the account for 15 minutes.
-- REQ-1.3 [ASSUMPTION] WHILE the user is logged in, the system SHALL refresh the session every 30 minutes.
-- REQ-1.4 [NEEDS CLARIFICATION: which IdP?] WHERE SSO is enabled, the system SHALL delegate to the configured IdP.
-
-## Out of Scope
-
-- MFA (deferred to v2)
-
-## Assumptions
-
-- Bcrypt for password hashing (industry default)
+- REQ-1.2 [ASSUMPTION] WHILE the user is logged in, the system SHALL refresh the session every 30 minutes.
+- REQ-1.3 [NEEDS CLARIFICATION: which IdP?] WHERE SSO is enabled, the system SHALL delegate to the configured IdP.
 ```
 
-Annotations:
+Annotations: `[CONFIRMED]` (backed by user statement), `[ASSUMPTION]` (reasonable inference), `[NEEDS CLARIFICATION: ...]` (blocks phase advance until resolved).
 
-- `[CONFIRMED]`: backed by user statement or existing artifact.
-- `[ASSUMPTION]`: reasonable inference, not explicitly stated by the user.
-- `[NEEDS CLARIFICATION: <question>]`: blocks `phase: design` until resolved.
-
-## Tasks document format
+**Tasks (Wave > Task with mandatory meta):**
 
 ```markdown
-# User Auth Implementation Plan
-
 ## Wave 1: Setup
 
 **Goal**: Establish the user model and DB schema.
@@ -308,72 +258,27 @@ Annotations:
   - _Files: src/models/user.ts_
   - _Depends: -_
   - _Requirements: REQ-1.1_
-- [ ] 1.2 Add migration for users table
-  - _Files: migrations/20260503_users.sql_
-  - _Depends: 1.1_
-  - _Requirements: REQ-1.1_
-
-## Wave 2: Login flow
-
-**Goal**: Email/password login + session cookie.
-**Verify**: `npm test -- src/auth/login.test.ts` passes.
-
-- [ ] 2.1 ...
 ```
 
-The `_Files:_`, `_Depends:_`, `_Requirements:_` lines are **mandatory**. They power the hook gates. Without them, `mumei` cannot enforce scope or order.
+The `_Files:_` / `_Depends:_` / `_Requirements:_` lines are **mandatory**. They power the hook gates; without them mumei cannot enforce scope or order.
 
-## Hook rules (full list)
+## Hook rules
 
-| ID  | Phase     | Hook                     | Trigger                                                                                                                                                                 |
-| --- | --------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | plan      | PreToolUse(Edit\|Write)  | Editing `src/` while spec incomplete                                                                                                                                    |
-| P2  | plan      | PreToolUse(Write)        | Creating `design.md` with `[NEEDS CLARIFICATION]` in `requirements.md`                                                                                                  |
-| P3  | plan      | PreToolUse(Write)        | Creating `tasks.md` without `design.md`                                                                                                                                 |
-| I1  | implement | PreToolUse(Edit\|Write)  | Editing a file owned by a task whose deps are not complete                                                                                                              |
-| I2  | implement | PreToolUse(Edit\|Write)  | Editing a file not in any task's `_Files:_` (scope creep)                                                                                                               |
-| I3  | implement | PreToolUse(Bash)         | `git commit` with failing tests                                                                                                                                         |
-| I4  | implement | PostToolUse(Edit)        | Marking `[x]` without an implementation diff                                                                                                                            |
-| W1  | implement | PreToolUse(Edit\|Write)  | Editing Wave N+1 file before Wave N is committed                                                                                                                        |
-| W2  | implement | PreToolUse(Bash)         | `git commit` while current Wave has `[ ]` tasks                                                                                                                         |
-| R1  | review    | Stop                     | Session ending with all tasks done but review skipped                                                                                                                   |
-| R2  | review    | PreToolUse(Bash)         | `git push` while latest review verdict is `MAJOR_ISSUES`                                                                                                                |
-| R3  | done      | Stop                     | `phase=done` reached but feature still listed in `.mumei/current` (archive pending)                                                                                     |
-| M1  | any       | PreToolUse(Edit\|Write)  | LLM-driven Edit/Write on `.claude/agent-memory/<reviewer>/MEMORY.md` — memory writes flow through `memory-curator` only                                                 |
-| X1  | any       | PostToolUse(Bash)        | Bash modified files outside scope (advisory only)                                                                                                                       |
-| X2  | any       | PostToolUse(Edit\|Write) | `.mumei/specs/*/tasks.md` format violation: missing `_Files:_`/`_Depends:_`/`_Requirements:_` meta, bad REQ-N.M syntax, or non-existent `_Files:_` path (advisory only) |
-
-## Security and Privacy
-
-mumei operates **entirely locally**. mumei itself makes no outbound requests; the third-party `osv-scanner` it invokes does query `osv.dev` for CVE data on its own (see [PRIVACY.md](./PRIVACY.md)).
-
-| Item                       | Description                                                                                                                       |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **External Communication** | None initiated by mumei. `osv-scanner` (third-party) queries `osv.dev` for CVE data; mumei does not control its network behavior. |
-| **Telemetry**              | None. No analytics, no error reporting, no usage tracking.                                                                        |
-| **Data Storage**           | All state under project-local `.mumei/`. Nothing written to `~/.claude/` or any global location.                                  |
-| **Conversation History**   | Not stored by mumei. mumei is a quality-gate plugin, not a memory plugin.                                                         |
-| **Tools Used**             | `bash`, `jq`, `git` (required); `semgrep`, `osv-scanner` (required for review phase). All locally executable.                     |
-| **Code**                   | Open source — every hook and agent is auditable.                                                                                  |
-
-Full policy: [PRIVACY.md](./PRIVACY.md)
+mumei enforces **15 hook rules** across phase transitions, Wave boundaries, commit / push gates, and reviewer memory writes. The full enforcement table (rule ID, phase, hook event, trigger, implementation script) is in [ARCHITECTURE.md → Hook rules](./ARCHITECTURE.md#hook-rules--full-enforcement-table). The single escape hatch is `MUMEI_BYPASS=1`.
 
 ## Troubleshooting
 
-| Symptom                                                                                                | Cause                                                                                                         | Resolution                                                                                                                                                                                |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hook denies `Edit` on `src/...` with `"phase=plan"` reason                                             | spec is incomplete (P1)                                                                                       | run `/mumei:plan <feature>` and walk through requirements / design / tasks until phase advances to `implement`                                                                            |
-| Hook denies `Write` on `design.md` mentioning `[NEEDS CLARIFICATION]`                                  | unresolved markers in `requirements.md` (P2)                                                                  | resolve every `[NEEDS CLARIFICATION: ...]` marker (move to `## Open Questions` if deferring), then retry                                                                                  |
-| Hook denies `Edit` on a file from Wave N+1                                                             | Wave N is uncommitted (W1)                                                                                    | finish + commit Wave N first (`git status` to see what's pending)                                                                                                                         |
-| Hook denies `git commit` with `"Wave has incomplete tasks"`                                            | `[ ]` tasks remain in current Wave (W2)                                                                       | mark incomplete tasks `[x]` (only after their `_Files:_` actually changed), or revert the work-in-progress                                                                                |
-| Hook denies `git commit` with `"Tests failing"`                                                        | the auto-detected test runner (`npm test` / `pytest` / `cargo test` / `go test ./...`) returned non-zero (I3) | fix the failing tests; `git commit` will retry until they pass                                                                                                                            |
-| `[x]` mark blocked with `"Phantom completion"`                                                         | `_Files:_` paths for that task were not actually modified in this session (I4)                                | implement the listed files first, or revert the `[x]` mark                                                                                                                                |
-| Hook denies `git push` with `"verdict: MAJOR_ISSUES"`                                                  | latest review record at `.mumei/specs/<feature>/reviews/<ts>.json` is `MAJOR_ISSUES` (R2)                     | re-run `/mumei:plan` to address findings, or re-review after fixing                                                                                                                       |
-| Stop hook blocks session end with `"All tasks complete but review pending"`                            | review phase 5 was skipped (R1)                                                                               | run `/mumei:plan` — orchestrator detects `phase=review` and starts Stage 0                                                                                                                |
-| Stop hook blocks session end with `"Feature reached phase=done but is still active in .mumei/current"` | archive not yet run (R3)                                                                                      | `/mumei:archive <feature>` (or clear `.mumei/current` to dismiss)                                                                                                                         |
-| `pre-review-detector.sh` exits 2 with "missing required detector binaries"                             | `semgrep` or `osv-scanner` not on `PATH`                                                                      | macOS: `brew install semgrep osv-scanner`; Linux: see [semgrep docs](https://semgrep.dev/docs/getting-started) and [osv-scanner releases](https://github.com/google/osv-scanner/releases) |
-| `bats` test fails on macOS but passes on Linux                                                         | BSD vs GNU `awk` / `sed` divergence                                                                           | most likely a `match($0, /.../, arr)` (3-arg) form, `gensub()`, or `sed -i` without an explicit `''` suffix — replace with the BSD-compatible form documented in `ARCHITECTURE.md`        |
-| Need to bypass a Hook for a one-off                                                                    | escape hatch                                                                                                  | `MUMEI_BYPASS=1 <command>` for that single shell invocation. Do not export persistently. Documented in [docs/document-corruption.md](./docs/document-corruption.md)                       |
+| Symptom                                                                     | Resolution                                                                                                                                                 |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Edit` denied with `"phase=plan"` reason (P1/P2/P3)                         | run `/mumei:plan <feature>` and resolve any `[NEEDS CLARIFICATION]` markers; phase advances when all 3 spec reviewers PASS and you approve                 |
+| `Edit` denied with `"out of scope"` / `"depends on task"` / `"uncommitted"` | adjust `_Files:_` / complete the dependency / commit the previous Wave first (I1 / I2 / W1)                                                                |
+| `git commit` denied with `"Wave has incomplete tasks"` or `"Tests failing"` | mark remaining `[ ]` tasks `[x]` (only after their `_Files:_` actually changed), or fix the failing test runner output (W2 / I3)                           |
+| `[x]` mark blocked with `"Phantom completion"` (I4)                         | implement the listed `_Files:_` first, or revert the `[x]`                                                                                                 |
+| `git push` denied with `"verdict: MAJOR_ISSUES"` (R2)                       | re-run `/mumei:plan` (or `/mumei:review` for plan vehicle) to address findings, then re-review                                                             |
+| Stop hook blocks session end (`R1` review pending / `R3` archive pending)   | run `/mumei:plan` to start review, or `/mumei:archive <feature>` once verdict is PASS                                                                      |
+| `Edit` denied on `.claude/agent-memory/<r>/MEMORY.md` (M1)                  | reviewer memory is curator-gated — emit candidates via your review JSON instead; the orchestrator persists qualifying candidates atomically                |
+| `pre-review-detector.sh` exits 2 with "missing required detector binaries"  | install `semgrep` + `osv-scanner` (see [Prerequisites](#prerequisites))                                                                                    |
+| Need to bypass a Hook for a one-off                                         | `MUMEI_BYPASS=1 <command>` for that single shell invocation. Do not export persistently. See [docs/document-corruption.md](./docs/document-corruption.md). |
 
 ## What `mumei` is NOT
 
@@ -385,9 +290,7 @@ Full policy: [PRIVACY.md](./PRIVACY.md)
 
 ## Architecture
 
-For a deeper look at the runtime structure (distribution layout, the 14 hook
-rules, the reviewer pipeline, the phase state machine, and the file-based
-state model), see [ARCHITECTURE.md](./ARCHITECTURE.md).
+For a deeper look at the runtime structure (distribution layout, the 15 hook rules, the reviewer pipeline, the phase state machine, the file-based state model), see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## License
 
