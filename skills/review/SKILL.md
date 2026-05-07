@@ -207,7 +207,11 @@ The validator returns `decision: "valid" | "invalid" | "unsure"`. Keep `valid` a
 # reviewer_verdicts is the per-reviewer status object the reviewers returned.
 
 verdict="$(mumei_review_aggregate_verdict "$high_count" "$surfaced_json" "$reviewer_verdicts_json")"
-next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers "$surfaced_json")"
+# REQ-11.8: pass prev_reviewers + slug + iter so the helper applies rotation
+# at the tail (preserves the REQ-7.3 adversarial invariant).
+prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"
+next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
+  "$surfaced_json" "$prev_reviewers" "$slug" "$current_iter")"
 iter_head="$(mumei_review_iter_head)"
 
 # Construct argjson plumbing so detector_reused_from is JSON null (not "null").
@@ -290,7 +294,7 @@ for reviewer in security adversarial; do
     fi
     reason="$(printf '%s' "$curator_out" | mumei_memory_validate_curator_output 2>&1 >/dev/null)"
     if [[ -z "$reason" ]]; then
-      printf '%s' "$curator_out" | mumei_memory_apply_operation "$reviewer_dir"
+      printf '%s' "$curator_out" | mumei_memory_apply_operation "$reviewer_dir" "$candidate"
     else
       printf '[mumei] curator output invalid: %s\n' "$reason" >&2
     fi

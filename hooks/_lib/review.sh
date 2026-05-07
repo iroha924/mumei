@@ -165,16 +165,35 @@ mumei_review_aggregate_verdict() {
 
 # Compute the next_iter_reviewers list from a surfaced findings array.
 # Always includes "adversarial" (REQ-7.3 invariant). Echoes a JSON array.
+#
+# When prev_reviewers and feature/iter are supplied, rotate (REQ-11.8) is
+# applied at the tail so the runtime pipeline never re-launches an
+# identical reviewer set two iterations in a row. Callers in iter 1 pass
+# `prev_reviewers="[]"` (no rotation possible).
+#
 # Args:
 #   $1 surfaced_findings_json  (JSON array)
+#   $2 prev_reviewers JSON     (optional; default "[]")
+#   $3 feature                 (optional; required for rotation)
+#   $4 iter                    (optional; required for rotation)
 mumei_review_compute_next_iter_reviewers() {
   local surfaced_json="$1"
-  jq -c '
+  local prev_json="${2:-[]}"
+  local feature="${3:-}"
+  local iter="${4:-}"
+  local computed
+  computed="$(jq -c '
     ([.[] | select(.severity == "HIGH" or .severity == "CRITICAL") | .reviewer]
       + ["adversarial"])
     | map(select(. != null and . != ""))
     | unique
-  ' <<<"$surfaced_json" 2>/dev/null || printf '["adversarial"]'
+  ' <<<"$surfaced_json" 2>/dev/null || printf '["adversarial"]')"
+
+  if [[ -n "$feature" ]] && [[ -n "$iter" ]]; then
+    mumei_review_rotate_reviewers "$prev_json" "$computed" "$feature" "$iter"
+  else
+    printf '%s' "$computed"
+  fi
 }
 
 # Rotate reviewers when iter N's planned set is a permutation of iter N-1's

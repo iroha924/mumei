@@ -160,3 +160,34 @@ EOF
     [ "$count" = "3" ]
   done
 }
+
+# ─── compute_next_iter_reviewers wires rotation (REQ-11.8) ────────────
+
+@test "compute: without prev_reviewers args, rotation is not applied (back-compat)" {
+  surfaced='[{"reviewer":"spec-compliance","severity":"HIGH"}]'
+  out="$(mumei_review_compute_next_iter_reviewers "$surfaced")"
+  # Should equal the legacy output without rotation.
+  expected='["adversarial","spec-compliance"]'
+  expected_sorted="$(jq -c 'sort' <<<"$expected")"
+  out_sorted="$(jq -c 'sort' <<<"$out")"
+  [ "$out_sorted" = "$expected_sorted" ]
+}
+
+@test "compute: with prev/feature/iter and full overlap, rotation injects a candidate" {
+  surfaced='[{"reviewer":"spec-compliance","severity":"HIGH"}]'
+  # prev iter launched the same set computed → rotation kicks in.
+  prev='["adversarial","spec-compliance"]'
+  out="$(mumei_review_compute_next_iter_reviewers "$surfaced" "$prev" "REQ-1-foo" 2)"
+  count="$(jq 'length' <<<"$out")"
+  [ "$count" = "3" ]
+  has_security="$(jq 'index("security")' <<<"$out")"
+  [ "$has_security" != "null" ]
+}
+
+@test "compute: with prev/feature/iter and different prev, rotation is no-op" {
+  surfaced='[{"reviewer":"spec-compliance","severity":"HIGH"}]'
+  prev='["adversarial"]'
+  out="$(mumei_review_compute_next_iter_reviewers "$surfaced" "$prev" "REQ-1-foo" 2)"
+  count="$(jq 'length' <<<"$out")"
+  [ "$count" = "2" ]
+}

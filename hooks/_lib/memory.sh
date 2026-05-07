@@ -114,13 +114,14 @@ mumei_memory_validate_curator_output() {
 # / SKIP (no-op) to <dir>/MEMORY.md.
 mumei_memory_apply_operation() {
   local dir="$1"
+  local candidate="${2:-{\}}"
   local input op final_text target id mfile tmp newtext_file
   input="$(cat)"
   op="$(printf '%s' "$input" | jq -r '.operation')"
   mfile="${dir}/MEMORY.md"
 
   if [[ "$op" == "SKIP" ]]; then
-    _mumei_memory_curator_log_append "$dir" "$input" false
+    _mumei_memory_curator_log_append "$dir" "$input" false "$candidate"
     return 0
   fi
   if [[ "$op" != "ADD" && "$op" != "UPDATE" ]]; then
@@ -236,29 +237,34 @@ mumei_memory_apply_operation() {
     tmp=""
     mumei_log_info "memory UPDATE id=${target} reviewer=$(basename "$dir")"
   fi
-  _mumei_memory_curator_log_append "$dir" "$input" true
+  _mumei_memory_curator_log_append "$dir" "$input" true "$candidate"
   return 0
 }
 
 # Append one record per curator decision to .mumei/.curator-log.jsonl
 # (REQ-11.9). Called from mumei_memory_apply_operation on every exit
 # path: SKIP (applied=false), ADD/UPDATE (applied=true).
-# Args: dir input applied(true|false)
+# Args: dir input applied(true|false) candidate_json
 _mumei_memory_curator_log_append() {
-  local dir="$1" input="$2" applied="$3"
+  local dir="$1" input="$2" applied="$3" candidate="${4:-{\}}"
   local source_reviewer applied_json
   source_reviewer="$(basename "$dir")"
   case "$applied" in
   true) applied_json="true" ;;
   *) applied_json="false" ;;
   esac
+  # Normalise candidate JSON so a malformed argument cannot corrupt the JSONL stream.
+  if ! jq -e 'type == "object"' <<<"$candidate" >/dev/null 2>&1; then
+    candidate='{}'
+  fi
   mkdir -p .mumei || return 0
   jq -nc \
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg sr "$source_reviewer" \
+    --argjson cand "$candidate" \
     --argjson out "$(printf '%s' "$input" | jq -c . 2>/dev/null || echo '{}')" \
     --argjson applied "$applied_json" \
-    '{ts: $ts, source_reviewer: $sr, curator_output: $out, applied: $applied}' \
+    '{ts: $ts, source_reviewer: $sr, candidate: $cand, curator_output: $out, applied: $applied}' \
     >>.mumei/.curator-log.jsonl 2>/dev/null || true
 }
 

@@ -37,6 +37,11 @@ INPUT="$(cat)"
 FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty')"
 [[ -n "$FILE_PATH" ]] || exit 0
 
+# Capture the actual tool name (Edit / Write / MultiEdit / NotebookEdit) so
+# hook-stats records can distinguish per-tool denials. Falls back to "Edit"
+# when the input does not name a tool (REQ-11.13 observability fix).
+TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // "Edit"')"
+
 # Normalize to a path relative to CLAUDE_PROJECT_DIR
 if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ "$FILE_PATH" == "$CLAUDE_PROJECT_DIR"* ]]; then
   FILE_PATH="${FILE_PATH#"${CLAUDE_PROJECT_DIR}"/}"

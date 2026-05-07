@@ -347,3 +347,32 @@ setup() {
     echo "$line" | jq -e 'type == "object"' >/dev/null
   done <.mumei/.curator-log.jsonl
 }
+
+@test "curator-log: candidate field carries the original input candidate JSON (REQ-11.9 a)" {
+  local reviewer_dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$reviewer_dir"
+  local candidate='{"text":"Always gate at the OS boundary.","source_finding_id":"F-007","observation_count":1}'
+  printf '%s' '{"operation":"SKIP","reason":"below threshold"}' |
+    mumei_memory_apply_operation "$reviewer_dir" "$candidate"
+  rec="$(cat .mumei/.curator-log.jsonl)"
+  [ "$(jq -r '.candidate.text' <<<"$rec")" = "Always gate at the OS boundary." ]
+  [ "$(jq -r '.candidate.source_finding_id' <<<"$rec")" = "F-007" ]
+  [ "$(jq -r '.candidate.observation_count' <<<"$rec")" = "1" ]
+}
+
+@test "curator-log: missing candidate arg defaults to empty object (no crash)" {
+  local reviewer_dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$reviewer_dir"
+  printf '%s' '{"operation":"SKIP","reason":"x"}' | mumei_memory_apply_operation "$reviewer_dir"
+  rec="$(cat .mumei/.curator-log.jsonl)"
+  [ "$(jq -r '.candidate' <<<"$rec")" = "{}" ]
+}
+
+@test "curator-log: malformed candidate arg falls back to {} (defense)" {
+  local reviewer_dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$reviewer_dir"
+  printf '%s' '{"operation":"SKIP","reason":"x"}' |
+    mumei_memory_apply_operation "$reviewer_dir" 'not-valid-json'
+  rec="$(cat .mumei/.curator-log.jsonl)"
+  [ "$(jq -r '.candidate' <<<"$rec")" = "{}" ]
+}

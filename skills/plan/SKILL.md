@@ -933,12 +933,23 @@ must launch in iter N+1. Use the helper:
 
 ```bash
 # surfaced_json is the findings_surfaced array built earlier in this stage.
-next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers "$surfaced_json")"
+# prev_reviewers comes from the previous iter's review JSON next_iter_reviewers
+# (or "[]" on iter 1). REQ-11.8 rotation kicks in when the computed set is a
+# permutation of prev_reviewers — the helper appends a rotation candidate so
+# the runtime never re-launches an identical reviewer set two iterations
+# in a row.
+prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"
+next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
+  "$surfaced_json" "$prev_reviewers" "$feature" "$current_iter")"
 ```
 
 The helper always includes `"adversarial"` (REQ-7.3 invariant) and
 de-duplicates the HIGH/CRITICAL reviewer set across all surfaced
-findings.
+findings. When `prev_reviewers` matches the freshly-computed set, the
+helper additionally injects a rotation candidate via
+`mumei_review_rotate_reviewers` (REQ-11.8) — `adversarial` is preserved
+in the rotation pool exclusion so the REQ-7.3 invariant is never
+broken.
 
 If only `["adversarial"]` remains AND verdict=PASS AND HIGH count=0,
 the iter-1-all-PASS optimization (REQ-7.7) skips iter 2 entirely
@@ -1051,7 +1062,7 @@ for reviewer in spec-compliance security adversarial; do
     fi
     reason="$(printf '%s' "$curator_out" | mumei_memory_validate_curator_output 2>&1 >/dev/null)"
     if [[ -z "$reason" ]]; then
-      printf '%s' "$curator_out" | mumei_memory_apply_operation "$reviewer_dir"
+      printf '%s' "$curator_out" | mumei_memory_apply_operation "$reviewer_dir" "$candidate"
     else
       printf '[mumei] curator output invalid: %s\n' "$reason" >&2
     fi

@@ -57,6 +57,7 @@ Examples:
 - [ ] `/validate` skill passes locally (`jq empty` + `bash -n` + `shellcheck` + frontmatter check).
 - [ ] If the change alters external behavior, network egress, or distribution layout: `README.md`, `README.ja.md`, `PRIVACY.md` are updated to match.
 - [ ] If the change introduces a new design decision or revises an existing one: `docs/mumei-decisions.md` (dev-local) is updated with the rationale.
+- [ ] **Ratchet principle**: if this PR adds a new hook rule, agent, skill, or Hook ID, `docs/mumei-decisions.md` has a one-paragraph _why this earned inclusion_ entry naming the dogfood incident or external research that triggered it.
 - [ ] Distributable artifacts (`agents/`, `skills/`, `hooks/`, `.claude-plugin/`, `README*`, `LICENSE`, `PRIVACY.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`) stay in **English**; Japanese intent notes go in `<!-- HTML comments -->` only.
 - [ ] No `--no-verify`, `--force` push to `main`, or `git tag --no-gpg-sign` is used.
 - [ ] No secrets, `.env`, credentials, or private keys are added.
