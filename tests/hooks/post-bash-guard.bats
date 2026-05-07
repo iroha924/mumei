@@ -192,3 +192,81 @@ EOF
   [ "$output" = "" ]
   [ -z "$stderr" ]
 }
+
+# ─── X3: Wave auto-advance only on git commit ───────────────
+
+# Helper: complete Wave 1 (all tasks [x]) and add an empty Wave 2 so that
+# mumei_tasks_current_wave returns 2 (the Wave to advance to). Used by
+# the X3 regression tests below.
+_complete_wave1_add_wave2() {
+  local feature="REQ-1-foo"
+  cat >".mumei/specs/${feature}/tasks.md" <<'EOF'
+# foo plan
+
+## Wave 1: alpha
+
+**Goal**: w1
+**Verify**: true
+
+- [x] 1.1 done
+  - _Files: src/in-scope.ts_
+  - _Depends: -_
+  - _Requirements: REQ-1.1_
+
+## Wave 2: beta
+
+**Goal**: w2
+**Verify**: true
+
+- [ ] 2.1 todo
+  - _Files: src/wave2.ts_
+  - _Depends: -_
+  - _Requirements: REQ-1.2_
+EOF
+  # Land an actual commit so reflog HEAD@{0} is "commit:..." (proving X3
+  # would have stale-fired before the fix).
+  mkdir -p src
+  echo "x" >src/in-scope.ts.placeholder
+  git add -A
+  git commit -m "wave 1 commit" -q
+}
+
+@test "X3: bash with no git commit must NOT advance current_wave" {
+  _init_feature_implement
+  _complete_wave1_add_wave2
+  # state should still be 1 from _init_feature_implement
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo hi"}}'
+  [ "$status" -eq 0 ]
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
+  [ "$(mumei_state_get 'REQ-1-foo' '.current_wave')" = "1" ]
+}
+
+@test "X3: bash with no git commit must NOT advance even if reflog HEAD@{0} is a commit" {
+  _init_feature_implement
+  _complete_wave1_add_wave2
+  # reflog HEAD@{0} is now "commit: wave 1 commit" (from the helper) — pre-fix
+  # this would trigger X3 on every bash; post-fix it must not.
+  reflog_top="$(git reflog show HEAD -n1 --pretty='%gs')"
+  [[ "$reflog_top" == commit:* ]]
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"ls"}}'
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
+  [ "$(mumei_state_get 'REQ-1-foo' '.current_wave')" = "1" ]
+}
+
+@test "X3: bash with git commit DOES advance current_wave" {
+  _init_feature_implement
+  _complete_wave1_add_wave2
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m wave1"}}'
+  [ "$status" -eq 0 ]
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
+  [ "$(mumei_state_get 'REQ-1-foo' '.current_wave')" = "2" ]
+}
+
+@test "X3: chained command containing git commit advances state" {
+  _init_feature_implement
+  _complete_wave1_add_wave2
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git add -A && git commit -m wave1"}}'
+  [ "$status" -eq 0 ]
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
+  [ "$(mumei_state_get 'REQ-1-foo' '.current_wave')" = "2" ]
+}

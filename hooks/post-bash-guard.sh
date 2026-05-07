@@ -31,9 +31,12 @@ source "${PLUGIN_ROOT}/hooks/_lib/tasks.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/safe-grep.sh"
 
-# This hook does not consult the input JSON (it inspects git status directly).
-# Drain stdin so Claude Code's pipe closes cleanly.
-cat >/dev/null
+# Read the input JSON. tool_input.command lets X3 detect when *this* Bash
+# invocation actually executed `git commit` (reflog HEAD@{0} alone is
+# unreliable: it stays at the last commit message across every subsequent
+# bash call, causing X3 to fire on unrelated commands).
+INPUT="$(cat)"
+COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
 
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
@@ -86,36 +89,35 @@ while IFS= read -r entry; do
   CHANGED_FILES+="$entry"$'\n'
 done <<<"$RAW_FILES"
 
-[[ -n "$CHANGED_FILES" ]] || exit 0
+if [[ -n "$CHANGED_FILES" ]]; then
+  # Warn if any modified file is not registered in tasks.md scope
+  OUT_OF_SCOPE=""
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    owners="$(mumei_tasks_owners_of_file "$FEATURE" "$f" 2>/dev/null || true)"
+    if [[ -z "$owners" ]]; then
+      OUT_OF_SCOPE+="${f}\n"
+    fi
+  done <<<"$CHANGED_FILES"
 
-# Warn if any modified file is not registered in tasks.md scope
-OUT_OF_SCOPE=""
-while IFS= read -r f; do
-  [[ -n "$f" ]] || continue
-  owners="$(mumei_tasks_owners_of_file "$FEATURE" "$f" 2>/dev/null || true)"
-  if [[ -z "$owners" ]]; then
-    OUT_OF_SCOPE+="${f}\n"
+  if [[ -n "$OUT_OF_SCOPE" ]]; then
+    CONTEXT=$'The following files were modified via Bash but are NOT listed in any task\'s _Files: meta in .mumei/specs/'"$FEATURE"$'/tasks.md:\n\n'"$OUT_OF_SCOPE"$'\nIf these changes are intentional, add the files to the appropriate task\'s _Files: line. Otherwise revert them.'
+    jq -n --arg c "$CONTEXT" '{
+      hookSpecificOutput: {
+        hookEventName: "PostToolUse",
+        additionalContext: $c
+      }
+    }'
   fi
-done <<<"$CHANGED_FILES"
-
-if [[ -n "$OUT_OF_SCOPE" ]]; then
-  CONTEXT=$'The following files were modified via Bash but are NOT listed in any task\'s _Files: meta in .mumei/specs/'"$FEATURE"$'/tasks.md:\n\n'"$OUT_OF_SCOPE"$'\nIf these changes are intentional, add the files to the appropriate task\'s _Files: line. Otherwise revert them.'
-  jq -n --arg c "$CONTEXT" '{
-    hookSpecificOutput: {
-      hookEventName: "PostToolUse",
-      additionalContext: $c
-    }
-  }'
 fi
 
 # --- X3: Wave auto-advance after a successful git commit ---
 # When the user finishes a Wave by running `git commit`, the orchestrator
-# is no longer in the loop to update state.json. Detect that situation
-# from git's reflog (HEAD just moved by a commit) and advance
-# current_wave / phase accordingly. Silent unless something actually changes.
-LAST_REFLOG="$(git reflog show HEAD -n1 --pretty='%gs' 2>/dev/null || true)"
-case "$LAST_REFLOG" in
-commit:* | commit\ \(*\):*)
+# is no longer in the loop to update state.json. Trigger only when *this*
+# bash tool execution actually contains `git commit` — reading from
+# tool_input.command (NOT from `git reflog`, which surfaces the last
+# commit on every unrelated bash call and would loop-advance state).
+if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];|&])git[[:space:]]+commit([[:space:]]|$)'; then
   # A commit just landed. Recompute the current Wave: smallest Wave
   # number whose tasks include any [ ]. If every Wave is complete, this
   # returns the empty string and we transition phase=review.
@@ -133,7 +135,6 @@ commit:* | commit\ \(*\):*)
     mumei_state_set "$FEATURE" '.current_wave' "$PARSED_WAVE" >/dev/null 2>&1 || true
     mumei_log_info "post-bash-guard: current_wave advanced ${CURRENT_WAVE_FILE} → ${PARSED_WAVE}"
   fi
-  ;;
-esac
+fi
 
 exit 0

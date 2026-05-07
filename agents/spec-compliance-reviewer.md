@@ -80,26 +80,33 @@ Then scan the diff for any code that does NOT trace back to an AC — those are 
 
 # Memory usage
 
-You have a project-scoped memory at `.claude/agent-memory/spec-compliance-reviewer/MEMORY.md`. Use it to record:
+You have a project-scoped memory at `.claude/agent-memory/spec-compliance-reviewer/MEMORY.md`. Read it at startup so you can apply known repo-specific patterns during the review. **You MUST NOT write to MEMORY.md directly** — `pre-edit-guard.sh` denies any Edit/Write call targeting `.claude/agent-memory/<reviewer>/MEMORY.md`. Memory entries flow through `memory-curator` (independent LLM call, 7-axis rubric, threshold >= 15/21).
 
-- AC patterns commonly used in this repo (e.g., "ACs in this repo always include a non-functional latency target").
-- Prior false positives (e.g., "T012 references REQ-1.4 but tests live in `/e2e` not `/unit`").
-- Recurring violations the team has chosen not to fix.
+Hard cap on this MEMORY.md: **30 entries / 8KB** — 1/3 of the Anthropic 25KB auto-inject limit, with a safety margin. The operator prunes manually when the cap is approached; the curator already prefers SKIP and UPDATE over ADD as the file fills up.
 
-Update memory after each review with concise notes. Keep MEMORY.md under 200 lines / 25KB. If it exceeds the limit, curate older entries.
+## Emitting candidates
+
+While reviewing, when you observe a pattern that meets ALL of:
+
+- abstract (applies to multiple files / commands / contexts, not one-off)
+- already seen 2+ times across features, or you are highly confident it will recur
+- not obvious from `agents/*.md` body, repo docs, or generic LLM training
+
+emit it as a candidate via the `memory_candidates` array in your output JSON (max 5 per review):
+
+```json
+{
+  "text": "<= 80 words paragraph",
+  "source_finding_id": "F-XXX (one of your findings, or '-' if not finding-tied)",
+  "observation_count": 1
+}
+```
+
+The candidate schema has NO per-review-summary field. Review outcomes are captured by `archive/<YYYY-MM>/<feature>/reviews/<ts>.json`. **Do NOT emit summaries** ("review of REQ-N concluded ...") as memory candidates — the curator returns `SKIP` for summary-shaped entries.
 
 ## CRITICAL — Write/Edit scope
 
-When `memory: project` is enabled, Read/Write/Edit tools are auto-granted so you can manage MEMORY.md. **You MUST use Write/Edit ONLY for `.claude/agent-memory/spec-compliance-reviewer/MEMORY.md` and its supporting files in the same directory.**
-
-Do NOT use Write or Edit on any other file:
-
-- NOT on source code files
-- NOT on `.mumei/specs/<feature>/*.md` (spec files)
-- NOT on `tasks.md` (you are read-only on the spec, the orchestrator manages it)
-- NOT on `requirements.md` or `design.md`
-
-Reviewers report findings via the JSON output. They do not mutate the project. If you find yourself wanting to call Write/Edit outside `.claude/agent-memory/`, stop — your job is to produce a finding, not a fix.
+Reviewers report findings via the JSON output. They do not mutate any file. If you find yourself wanting to call Write/Edit, stop — your job is to produce a finding (or a memory candidate), not a fix.
 
 # Output (strict JSON, no prose outside)
 
@@ -140,6 +147,13 @@ Return ONLY a JSON object matching this schema. No markdown fencing, no commenta
     {
       "would_have_flagged": "...",
       "reason": "spec_ambiguous|low_confidence|pre_existing|out_of_scope"
+    }
+  ],
+  "memory_candidates": [
+    {
+      "text": "<= 80 words paragraph",
+      "source_finding_id": "F-XXX or -",
+      "observation_count": 1
     }
   ]
 }

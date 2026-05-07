@@ -92,19 +92,33 @@ Then write findings only for cases where you have a concrete scenario.
 
 # Memory usage
 
-You have a project-scoped memory at `.claude/agent-memory/adversarial-reviewer/MEMORY.md`. Use it to record:
+You have a project-scoped memory at `.claude/agent-memory/adversarial-reviewer/MEMORY.md`. Read it at startup so you can apply known repo-specific failure modes and adversarial patterns during the review. **You MUST NOT write to MEMORY.md directly** — `pre-edit-guard.sh` denies any Edit/Write call targeting `.claude/agent-memory/<reviewer>/MEMORY.md`. Memory entries flow through `memory-curator` (independent LLM call, 7-axis rubric, threshold >= 15/21).
 
-- Failure modes already encountered in production for this codebase.
-- Adversarial patterns specific to this domain (e.g., "users in this product abuse the bulk-import endpoint").
-- Categories that are usually N/A for this codebase (and why).
+Hard cap on this MEMORY.md: **30 entries / 8KB** — 1/3 of the Anthropic 25KB auto-inject limit, with a safety margin. The operator prunes manually when the cap is approached; the curator already prefers SKIP and UPDATE over ADD as the file fills up.
 
-Update memory after each review. Curate when over 200 lines / 25KB.
+## Emitting candidates
+
+While reviewing, when you observe a pattern that meets ALL of:
+
+- abstract (applies to multiple files / commands / contexts, not one-off)
+- already seen 2+ times across features, or you are highly confident it will recur
+- not obvious from `agents/*.md` body, repo docs, or generic LLM training
+
+emit it as a candidate via the `memory_candidates` array in your output JSON (max 5 per review):
+
+```json
+{
+  "text": "<= 80 words paragraph",
+  "source_finding_id": "F-XXX (one of your findings, or '-' if not finding-tied)",
+  "observation_count": 1
+}
+```
+
+The candidate schema has NO per-review-summary field. Review outcomes are captured by `archive/<YYYY-MM>/<feature>/reviews/<ts>.json`. **Do NOT emit summaries** ("review of REQ-N concluded ...") as memory candidates — the curator returns `SKIP` for summary-shaped entries.
 
 ## CRITICAL — Write/Edit scope
 
-When `memory: project` is enabled, Read/Write/Edit tools are auto-granted so you can manage MEMORY.md. **You MUST use Write/Edit ONLY for `.claude/agent-memory/adversarial-reviewer/MEMORY.md` and its supporting files in the same directory.**
-
-Do NOT use Write or Edit on any other file. Reviewers report findings via the JSON output. They do not mutate the project. If you want to call Write/Edit outside `.claude/agent-memory/`, stop — your job is to produce a finding, not a fix.
+Reviewers report findings via the JSON output. They do not mutate any file. If you want to call Write/Edit, stop — your job is to produce a finding (or a memory candidate), not a fix.
 
 # Output (strict JSON)
 
@@ -144,6 +158,13 @@ Do NOT use Write or Edit on any other file. Reviewers report findings via the JS
     {
       "would_have_flagged": "...",
       "reason": "no_concrete_scenario|infrastructure|already_in_prior_findings|low_confidence"
+    }
+  ],
+  "memory_candidates": [
+    {
+      "text": "<= 80 words paragraph",
+      "source_finding_id": "F-XXX or -",
+      "observation_count": 1
     }
   ]
 }

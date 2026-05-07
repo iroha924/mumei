@@ -161,6 +161,21 @@ mumei_is_meta_path() {
   return 1
 }
 
+# --- R3: deny direct write to reviewer MEMORY.md ---
+# Memory entries flow through memory-curator + the orchestrator's atomic
+# helpers in hooks/_lib/memory.sh. Any LLM-driven Edit/Write to
+# .claude/agent-memory/<reviewer>/MEMORY.md is denied here regardless of
+# phase or vehicle. The orchestrator's mumei_memory_apply_operation
+# uses Bash file ops (mv/cat/awk pipelines), which do not pass through
+# this hook, so the legit pipeline keeps working.
+case "$FILE_PATH" in
+.claude/agent-memory/*/MEMORY.md)
+  mumei_deny \
+    "Direct write to ${FILE_PATH} is denied. Reviewer memory flows through memory-curator + the orchestrator (hooks/_lib/memory.sh)." \
+    "Emit candidate entries via the memory_candidates array in your review output (max 5 per review). The curator scores each against the 7-axis rubric (>=15/21 → ADD or UPDATE) and the orchestrator persists ADD/UPDATE atomically. Set MUMEI_BYPASS=1 only for emergency manual edits."
+  ;;
+esac
+
 # --- P1: editing src/ etc. before the spec is complete ---
 # Allow meta files. For everything else, deny while phase=plan.
 if [[ "$PHASE" == "plan" ]]; then

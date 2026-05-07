@@ -179,3 +179,50 @@ EOF
   [ "$output" = "" ]
   [ -z "$stderr" ]
 }
+
+# ─── R3: deny direct write to reviewer MEMORY.md ─────────────
+
+@test "R3: deny Edit on .claude/agent-memory/spec-compliance-reviewer/MEMORY.md" {
+  _init_feature_with_tasks "implement" 1
+  _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".claude/agent-memory/spec-compliance-reviewer/MEMORY.md"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
+  reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
+  [[ "$reason" == *"memory-curator"* ]]
+}
+
+@test "R3: deny Edit on .claude/agent-memory/security-reviewer/MEMORY.md" {
+  _init_feature_with_tasks "implement" 1
+  _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".claude/agent-memory/security-reviewer/MEMORY.md"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
+}
+
+@test "R3: deny Write on .claude/agent-memory/adversarial-reviewer/MEMORY.md" {
+  _init_feature_with_tasks "implement" 1
+  _run_hook '{"tool_name":"Write","tool_input":{"file_path":".claude/agent-memory/adversarial-reviewer/MEMORY.md"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
+}
+
+@test "R3: allow Edit on agent-memory dir but non-MEMORY.md filename" {
+  _init_feature_with_tasks "implement" 1
+  # notes.md under same dir is not MEMORY.md → R3 does NOT fire (would
+  # then fall through to scope check, and since .claude/* is meta-path
+  # exempt from scope, it passes).
+  _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".claude/agent-memory/spec-compliance-reviewer/notes.md"}}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+  [ -z "$stderr" ]
+}
+
+@test "R3: MUMEI_BYPASS=1 short-circuits MEMORY.md write" {
+  _init_feature_with_tasks "implement" 1
+  MUMEI_BYPASS=1 _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".claude/agent-memory/spec-compliance-reviewer/MEMORY.md"}}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+  [ -z "$stderr" ]
+}
