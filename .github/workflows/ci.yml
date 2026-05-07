@@ -25,121 +25,36 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      # ─────────────────────────────────────────
-      # bash の静的解析。GitHub Actions runner には shellcheck がプリインストール済。
-      # ─────────────────────────────────────────
-      - name: shellcheck (hooks/*.sh + hooks/_lib/*.sh + scripts/*.sh)
-        run: |
-          shellcheck hooks/_lib/*.sh hooks/*.sh scripts/*.sh
+      # All static-lint checks below delegate to scripts/lint-*.sh so
+      # pre-push (.pre-commit-config.yaml) and CI run the SAME logic on
+      # the SAME file globs. The pre-push hook calls scripts/lint-all.sh
+      # which fans out to the same sub-scripts; if a check passes one
+      # side and fails the other, that means tool versions diverged
+      # (shellcheck, jq, awk) — investigate the version, not the
+      # script. See scripts/lint-all.sh for the canonical order.
 
-      # ─────────────────────────────────────────
-      # bash syntax check (shellcheck では拾えないケースの保険)
-      # ─────────────────────────────────────────
-      - name: bash -n
+      - name: shellcheck (hooks/_lib/*.sh + hooks/*.sh + scripts/*.sh)
+        run: shellcheck hooks/_lib/*.sh hooks/*.sh scripts/*.sh
+
+      - name: bash -n (full glob)
         run: |
           for f in hooks/_lib/*.sh hooks/*.sh scripts/*.sh; do
             bash -n "$f" || { echo "FAIL: $f"; exit 1; }
           done
 
-      # ─────────────────────────────────────────
-      # bash function prefix discipline (mumei_ / _mumei_ 必須)
-      # 3 種の関数定義 syntax をすべて検出: name(), name (), function name [{|()]
-      # tests/ は対象外 (bats fixture 関数があるため)
-      # ─────────────────────────────────────────
       - name: verify mumei_ prefix on bash functions
-        run: |
-          set -euo pipefail
-          bad="$(awk '
-            # name() / name () (whitespace allowed before "(")
-            /^[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\)/ {
-              n = $0; sub(/[[:space:]]*\(\).*$/, "", n)
-              if (n !~ /^(mumei_|_mumei_)/) printf "%s:%d: %s\n", FILENAME, NR, $0
-              next
-            }
-            # function name [{|()]   — Korn-style declaration
-            /^function[[:space:]]+[a-zA-Z_][a-zA-Z0-9_]*([[:space:]]|\(|\{)/ {
-              n = $0; sub(/^function[[:space:]]+/, "", n); sub(/[[:space:]\(\{].*$/, "", n)
-              if (n !~ /^(mumei_|_mumei_)/) printf "%s:%d: %s\n", FILENAME, NR, $0
-              next
-            }
-          ' hooks/_lib/*.sh hooks/*.sh scripts/*.sh || true)"
-          if [ -n "$bad" ]; then
-            echo "::error::Non-prefixed function definitions found in hooks/ or scripts/:" >&2
-            printf '%s\n' "$bad" >&2
-            exit 1
-          fi
-          echo "all functions use mumei_ / _mumei_ prefix (covers name(), name (), function name)"
+        run: bash scripts/lint-bash-prefix.sh
 
-      # ─────────────────────────────────────────
-      # JSON validation
-      # ─────────────────────────────────────────
       - name: jq empty (manifest, hooks)
         run: |
           jq empty .claude-plugin/plugin.json
           jq empty hooks/hooks.json
 
-      # ─────────────────────────────────────────
-      # plan-vehicle hook registration (REQ-9.9 / 9.12 / 9.13)
-      # 新 vehicle が成立する条件: ExitPlanMode capture と Task counter Hook
-      # の 3 event がすべて hooks.json に登録されていること。
-      # 削除されたら plan vehicle が黙って壊れるのでこの step で検出する。
-      # ─────────────────────────────────────────
       - name: plan-vehicle hooks.json registration check
-        run: |
-          set -euo pipefail
-          missing=()
-          jq -e '.hooks.PreToolUse[]?.matcher | select(. == "ExitPlanMode")' hooks/hooks.json >/dev/null \
-            || missing+=("PreToolUse:ExitPlanMode")
-          jq -e '.hooks.TaskCreated[]?' hooks/hooks.json >/dev/null \
-            || missing+=("TaskCreated")
-          jq -e '.hooks.TaskCompleted[]?' hooks/hooks.json >/dev/null \
-            || missing+=("TaskCompleted")
-          if (( ${#missing[@]} > 0 )); then
-            echo "::error::hooks.json missing plan-vehicle events: ${missing[*]}" >&2
-            exit 1
-          fi
-          # And the underlying scripts must exist + be executable.
-          for f in hooks/pre-exitplan-guard.sh hooks/post-task-event.sh; do
-            [[ -x "$f" ]] || { echo "::error::missing or non-executable: $f" >&2; exit 1; }
-          done
-          # /mumei:review skill must exist with proper frontmatter.
-          [[ -f skills/review/SKILL.md ]] || { echo "::error::skills/review/SKILL.md missing" >&2; exit 1; }
-          [[ "$(head -1 skills/review/SKILL.md)" == "---" ]] || { echo "::error::skills/review/SKILL.md missing frontmatter" >&2; exit 1; }
-          echo "plan-vehicle artifacts registered + executable + present"
+        run: bash scripts/lint-plan-vehicle-hooks.sh
 
-      # ─────────────────────────────────────────
-      # 配布物 frontmatter check
-      # ─────────────────────────────────────────
-      - name: agent frontmatter check
-        run: |
-          set -euo pipefail
-          fail=0
-          for f in agents/*.md; do
-            # head -1 を bash 組み込み比較で確認 (grep は '---' をオプション扱いするため使わない)
-            [[ "$(head -1 "$f")" == "---" ]] || { echo "FAIL: $f - missing frontmatter"; fail=1; continue; }
-            fm="$(awk '/^---$/{c++; next} c==1' "$f")"
-            for required in name description model; do
-              printf '%s' "$fm" | grep -qE "^${required}:" || { echo "FAIL: $f - missing field: ${required}"; fail=1; }
-            done
-            for forbidden in hooks mcpServers permissionMode; do
-              if printf '%s' "$fm" | grep -qE "^${forbidden}:"; then
-                echo "FAIL: $f - forbidden plugin-agent field: ${forbidden}"
-                fail=1
-              fi
-            done
-          done
-          [[ "$fail" == "0" ]]
-
-      - name: skill frontmatter check
-        run: |
-          set -euo pipefail
-          fail=0
-          while IFS= read -r f; do
-            [[ "$(head -1 "$f")" == "---" ]] || { echo "FAIL: $f - missing frontmatter"; fail=1; continue; }
-            fm="$(awk '/^---$/{c++; next} c==1' "$f")"
-            printf '%s' "$fm" | grep -qE '^description:' || { echo "FAIL: $f - missing description"; fail=1; }
-          done < <(find skills -name SKILL.md)
-          [[ "$fail" == "0" ]]
+      - name: agent + skill frontmatter check
+        run: bash scripts/lint-frontmatter.sh
 
       # ─────────────────────────────────────────
       # 配布物 README / LICENSE 存在確認
@@ -245,17 +160,27 @@ jobs:
       # All knobs (max_retries, timeout, accept-list, exclude_path) live in
       # lychee.toml as the single source of truth — no CLI flags here, since
       # lychee's CLI args would silently override the toml.
+      # lychee 0.24+ tarballs put the binary inside
+      # `lychee-${ARCH}-unknown-linux-gnu/lychee`, but
+      # `lycheeverse/lychee-action@v2.8.0` (latest as of 2026-05) still
+      # assumes the v0.23.x layout where `lychee` is at the tarball
+      # root, so its `install` step fails on v0.24+. Manual install
+      # bypasses the action's broken extraction step. Bump the SHA256
+      # together with the version — the binary name in the URL stays
+      # "lychee-x86_64-unknown-linux-gnu.tar.gz" across versions.
+      - name: install lychee v0.24.2
+        run: |
+          set -euo pipefail
+          ver="0.24.2"
+          url="https://github.com/lycheeverse/lychee/releases/download/lychee-v${ver}/lychee-x86_64-unknown-linux-gnu.tar.gz"
+          tmp="$(mktemp -d)"
+          curl -sSfL "$url" -o "$tmp/lychee.tar.gz"
+          tar -xzf "$tmp/lychee.tar.gz" -C "$tmp"
+          sudo install -m 0755 "$tmp/lychee-x86_64-unknown-linux-gnu/lychee" /usr/local/bin/lychee
+          lychee --version
+
       - name: lychee (link check)
-        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
-        with:
-          args: --no-progress './**/*.md'
-          fail: true
-          # action default is v0.23.0 which uses the boolean form of
-          # `include_fragments`; our lychee.toml uses the v0.24+ string
-          # form ("none"). Pin to 0.24.2 so CI parses the toml the same
-          # way local does. Bump deliberately when we change the toml
-          # schema again.
-          lycheeVersion: v0.24.2
+        run: lychee --no-progress './**/*.md'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

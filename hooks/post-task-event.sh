@@ -64,13 +64,13 @@ acquired=0
 # recognize trap callbacks as called and flags both the function
 # (SC2329) and its body (SC2317) as unreachable. Disable both.
 # shellcheck disable=SC2317,SC2329
-_post_task_cleanup() {
+_mumei_post_task_cleanup() {
   trap - EXIT INT TERM
   if [[ "$acquired" == "1" ]]; then
     rmdir "$LOCK_DIR" 2>/dev/null || true
   fi
 }
-trap _post_task_cleanup EXIT INT TERM
+trap _mumei_post_task_cleanup EXIT INT TERM
 
 # Up to ~5s with 200ms back-off: 25 attempts * 0.2s. Caps total wait
 # without busy-spinning. If we still cannot acquire, the contending
@@ -101,7 +101,7 @@ fi
 # `[[ -n ]]` check yet crashes `$((x+1))` under set -u, leaving the
 # arithmetic target unset and silently dropping the increment. Coerce
 # unparsable values to 0 with a warn so the next event can recover.
-_post_task_int() {
+_mumei_post_task_int() {
   local value="$1" field="$2" event="$3"
   if [[ ! "$value" =~ ^[0-9]+$ ]]; then
     mumei_log_warn "${event}: non-numeric ${field}='${value}' for ${SLUG} — treating as 0"
@@ -112,25 +112,25 @@ _post_task_int() {
 }
 
 # Use 10#$value in arithmetic to force base-10 interpretation. Without
-# this, a value like "08" or "09" would pass _post_task_int's
+# this, a value like "08" or "09" would pass _mumei_post_task_int's
 # `^[0-9]+$` regex but then crash `$((08+1))` ("value too great for
 # base") because bash interprets leading-zero numerics as octal.
 case "$EVENT" in
 TaskCreated)
-  current="$(_post_task_int "$(mumei_state_read_any "$SLUG" '.task_created_count')" task_created_count L-T1)"
+  current="$(_mumei_post_task_int "$(mumei_state_read_any "$SLUG" '.task_created_count')" task_created_count L-T1)"
   next=$((10#$current + 1))
   if ! mumei_plan_state_set "$SLUG" '.task_created_count' "$next"; then
     mumei_log_warn "L-T1: failed to increment task_created_count for ${SLUG}"
   fi
   ;;
 TaskCompleted)
-  completed="$(_post_task_int "$(mumei_state_read_any "$SLUG" '.task_completed_count')" task_completed_count L-T2)"
+  completed="$(_mumei_post_task_int "$(mumei_state_read_any "$SLUG" '.task_completed_count')" task_completed_count L-T2)"
   next_completed=$((10#$completed + 1))
   if ! mumei_plan_state_set "$SLUG" '.task_completed_count' "$next_completed"; then
     mumei_log_warn "L-T2: failed to increment task_completed_count for ${SLUG}"
     exit 0
   fi
-  created="$(_post_task_int "$(mumei_state_read_any "$SLUG" '.task_created_count')" task_created_count L-T2)"
+  created="$(_mumei_post_task_int "$(mumei_state_read_any "$SLUG" '.task_created_count')" task_created_count L-T2)"
   if [[ "$next_completed" == "$((10#$created))" ]] && [[ "$created" != "0" ]]; then
     if ! mumei_plan_state_set "$SLUG" '.pending_review' 'true'; then
       mumei_log_warn "L-T2: failed to set pending_review=true for ${SLUG}"

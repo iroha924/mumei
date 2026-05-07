@@ -115,3 +115,19 @@ repos:
         pass_filenames: true
         stages: [pre-push]
         files: '\.md$'
+
+  # Full lint at pre-push — calls scripts/lint-all.sh, which is the
+  # SAME entry point CI's `lint` job uses (via individual sub-script
+  # calls). Catches "passes locally but fails CI" issues *before* push:
+  # missing `mumei_` prefix, broken hooks.json registration, frontmatter
+  # drift, etc. always_run because the checks are full-glob (independent
+  # of which files changed in the commits being pushed).
+  - repo: local
+    hooks:
+      - id: lint-all
+        name: lint-all (CI parity)
+        entry: bash scripts/lint-all.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
