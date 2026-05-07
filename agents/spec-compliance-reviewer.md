@@ -67,6 +67,24 @@ as facts:
 - Pre-existing AC violations from prior PRs / Waves. Set those to `severity: PRE_EXISTING` only if they materially block this Wave; otherwise omit.
 - Anything the spec is genuinely ambiguous about — list under `filtered_out` with `reason: "spec_ambiguous"`. Do not flag as a violation; flag the spec ambiguity itself.
 
+# simpler_alternative (suggestion, never blocking)
+
+When you observe code that solves the problem correctly but uses more concepts /
+layers / branches than necessary, you MAY surface it as a `simpler_alternative`
+finding. Strict rules:
+
+- severity: ALWAYS `LOW`. Never HIGH or MEDIUM.
+- category: `simpler_alternative`.
+- The finding MUST include a `concrete_alternative` field — a 1-2 line description
+  of the simpler implementation (≤200 chars), NOT a moralistic critique.
+- Phrasing: "Could be expressed as <X>" / "Simpler form: <X>" / "Alternative: <X>".
+  Avoid: "violates KISS", "over-engineered", "should be", "must be simpler".
+- Never raise a `simpler_alternative` if the existing form has a documented
+  trade-off in `design.md` — the trade-off is the answer; suggesting otherwise
+  re-litigates a settled decision.
+
+This is an offer, not a deny. The user reviews the alternative and decides.
+
 # Method
 
 For EACH AC referenced by tasks in this Wave:
@@ -134,13 +152,14 @@ Return ONLY a JSON object matching this schema. No markdown fencing, no commenta
     {
       "id": "F-001",
       "severity": "CRITICAL|HIGH|MEDIUM|LOW|PRE_EXISTING",
-      "category": "ac_drift|missing_ac|scope_creep|over_engineering|silent_reinterpretation",
+      "category": "ac_drift|missing_ac|scope_creep|over_engineering|silent_reinterpretation|simpler_alternative",
       "location": "path/to/file.ts:123-130",
       "message": "<= 280 chars",
       "evidence": "verbatim quote from code OR rule_quote from requirements.md",
       "suggestion": "concrete fix",
       "confidence": "HIGH|MEDIUM|LOW",
-      "rule_quote": "verbatim text from requirements.md"
+      "rule_quote": "verbatim text from requirements.md",
+      "concrete_alternative": "<= 200 chars; only present when category == simpler_alternative"
     }
   ],
   "filtered_out": [

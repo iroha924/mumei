@@ -120,6 +120,7 @@ mumei_memory_apply_operation() {
   mfile="${dir}/MEMORY.md"
 
   if [[ "$op" == "SKIP" ]]; then
+    _mumei_memory_curator_log_append "$dir" "$input" false
     return 0
   fi
   if [[ "$op" != "ADD" && "$op" != "UPDATE" ]]; then
@@ -235,7 +236,30 @@ mumei_memory_apply_operation() {
     tmp=""
     mumei_log_info "memory UPDATE id=${target} reviewer=$(basename "$dir")"
   fi
+  _mumei_memory_curator_log_append "$dir" "$input" true
   return 0
+}
+
+# Append one record per curator decision to .mumei/.curator-log.jsonl
+# (REQ-11.9). Called from mumei_memory_apply_operation on every exit
+# path: SKIP (applied=false), ADD/UPDATE (applied=true).
+# Args: dir input applied(true|false)
+_mumei_memory_curator_log_append() {
+  local dir="$1" input="$2" applied="$3"
+  local source_reviewer applied_json
+  source_reviewer="$(basename "$dir")"
+  case "$applied" in
+  true) applied_json="true" ;;
+  *) applied_json="false" ;;
+  esac
+  mkdir -p .mumei || return 0
+  jq -nc \
+    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg sr "$source_reviewer" \
+    --argjson out "$(printf '%s' "$input" | jq -c . 2>/dev/null || echo '{}')" \
+    --argjson applied "$applied_json" \
+    '{ts: $ts, source_reviewer: $sr, curator_output: $out, applied: $applied}' \
+    >>.mumei/.curator-log.jsonl 2>/dev/null || true
 }
 
 # Internal: slugify a paragraph into a kebab-case id (first 6 alnum tokens).

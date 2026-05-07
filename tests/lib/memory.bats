@@ -297,3 +297,53 @@ setup() {
   [ "$status" -eq 1 ]
   [[ "$stderr" == *"1025"* ]]
 }
+
+# ─── curator-log append (REQ-11.9) ────────────────────────────────────
+
+@test "curator-log: SKIP appends one record with applied=false" {
+  local reviewer_dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/spec-compliance-reviewer"
+  mkdir -p "$reviewer_dir"
+  printf '%s' '{"operation":"SKIP","reason":"below threshold"}' |
+    mumei_memory_apply_operation "$reviewer_dir"
+  [ -f .mumei/.curator-log.jsonl ]
+  rec="$(cat .mumei/.curator-log.jsonl)"
+  [ "$(jq -r '.applied' <<<"$rec")" = "false" ]
+  [ "$(jq -r '.source_reviewer' <<<"$rec")" = "spec-compliance-reviewer" ]
+  [ "$(jq -r '.curator_output.operation' <<<"$rec")" = "SKIP" ]
+}
+
+@test "curator-log: ADD appends one record with applied=true" {
+  local reviewer_dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/security-reviewer"
+  mkdir -p "$reviewer_dir"
+  local input
+  input="$(jq -nc --arg ft "Always validate input on system boundaries." \
+    '{operation:"ADD",score_total:18,score_breakdown:{generality:3,recurrence:3,longevity:3,coverage_gap:3,actionability:2,density:2,confidence:2},final_text:$ft,merge_target_id:null,reason:"good general principle"}')"
+  printf '%s' "$input" | mumei_memory_apply_operation "$reviewer_dir"
+  [ -f .mumei/.curator-log.jsonl ]
+  rec="$(cat .mumei/.curator-log.jsonl)"
+  [ "$(jq -r '.applied' <<<"$rec")" = "true" ]
+  [ "$(jq -r '.source_reviewer' <<<"$rec")" = "security-reviewer" ]
+  [ "$(jq -r '.curator_output.operation' <<<"$rec")" = "ADD" ]
+  [ "$(jq -r '.curator_output.score_total' <<<"$rec")" = "18" ]
+}
+
+@test "curator-log: ts is ISO 8601 form" {
+  local reviewer_dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/x"
+  mkdir -p "$reviewer_dir"
+  printf '%s' '{"operation":"SKIP","reason":"r"}' | mumei_memory_apply_operation "$reviewer_dir"
+  ts="$(jq -r '.ts' <.mumei/.curator-log.jsonl)"
+  [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+}
+
+@test "curator-log: 3 invocations produce 3 JSONL lines, all parsable" {
+  local reviewer_dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/y"
+  mkdir -p "$reviewer_dir"
+  printf '%s' '{"operation":"SKIP","reason":"a"}' | mumei_memory_apply_operation "$reviewer_dir"
+  printf '%s' '{"operation":"SKIP","reason":"b"}' | mumei_memory_apply_operation "$reviewer_dir"
+  printf '%s' '{"operation":"SKIP","reason":"c"}' | mumei_memory_apply_operation "$reviewer_dir"
+  lines="$(wc -l <.mumei/.curator-log.jsonl)"
+  [ "$lines" -eq 3 ]
+  while IFS= read -r line; do
+    echo "$line" | jq -e 'type == "object"' >/dev/null
+  done <.mumei/.curator-log.jsonl
+}

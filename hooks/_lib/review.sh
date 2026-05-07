@@ -177,6 +177,65 @@ mumei_review_compute_next_iter_reviewers() {
   ' <<<"$surfaced_json" 2>/dev/null || printf '["adversarial"]'
 }
 
+# Rotate reviewers when iter N's planned set is a permutation of iter N-1's
+# (REQ-11.8). Hash-based, stateless, deterministic for the same
+# (feature, iter, candidate-pool) tuple. Adversarial is always preserved
+# (REQ-7.3 invariant) and excluded from the rotation pool.
+#
+# Args:
+#   $1 prev_reviewers JSON array  ([] for iter 1 → no rotation)
+#   $2 next_reviewers JSON array  (output of compute_next_iter_reviewers)
+#   $3 feature
+#   $4 iter
+#
+# Echoes the (possibly rotated) JSON array.
+mumei_review_rotate_reviewers() {
+  local prev_json="$1"
+  local next_json="$2"
+  local feature="$3"
+  local iter="$4"
+
+  # iter 1 has no prev set; nothing to rotate against.
+  if [[ -z "$prev_json" ]] || [[ "$prev_json" == "[]" ]]; then
+    printf '%s' "$next_json"
+    return 0
+  fi
+
+  local prev_sorted next_sorted
+  prev_sorted="$(jq -c 'sort' <<<"$prev_json" 2>/dev/null || echo '[]')"
+  next_sorted="$(jq -c 'sort' <<<"$next_json" 2>/dev/null || echo '[]')"
+
+  if [[ "$prev_sorted" != "$next_sorted" ]]; then
+    # Already different — no rotation needed.
+    printf '%s' "$next_json"
+    return 0
+  fi
+
+  # Full overlap → rotate. Pool excludes adversarial because the
+  # invariant already keeps it in next_json. Candidates are pool members
+  # not yet present in next_json.
+  local candidates
+  candidates="$(jq -nc --argjson next "$next_json" '
+    ["spec-compliance", "security"] - $next
+  ')"
+
+  local n_cand
+  n_cand="$(jq -r 'length' <<<"$candidates")"
+  if [[ "$n_cand" -eq 0 ]]; then
+    # Nothing to rotate to (e.g. next_json already covers the full pool).
+    printf '%s' "$next_json"
+    return 0
+  fi
+
+  # Hash-based deterministic pick.
+  local hex idx pick
+  hex="$(printf '%s' "${feature}:${iter}:${candidates}" | shasum -a 256 | cut -c1)"
+  idx=$(((16#$hex) % n_cand))
+  pick="$(jq -r --argjson i "$idx" '.[$i]' <<<"$candidates")"
+
+  jq -c --arg p "$pick" '. + [$p] | unique' <<<"$next_json"
+}
+
 # Check the iter-N-all-PASS short-circuit (REQ-7.7).
 # Returns 0 if the previous iter for the SAME wave was PASS with HIGH=0
 # (caller should skip this iter and write a synthetic shortcircuit JSON).

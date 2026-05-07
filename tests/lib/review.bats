@@ -106,3 +106,57 @@ EOF
   out="$(mumei_review_structural_check "$CLAUDE_PLUGIN_ROOT" "$CLAUDE_PLUGIN_ROOT")"
   [ "$out" = '[]' ]
 }
+
+# ─── rotate_reviewers (REQ-11.8) ──────────────────────────────────────
+
+@test "rotate: iter 1 (no prev) returns next as-is" {
+  out="$(mumei_review_rotate_reviewers '[]' '["adversarial"]' "REQ-1-foo" 1)"
+  [ "$out" = '["adversarial"]' ]
+}
+
+@test "rotate: prev != next returns next as-is (already different)" {
+  out="$(mumei_review_rotate_reviewers '["adversarial"]' '["spec-compliance","adversarial"]' "REQ-1-foo" 2)"
+  [ "$out" = '["spec-compliance","adversarial"]' ]
+}
+
+@test "rotate: prev == next (full overlap) adds a rotation candidate" {
+  out="$(mumei_review_rotate_reviewers '["adversarial","spec-compliance"]' '["spec-compliance","adversarial"]' "REQ-1-foo" 2)"
+  count="$(jq 'length' <<<"$out")"
+  [ "$count" = "3" ]
+  has_security="$(jq 'index("security")' <<<"$out")"
+  [ "$has_security" != "null" ]
+}
+
+@test "rotate: adversarial is preserved, never rotated out" {
+  out="$(mumei_review_rotate_reviewers '["adversarial"]' '["adversarial"]' "REQ-1-foo" 2)"
+  has_adv="$(jq 'index("adversarial")' <<<"$out")"
+  [ "$has_adv" != "null" ]
+}
+
+@test "rotate: pool exhausted (next contains all 3) returns next as-is" {
+  full='["spec-compliance","security","adversarial"]'
+  out="$(mumei_review_rotate_reviewers "$full" "$full" "REQ-1-foo" 2)"
+  count="$(jq 'length' <<<"$out")"
+  [ "$count" = "3" ]
+}
+
+@test "rotate: deterministic — same inputs yield same output" {
+  prev='["adversarial","spec-compliance"]'
+  next='["spec-compliance","adversarial"]'
+  o1="$(mumei_review_rotate_reviewers "$prev" "$next" "REQ-1-foo" 2)"
+  o2="$(mumei_review_rotate_reviewers "$prev" "$next" "REQ-1-foo" 2)"
+  [ "$o1" = "$o2" ]
+}
+
+@test "rotate: different iter values can yield different rotations" {
+  # When the candidate pool has more than one option, varying inputs
+  # exercises different hash buckets. Here the pool has 1 candidate, so
+  # the result is the same; we just assert no crash and shape preserved.
+  prev='["adversarial","spec-compliance"]'
+  next='["spec-compliance","adversarial"]'
+  for i in 1 2 3 4 5; do
+    out="$(mumei_review_rotate_reviewers "$prev" "$next" "REQ-1-foo" $i)"
+    count="$(jq 'length' <<<"$out")"
+    [ "$count" = "3" ]
+  done
+}

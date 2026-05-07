@@ -80,6 +80,24 @@ Each is mandatory. Report `status: N/A` if a category is not applicable to this 
 - Issues requiring infrastructure-level fixes (out of code scope) — list under `filtered_out` with `reason: "infrastructure"`.
 - Subjective preferences.
 
+# simpler_alternative (suggestion, never blocking)
+
+When you observe code that solves the problem correctly but uses more concepts /
+layers / branches than necessary, you MAY surface it as a `simpler_alternative`
+finding. Strict rules:
+
+- severity: ALWAYS `LOW`. Never HIGH or MEDIUM.
+- category: `simpler_alternative`.
+- The finding MUST include a `concrete_alternative` field — a 1-2 line description
+  of the simpler implementation (≤200 chars), NOT a moralistic critique.
+- Phrasing: "Could be expressed as <X>" / "Simpler form: <X>" / "Alternative: <X>".
+  Avoid: "violates KISS", "over-engineered", "should be", "must be simpler".
+- Never raise a `simpler_alternative` if the existing form has a documented
+  trade-off in `design.md` — the trade-off is the answer; suggesting otherwise
+  re-litigates a settled decision.
+
+This is an offer, not a deny. The user reviews the alternative and decides.
+
 # Method
 
 For each category, ask three questions:
@@ -144,14 +162,15 @@ Reviewers report findings via the JSON output. They do not mutate any file. If y
     {
       "id": "F-001",
       "severity": "HIGH|MEDIUM|LOW",
-      "category": "CONCURRENCY|BOUNDARIES|FAILURES|TIME|RESOURCES|ORDERING|OBSERVABILITY|RECOVERABILITY",
+      "category": "CONCURRENCY|BOUNDARIES|FAILURES|TIME|RESOURCES|ORDERING|OBSERVABILITY|RECOVERABILITY|simpler_alternative",
       "location": "path/to/file.ts:123-130",
       "scenario": "Concrete trigger: if X happens while Y is in state Z...",
       "manifestation": "How the failure shows up: corrupted state / hung request / data loss / etc.",
       "message": "<= 280 chars",
       "evidence": "verbatim code quote",
       "suggestion": "concrete fix (idempotency key / transaction / mutex / etc.)",
-      "confidence": "HIGH|MEDIUM|LOW"
+      "confidence": "HIGH|MEDIUM|LOW",
+      "concrete_alternative": "<= 200 chars; only present when category == simpler_alternative"
     }
   ],
   "filtered_out": [
