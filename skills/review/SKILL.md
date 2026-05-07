@@ -265,7 +265,7 @@ The same `[mumei] curator output invalid: <reason>` format and same caps (max 5 
 reviewer) apply as in `skills/plan/SKILL.md` Stage 6.5. The curator runs once per
 candidate and is `tools: Read` only; the orchestrator's bash file ops in
 `mumei_memory_apply_operation` do not pass through `pre-edit-guard.sh`, so the
-R3 deny rule blocking LLM-driven Edit/Write does not interfere with the legitimate
+M1 deny rule blocking LLM-driven Edit/Write does not interfere with the legitimate
 write path.
 
 ### Step 9 — Phase transition + user prompt (REQ-9.21 / REQ-9.22 / REQ-9.23 / REQ-9.33.2)

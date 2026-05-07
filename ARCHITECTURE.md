@@ -18,19 +18,21 @@ mumei/
 ├── .claude-plugin/
 │   ├── plugin.json         # plugin manifest (name / version / author / homepage)
 │   └── marketplace.json    # self-hosted marketplace catalog
-├── agents/                 # 7 reviewer / validator agents (Sonnet / Opus)
+├── agents/                 # 8 reviewer / validator / curator agents (Sonnet / Opus)
 │   ├── requirements-reviewer.md
 │   ├── design-reviewer.md
 │   ├── tasks-reviewer.md
 │   ├── spec-compliance-reviewer.md
 │   ├── security-reviewer.md
 │   ├── adversarial-reviewer.md
-│   └── issue-validator.md
+│   ├── issue-validator.md
+│   └── memory-curator.md
 │   # (code-quality-reviewer.md was removed in REQ-7 — see docs/mumei-decisions.md)
 ├── skills/                 # user-invocable orchestration
 │   ├── plan/               # /mumei:plan — the orchestrator
 │   ├── brainstorm/         # /mumei:brainstorm — pre-spec Q&A
 │   ├── init/               # /mumei:init — one-time per-project setup
+│   ├── review/             # /mumei:review — plan-vehicle review pipeline
 │   └── archive/            # /mumei:archive — move done features to archive/
 ├── hooks/                  # Hook handlers + shared bash library
 │   ├── hooks.json          # PreToolUse / PostToolUse / Stop registration
@@ -39,11 +41,13 @@ mumei/
 │   │   ├── tasks.sh        # tasks.md parser (BSD-awk compatible)
 │   │   ├── safe-grep.sh    # null-safe grep + git check-ignore helper
 │   │   ├── detectors.sh    # semgrep / osv-scanner runners + severity normalizer
+│   │   ├── review.sh       # shared Phase 5 / /mumei:review pipeline helpers
+│   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
 │   │   └── log.sh          # mumei_log_info / warn / error / debug
-│   ├── pre-edit-guard.sh   # P1 / P2 / P3 / I1 / I2 / W1
+│   ├── pre-edit-guard.sh   # P1 / P2 / P3 / I1 / I2 / W1 / M1
 │   ├── pre-bash-guard.sh   # I3 / R2 / W2
 │   ├── post-edit-guard.sh  # I4 (phantom completion)
-│   ├── post-bash-guard.sh  # X1 (advisory: out-of-scope Bash writes)
+│   ├── post-bash-guard.sh  # X1 (advisory: out-of-scope Bash writes) + X3 (Wave auto-advance on git commit, internal)
 │   ├── stop-guard.sh       # R1 / R3 + detector defense line
 │   └── pre-review-detector.sh  # Stage 0 of /mumei:plan review pipeline
 ├── scripts/

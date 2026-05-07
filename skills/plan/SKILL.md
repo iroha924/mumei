@@ -1021,7 +1021,7 @@ done
 The curator runs once per candidate (single Task subagent_type=memory-curator
 launch). It is `tools: Read` only; the orchestrator's bash-based file ops in
 `mumei_memory_apply_operation` (atomic mv + awk pipelines) do not pass through
-`pre-edit-guard.sh`, so the legitimate write path is unaffected by the R3 deny
+`pre-edit-guard.sh`, so the legitimate write path is unaffected by the M1 deny
 rule that blocks LLM-driven Edit/Write on `.claude/agent-memory/<r>/MEMORY.md`.
 
 If `verdict == PASS`:
