@@ -1,9 +1,5 @@
 # mumei
 
-<div align="center">
-  <img src="./assets/mumei-mascot.png" alt="mumei mascot" width="220" />
-</div>
-
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![CI](https://github.com/hir4ta/mumei/actions/workflows/ci.yml/badge.svg)](https://github.com/hir4ta/mumei/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/hir4ta/mumei/actions/workflows/codeql.yml/badge.svg)](https://github.com/hir4ta/mumei/actions/workflows/codeql.yml)
@@ -12,11 +8,35 @@
 [![Sigstore signed](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/hir4ta/mumei/network/updates)
 
+<div align="center">
+  <img src="./assets/mumei-mascot.png" alt="mumei mascot" width="220" />
+</div>
+
 Quality Enforcement Layer for Claude Code.
 
 Hook-enforced spec phases, Wave commits, and reviews — at the OS boundary, not via prompt-level instructions the agent can ignore.
 
 [日本語版 README](./README.ja.md)
+
+## Installation
+
+mumei ships its own self-hosted marketplace. Inside Claude Code, run:
+
+```text
+/plugin marketplace add hir4ta/mumei
+/plugin install mumei@mumei
+/reload-plugins
+```
+
+After install, run the one-time per-project setup:
+
+```text
+/mumei:init
+```
+
+Uninstall: `/plugin uninstall mumei@mumei` (the `.mumei/` directory in your project is left intact).
+
+Prerequisites: `semgrep` + `osv-scanner` for the review-phase detectors. See [Prerequisites](#prerequisites) for install commands.
 
 ```mermaid
 flowchart LR
@@ -46,6 +66,7 @@ flowchart LR
 
 ## Contents
 
+- [Installation](#installation)
 - [Features](#features)
 - [Why](#why)
 - [Commands](#commands)
@@ -54,7 +75,6 @@ flowchart LR
 - [Philosophy: why "mumei" (無名)](#philosophy-why-mumei-無名)
 - [Workflow](#workflow)
 - [Prerequisites](#prerequisites)
-- [Installation](#installation)
 - [Project layout](#project-layout-after-mumeiinit)
 - [Spec & tasks format](#spec--tasks-format)
 - [Hook rules](#hook-rules)
@@ -197,24 +217,6 @@ mumei's review pipeline relies on two deterministic detectors as ground truth fo
 | `osv-scanner` (≥ 1.7.0) | CVE / dependency vulnerability check | `brew install osv-scanner` (macOS), [release binary](https://github.com/google/osv-scanner/releases) (Linux) |
 
 `MUMEI_DETECTOR_TIMEOUT` (default `600` seconds) tunes the per-detector wall-clock timeout; raise for very large repos.
-
-## Installation
-
-mumei ships its own self-hosted marketplace. Inside Claude Code, run:
-
-```text
-/plugin marketplace add hir4ta/mumei
-/plugin install mumei@mumei
-/reload-plugins
-```
-
-After install, run the one-time per-project setup:
-
-```text
-/mumei:init
-```
-
-Uninstall: `/plugin uninstall mumei@mumei` (the `.mumei/` directory in your project is left intact).
 
 ## Project layout (after `/mumei:init`)
 

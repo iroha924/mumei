@@ -1,9 +1,5 @@
 # mumei
 
-<div align="center">
-  <img src="./assets/mumei-mascot.png" alt="mumei mascot" width="220" />
-</div>
-
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![CI](https://github.com/hir4ta/mumei/actions/workflows/ci.yml/badge.svg)](https://github.com/hir4ta/mumei/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/hir4ta/mumei/actions/workflows/codeql.yml/badge.svg)](https://github.com/hir4ta/mumei/actions/workflows/codeql.yml)
@@ -12,11 +8,35 @@
 [![Sigstore signed](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/hir4ta/mumei/network/updates)
 
+<div align="center">
+  <img src="./assets/mumei-mascot.png" alt="mumei mascot" width="220" />
+</div>
+
 Claude Code 用の Quality Enforcement Layer。
 
 spec の phase、Wave commit、review を Hook で物理的に強制します。「実行してください」と prompt するのではなく、エージェントが従えない OS の境界で tool 呼び出しを拒否します。
 
 [English README](./README.md)
+
+## インストール
+
+mumei は自前のマーケットプレイスを同梱しています。Claude Code 内で:
+
+```text
+/plugin marketplace add hir4ta/mumei
+/plugin install mumei@mumei
+/reload-plugins
+```
+
+インストール後、プロジェクトごとの一回限りのセットアップ:
+
+```text
+/mumei:init
+```
+
+アンインストール: `/plugin uninstall mumei@mumei` (プロジェクト内の `.mumei/` ディレクトリはそのまま残ります)。
+
+前提ツール: `semgrep` + `osv-scanner` (review-phase の detector に必要)。インストールコマンドは [前提ツール](#前提ツール) を参照。
 
 ```mermaid
 flowchart LR
@@ -46,6 +66,7 @@ flowchart LR
 
 ## 目次
 
+- [インストール](#インストール)
 - [Features](#features)
 - [なぜ](#なぜ)
 - [Commands](#commands)
@@ -54,7 +75,6 @@ flowchart LR
 - [Philosophy: なぜ mumei (無名)](#philosophy-なぜ-mumei-無名)
 - [Workflow](#workflow)
 - [前提ツール](#前提ツール)
-- [インストール](#インストール)
 - [プロジェクト構成](#プロジェクト構成-mumeiinit-後)
 - [Spec / tasks フォーマット](#spec--tasks-フォーマット)
 - [Hook ルール](#hook-ルール)
@@ -197,24 +217,6 @@ mumei の review pipeline は 2 つの決定論的 detector を ground-truth と
 | `osv-scanner` (≥ 1.7.0) | CVE / 依存脆弱性チェック    | `brew install osv-scanner` (macOS)、[release バイナリ](https://github.com/google/osv-scanner/releases) (Linux) |
 
 `MUMEI_DETECTOR_TIMEOUT` (デフォルト `600` 秒) で per-detector の wall-clock timeout を調整できます。
-
-## インストール
-
-mumei は自前のマーケットプレイスを同梱しています。Claude Code 内で:
-
-```text
-/plugin marketplace add hir4ta/mumei
-/plugin install mumei@mumei
-/reload-plugins
-```
-
-インストール後、プロジェクトごとの一回限りのセットアップ:
-
-```text
-/mumei:init
-```
-
-アンインストール: `/plugin uninstall mumei@mumei` (プロジェクト内の `.mumei/` ディレクトリはそのまま残ります)。
 
 ## プロジェクト構成 (`/mumei:init` 後)
 
