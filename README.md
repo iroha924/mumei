@@ -270,7 +270,7 @@ The `_Files:_` / `_Depends:_` / `_Requirements:_` lines are **mandatory**. They 
 
 ## Hook rules
 
-mumei enforces **15 hook rules** across phase transitions, Wave boundaries, commit / push gates, and reviewer memory writes. The full enforcement table (rule ID, phase, hook event, trigger, implementation script) is in [ARCHITECTURE.md → Hook rules](./ARCHITECTURE.md#hook-rules--full-enforcement-table). The single escape hatch is `MUMEI_BYPASS=1`.
+mumei enforces **16 hook rules** across phase transitions, Wave boundaries, commit / push gates, and reviewer memory writes. The full enforcement table (rule ID, phase, hook event, trigger, implementation script) is in [ARCHITECTURE.md → Hook rules](./ARCHITECTURE.md#hook-rules--full-enforcement-table). The single escape hatch is `MUMEI_BYPASS=1`.
 
 ## Troubleshooting
 
@@ -296,7 +296,7 @@ mumei enforces **15 hook rules** across phase transitions, Wave boundaries, comm
 
 ## Architecture
 
-For a deeper look at the runtime structure (distribution layout, the 15 hook rules, the reviewer pipeline, the phase state machine, the file-based state model), see [ARCHITECTURE.md](./ARCHITECTURE.md).
+For a deeper look at the runtime structure (distribution layout, the 16 hook rules, the reviewer pipeline, the phase state machine, the file-based state model), see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## License
 

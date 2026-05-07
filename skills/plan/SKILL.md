@@ -1024,6 +1024,43 @@ launch). It is `tools: Read` only; the orchestrator's bash-based file ops in
 `pre-edit-guard.sh`, so the legitimate write path is unaffected by the M1 deny
 rule that blocks LLM-driven Edit/Write on `.claude/agent-memory/<r>/MEMORY.md`.
 
+### Stage 6.6 — Structural integrity check (deterministic, blocking)
+
+After Stage 6.5 returns control, run the deterministic structural integrity
+check via `mumei_review_structural_check`. The helper invokes
+`scripts/lint-hook-ids.sh` and `scripts/lint-docs-drift.sh` in sequence and
+emits a JSON array of findings — empty when both pass, one entry per failing
+script when either fails. Each entry carries `severity=HIGH` and
+`source=structural-integrity`.
+
+If the array is non-empty:
+
+1. Prepend each entry to `findings_surfaced` of the review JSON written in
+   Stage 6 (the existing review JSON is rewritten via `mumei_review_persist`
+   so the structural findings appear before LLM reviewer findings).
+2. Override the overall `verdict` to `MAJOR_ISSUES` regardless of what the
+   LLM reviewers returned. Deterministic checks supersede LLM judgment for
+   structural defects, just like Stage 0 detector findings supersede
+   security-reviewer for HIGH OWASP findings.
+
+```bash
+structural_findings="$(mumei_review_structural_check "$CLAUDE_PLUGIN_ROOT" "$(pwd)")"
+if [[ "$(jq 'length' <<<"$structural_findings")" -gt 0 ]]; then
+  # Rewrite the review JSON written in Stage 6: prepend structural findings,
+  # set verdict=MAJOR_ISSUES.
+  latest_review="$(mumei_review_latest "$review_dir")"
+  jq --argjson sf "$structural_findings" \
+     '.findings_surfaced = ($sf + (.findings_surfaced // []))
+      | .verdict = "MAJOR_ISSUES"' \
+     <"$latest_review" >"${latest_review}.tmp"
+  mv "${latest_review}.tmp" "$latest_review"
+fi
+```
+
+The structural check is no-op when the linter scripts are missing (mumei
+loaded in a partial install or pre-Wave-1 state), so this stage cannot
+regress on older mumei versions.
+
 If `verdict == PASS`:
 
 ```bash

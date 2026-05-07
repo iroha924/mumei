@@ -76,7 +76,7 @@ not by prompting.
 
 ## Hook rules — full enforcement table
 
-The 15 rules below describe **what mumei refuses to do** when an invariant is
+The 16 rules below describe **what mumei refuses to do** when an invariant is
 violated. Each rule is a single check in one of the handler scripts under
 `hooks/`. Rules denoted _advisory_ surface findings via `additionalContext`
 without blocking the tool call.
@@ -98,6 +98,7 @@ without blocking the tool call.
 | M1  | any       | PreToolUse(Edit)  | LLM-driven Edit/Write on `.claude/agent-memory/<reviewer>/MEMORY.md` (curator pipeline only) | `hooks/pre-edit-guard.sh`  |
 | X1  | any       | PostToolUse(Bash) | Bash modified files outside scope (advisory)                                                 | `hooks/post-bash-guard.sh` |
 | X2  | any       | PostToolUse(Edit) | tasks.md format violation (advisory)                                                         | `scripts/lint-tasks.sh`    |
+| X3  | implement | PostToolUse(Bash) | Wave auto-advance after a successful `git commit` (state mutation, not blocking)             | `hooks/post-bash-guard.sh` |
 
 The single escape hatch is `MUMEI_BYPASS=1` (env var). It short-circuits every
 hook on entry. There is no per-rule bypass; this is intentional (see

@@ -268,6 +268,36 @@ candidate and is `tools: Read` only; the orchestrator's bash file ops in
 M1 deny rule blocking LLM-driven Edit/Write does not interfere with the legitimate
 write path.
 
+### Step 8.6 — Structural integrity check (deterministic, blocking)
+
+After Step 8.5 returns control, run the deterministic structural integrity check
+via `mumei_review_structural_check` (defined in `hooks/_lib/review.sh`). The
+helper invokes `scripts/lint-hook-ids.sh` and `scripts/lint-docs-drift.sh` and
+returns a JSON array of findings — empty when both pass, one entry per failing
+script when either fails. Each entry carries `severity=HIGH` and
+`source=structural-integrity`.
+
+If the array is non-empty, prepend each entry to `findings_surfaced` of the
+review JSON written in Step 8 and override the overall `verdict` to
+`MAJOR_ISSUES`. Deterministic structural defects supersede LLM verdicts the
+same way Stage 0 detector HIGH findings supersede `security-reviewer`.
+
+```bash
+structural_findings="$(mumei_review_structural_check "$CLAUDE_PLUGIN_ROOT" "$(pwd)")"
+if [[ "$(jq 'length' <<<"$structural_findings")" -gt 0 ]]; then
+  latest_review="$(mumei_review_latest "$review_dir")"
+  jq --argjson sf "$structural_findings" \
+     '.findings_surfaced = ($sf + (.findings_surfaced // []))
+      | .verdict = "MAJOR_ISSUES"' \
+     <"$latest_review" >"${latest_review}.tmp"
+  mv "${latest_review}.tmp" "$latest_review"
+  verdict="MAJOR_ISSUES"
+fi
+```
+
+The structural check is no-op when the linter scripts are missing (mumei loaded
+in a partial install), so older plan-vehicle reviews cannot regress.
+
 ### Step 9 — Phase transition + user prompt (REQ-9.21 / REQ-9.22 / REQ-9.23 / REQ-9.33.2)
 
 ```bash

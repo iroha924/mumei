@@ -56,6 +56,12 @@ jobs:
       - name: agent + skill frontmatter check
         run: bash scripts/lint-frontmatter.sh
 
+      - name: Hook ID consistency (REQ-11.1)
+        run: bash scripts/lint-hook-ids.sh
+
+      - name: docs ↔ filesystem drift (REQ-11.2)
+        run: bash scripts/lint-docs-drift.sh
+
       # ─────────────────────────────────────────
       # 配布物 README / LICENSE 存在確認
       # ─────────────────────────────────────────

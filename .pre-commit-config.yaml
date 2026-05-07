@@ -87,6 +87,24 @@ repos:
         entry: bash -c 'trufflehog filesystem --no-update --fail --no-verification --results=verified .'
         language: system
 
+  # Hook ID + docs drift linters (REQ-11.1 / REQ-11.2). Run on every
+  # commit because they are fast (whole-repo grep / awk) and catch the
+  # W-02 / W-03 regression class deterministically before push.
+  - repo: local
+    hooks:
+      - id: lint-hook-ids
+        name: lint-hook-ids (REQ-11.1)
+        entry: bash scripts/lint-hook-ids.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: lint-docs-drift
+        name: lint-docs-drift (REQ-11.2)
+        entry: bash scripts/lint-docs-drift.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
   # Run the project's own bats suite at pre-push time so test failures
   # land before reaching CI without paying the cost on every commit.
   # The 176-test full suite takes ~10 s on this repo; commits stay

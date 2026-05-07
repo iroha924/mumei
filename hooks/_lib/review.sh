@@ -266,3 +266,52 @@ mumei_review_persist() {
 mumei_review_iter_head() {
   git rev-parse HEAD 2>/dev/null || true
 }
+
+# Stage 6.6: run deterministic structural integrity checks
+# (lint-hook-ids.sh + lint-docs-drift.sh) and emit a JSON array of
+# findings. The array is empty when both scripts pass; each failing
+# script contributes one finding with severity=HIGH and
+# source=structural-integrity. Callers prepend the array to
+# findings_surfaced and override the verdict to MAJOR_ISSUES if any
+# finding is present.
+#
+# Args:
+#   $1 plugin_root  defaults to ${CLAUDE_PLUGIN_ROOT}
+#   $2 repo_root    defaults to "."
+mumei_review_structural_check() {
+  local plugin_root="${1:-${CLAUDE_PLUGIN_ROOT:-}}"
+  local repo_root="${2:-.}"
+  local findings_jq='[]'
+
+  # Both scripts must exist; otherwise treat as no-op (mumei is loaded
+  # in a partial install or pre-Wave-1 state).
+  if [[ -z "$plugin_root" ]] ||
+    [[ ! -f "${plugin_root}/scripts/lint-hook-ids.sh" ]] ||
+    [[ ! -f "${plugin_root}/scripts/lint-docs-drift.sh" ]]; then
+    printf '[]'
+    return 0
+  fi
+
+  local script
+  for script in lint-hook-ids lint-docs-drift; do
+    local out rc
+    out="$(bash "${plugin_root}/scripts/${script}.sh" "$repo_root" 2>&1)"
+    rc=$?
+    if ((rc != 0)); then
+      findings_jq="$(jq -n \
+        --arg rule "$script" \
+        --arg msg "$out" \
+        --argjson cur "$findings_jq" \
+        '$cur + [{
+          source: "structural-integrity",
+          severity: "HIGH",
+          category: "structural",
+          rule: $rule,
+          location: ("scripts/" + $rule + ".sh"),
+          message: $msg
+        }]')"
+    fi
+  done
+
+  printf '%s' "$findings_jq"
+}

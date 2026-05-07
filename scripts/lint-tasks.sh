@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # PostToolUse Edit|Write|MultiEdit hook for tasks.md format linting.
+# Implements rule X2 in the ARCHITECTURE.md Hook rules table.
 #
 # Triggered after any Edit/Write to surface format violations in
 # tasks.md immediately, instead of letting Wave gating discover them
