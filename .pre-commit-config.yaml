@@ -87,10 +87,11 @@ repos:
         entry: bash -c 'trufflehog filesystem --no-update --fail --no-verification --results=verified .'
         language: system
 
-  # Run the project's own bats suite locally so test failures land
-  # before push, not at CI time. Mirrors the `bats -r tests/` job in
-  # ci.yml. Slow-ish on full suite but tests/ is small enough to keep
-  # under 10 s on this repo.
+  # Run the project's own bats suite at pre-push time so test failures
+  # land before reaching CI without paying the cost on every commit.
+  # The 176-test full suite takes ~10 s on this repo; commits stay
+  # snappy and the same correctness guarantee holds at push time.
+  # Mirrors the `bats -r tests/` job in ci.yml.
   - repo: local
     hooks:
       - id: bats
@@ -98,13 +99,13 @@ repos:
         entry: bats -r tests/
         language: system
         pass_filenames: false
+        stages: [pre-push]
         types_or: [shell, file]
-        # Trigger on bash / hook script / bats edits. Skip pure-doc
-        # commits so README typo fixes don't pay the bats cost.
         files: '^(hooks/|scripts/|tests/|.pre-commit-config\.yaml$)'
 
-  # Run the same lychee link check ci.yml uses so broken-link / 404
-  # errors surface before push. Same lychee.toml drives both.
+  # Run lychee link check at pre-push time. HTTP fetches are inherently
+  # slow even with .lycheecache; per-commit cost was disrupting the dev
+  # flow. Same lychee.toml drives both pre-push and ci.yml.
   - repo: local
     hooks:
       - id: lychee
@@ -112,6 +113,5 @@ repos:
         entry: lychee --no-progress
         language: system
         pass_filenames: true
+        stages: [pre-push]
         files: '\.md$'
-        # Fail-fast on commits that touch markdown only (most common
-        # cause of 404 introduction).
