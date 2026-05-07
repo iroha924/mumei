@@ -60,10 +60,15 @@ acquired=0
 # rmdir the lock twice — the second fire would otherwise rmdir a lock
 # acquired by a different contender process in the few-millisecond
 # window between TERM trap exit and EXIT trap entry.
-# shellcheck disable=SC2329  # invoked indirectly via trap
+# Invoked indirectly via the trap below. shellcheck 0.10 (CI) does not
+# recognize trap callbacks as called and flags both the function
+# (SC2329) and its body (SC2317) as unreachable. Disable both.
+# shellcheck disable=SC2317,SC2329
 _post_task_cleanup() {
   trap - EXIT INT TERM
-  [[ "$acquired" == "1" ]] && rmdir "$LOCK_DIR" 2>/dev/null || true
+  if [[ "$acquired" == "1" ]]; then
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
 }
 trap _post_task_cleanup EXIT INT TERM
 
