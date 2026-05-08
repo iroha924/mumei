@@ -5,21 +5,19 @@
 name: ci-fail-analysis
 
 on:
-  workflow_run:
-    # Trigger ci-fail-analysis on failure of ci.yml AND every REQ-8
-    # security workflow added in Waves 2-4. The analysis logic is
-    # generic (it inspects the failed run's artifacts via gh api), so
-    # no per-workflow special-casing is needed downstream.
-    workflows:
-      - ci
-      - codeql
-      - scorecards
-      - gitleaks-weekly
-      - mutable-tag-guard
-      - pull-request-target-guard
-      - signed-commit-verify
-      - plugin-json-validate
-    types: [completed]
+  # Disabled while ANTHROPIC_API_KEY billing is paused. Manual run only.
+  # workflow_run:
+  #   workflows:
+  #     - ci
+  #     - codeql
+  #     - scorecards
+  #     - gitleaks-weekly
+  #     - mutable-tag-guard
+  #     - pull-request-target-guard
+  #     - signed-commit-verify
+  #     - plugin-json-validate
+  #   types: [completed]
+  workflow_dispatch:
 
 permissions:
   contents: read

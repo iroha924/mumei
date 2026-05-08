@@ -4,12 +4,14 @@
 name: audit-distribution-pr
 
 on:
-  pull_request:
-    paths:
-      - "hooks/**"
-      - "skills/**"
-      - "agents/**"
-      - ".claude-plugin/**"
+  # Disabled while ANTHROPIC_API_KEY billing is paused. Manual run only.
+  # pull_request:
+  #   paths:
+  #     - "hooks/**"
+  #     - "skills/**"
+  #     - "agents/**"
+  #     - ".claude-plugin/**"
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -5,10 +5,9 @@
 name: anthropic-blog-digest
 
 on:
-  schedule:
-    # 15th of each month, 22:00 UTC (= 16th 07:00 JST). Offset from
-    # audit-readme-drift to spread API load across the month.
-    - cron: "0 22 15 * *"
+  # Disabled while ANTHROPIC_API_KEY billing is paused. Manual run only.
+  # schedule:
+  #   - cron: "0 22 15 * *"
   workflow_dispatch:
 
 permissions:

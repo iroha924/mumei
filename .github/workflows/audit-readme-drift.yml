@@ -5,9 +5,9 @@
 name: audit-readme-drift
 
 on:
-  schedule:
-    # 1st of each month, 22:00 UTC (= 2nd 07:00 JST). Monthly cadence.
-    - cron: "0 22 1 * *"
+  # Disabled while ANTHROPIC_API_KEY billing is paused. Manual run only.
+  # schedule:
+  #   - cron: "0 22 1 * *"
   workflow_dispatch:
 
 permissions:

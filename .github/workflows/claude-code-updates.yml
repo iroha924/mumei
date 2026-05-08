@@ -4,9 +4,9 @@
 name: claude-code-updates
 
 on:
-  schedule:
-    # Monday 22:00 UTC = Tuesday 07:00 JST (offset from audit-distribution-weekly)
-    - cron: "0 22 * * 1"
+  # Disabled while ANTHROPIC_API_KEY billing is paused. Manual run only.
+  # schedule:
+  #   - cron: "0 22 * * 1"
   workflow_dispatch:
 
 permissions:
