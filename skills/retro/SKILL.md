@@ -45,12 +45,26 @@ for candidate in $(find .mumei/archive -maxdepth 3 -type d -name "$feature" 2>/d
 done
 [[ -n "$feature_dir" ]] || { echo "feature not found: $feature" >&2; exit 1; }
 
+# Cost-log backfill (REQ-16.9): if the feature has no cost-log.jsonl
+# yet (the SubagentStop hook only started recording after REQ-16
+# Wave 1, so older features come up empty), try to recover the data
+# from Claude Code's session logs. Always best-effort — graceful fail
+# is mandatory. The script returns 0 even when no records can be
+# recovered and writes a "partial backfill only" line to stderr.
+cost_log="${feature_dir}/cost-log.jsonl"
+if [[ ! -f "$cost_log" ]] || [[ "$(wc -c <"$cost_log")" -eq 0 ]]; then
+  bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir" || true
+fi
+
 # Delegate the heavy lifting to scripts/generate-retro.sh which knows
-# how to read all the input files and produce the markdown.
+# how to read all the input files (including the now-possibly-backfilled
+# cost-log.jsonl) and produce the markdown.
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/generate-retro.sh" "$feature_dir"
 ```
 
 The generator script writes `retro.md` into `feature_dir`. Tell the user the path, then suggest committing it (when the feature lives under archive) or letting `/mumei:archive` carry it along (when it's still under specs/plans).
+
+The cost section in `retro.md` reflects whatever ended up in `cost-log.jsonl` after the backfill attempt: forward-recorded entries (from the SubagentStop hook), backfilled entries (from session logs), or — when neither path produced data — `(no data)` with a stderr warning that historical cost is unavailable.
 
 ## Output structure (what generate-retro.sh writes)
 
