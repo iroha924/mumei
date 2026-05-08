@@ -43,6 +43,15 @@ cleanup. Pick `plan` when the SDD workflow feels heavier than the work
 itself; pick `spec` when explicit traceability between requirements and
 code is worth the friction.
 
+When you start a new feature with `/mumei:plan`, the vehicle picker now
+surfaces quantitative bounds (`> 3 files OR > 100 lines` for spec, the
+inverse for plan) in each option's description so calibration is
+explicit. If a brainstorm scratch was attached, an additional
+confirmation step appears first — mumei reads the scratch's AC count
+and Goal section, recommends a vehicle, and asks whether to proceed
+with the recommendation or fall through to the standard picker. Final
+choice always rests with the user; the recommendation is advisory.
+
 ## Security & supply chain
 
 mumei takes a defense-in-depth posture for both runtime safety and the
