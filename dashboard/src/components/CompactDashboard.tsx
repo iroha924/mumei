@@ -309,7 +309,7 @@ function FilterStrip({
         onChange={(e) => onSlugChange(e.target.value)}
         placeholder="filter slug…"
         aria-label="filter slug"
-        className="font-mono w-32 sm:w-44 border-zinc-700 bg-zinc-950/60 text-zinc-200 placeholder:text-zinc-500"
+        className="font-mono w-32 sm:w-44 rounded-md border-zinc-700 bg-zinc-950/60 text-zinc-200 placeholder:text-zinc-500"
       />
     </div>
   )
@@ -364,7 +364,7 @@ function FeatureGrid({
             onClick={() => setShowArchived((s) => !s)}
             aria-expanded={showArchived}
             aria-controls="archived-grid"
-            className="w-full font-mono text-[16px]"
+            className="w-full font-mono text-[16px] rounded-md border-zinc-700 bg-zinc-950/60 text-zinc-200 hover:bg-zinc-900 hover:text-zinc-100 hover:border-zinc-600"
           >
             {showArchived ? <ChevronDownIcon /> : <ChevronRightIcon />}
             <span>archived ({archived.length})</span>
