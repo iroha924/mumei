@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useEventStream } from '@/hooks/useEventStream'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useMeta, useMetaStats } from '@/hooks/useMeta'
@@ -510,9 +511,17 @@ function TrendBar(): ReactElement {
             Review outcomes
           </div>
           <div className="flex gap-2 font-mono text-[16px]">
-            <LegendDot color="#6e8e64" label="PASS" />
-            <LegendDot color="#a88347" label="NI" />
-            <LegendDot color="#b86a55" label="MI" />
+            <LegendWithTooltip color="#6e8e64" label="PASS" tip="PASS — review verdict cleared" />
+            <LegendWithTooltip
+              color="#a88347"
+              label="NI"
+              tip="NEEDS_IMPROVEMENT — review surfaced fixable issues"
+            />
+            <LegendWithTooltip
+              color="#b86a55"
+              label="MI"
+              tip="MAJOR_ISSUES — review blocked, requires re-iteration"
+            />
           </div>
         </div>
         <StackedBar data={reviews} h={240} />
@@ -527,6 +536,33 @@ function TrendBar(): ReactElement {
         <HBar data={hooksRows} h={240} />
       </section>
     </footer>
+  )
+}
+
+function LegendWithTooltip({
+  color,
+  label,
+  tip,
+}: {
+  color: string
+  label: string
+  tip: string
+}): ReactElement {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 rounded"
+          aria-label={tip}
+        >
+          <LegendDot color={color} label={label} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        {tip}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
