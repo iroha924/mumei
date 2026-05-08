@@ -23,7 +23,7 @@ import { LivePulse, PulseRing, VerdictBadge } from './primitives'
  */
 export function CompactDashboard(): ReactElement {
   const [selected, setSelected] = useState<string | null>(null)
-  const [showArchived, setShowArchived] = useState(false)
+  const [showArchived, setShowArchived] = useState(true)
 
   const featuresQuery = useQuery<MockFeature[]>({
     queryKey: ['features'],
@@ -93,7 +93,7 @@ export function CompactDashboard(): ReactElement {
           className={cn(
             'shrink-0 bg-zinc-950/40 transition-all',
             // Desktop: pinned side panel sized for laptop down to 4K
-            'hidden lg:block lg:w-[400px] xl:w-[480px] 2xl:w-[560px]',
+            'hidden lg:block lg:w-[480px] xl:w-[600px] 2xl:w-[720px]',
             // Mobile / tablet: only mount when a feature is selected, then float as drawer
             detailOpen &&
               'fixed inset-0 z-30 block w-full lg:static lg:inset-auto lg:z-auto bg-zinc-950',
@@ -312,7 +312,7 @@ function TrendBar(): ReactElement {
   // 200px height. Chart SVG height shrinks slightly on narrower
   // viewports to keep titles + legend readable.
   return (
-    <footer className="shrink-0 border-t border-zinc-800 h-48 lg:h-[240px] flex overflow-x-auto snap-x snap-mandatory lg:snap-none">
+    <footer className="shrink-0 border-t border-zinc-800 h-64 lg:h-[320px] flex overflow-x-auto snap-x snap-mandatory lg:snap-none">
       <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 border-r border-zinc-800/60 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
           <div className="font-mono text-[16px] uppercase tracking-wider text-zinc-500">
@@ -320,7 +320,7 @@ function TrendBar(): ReactElement {
           </div>
           <div className="font-mono text-[16px] text-zinc-300 tabular-nums">74.8M</div>
         </div>
-        <LineChart data={TOKEN_SERIES} h={160} />
+        <LineChart data={TOKEN_SERIES} h={240} />
       </section>
       <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 border-r border-zinc-800/60 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
@@ -333,7 +333,7 @@ function TrendBar(): ReactElement {
             <LegendDot color="#b86a55" label="MI" />
           </div>
         </div>
-        <StackedBar data={REVIEW_SERIES} h={160} />
+        <StackedBar data={REVIEW_SERIES} h={240} />
       </section>
       <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
@@ -342,7 +342,7 @@ function TrendBar(): ReactElement {
           </div>
           <div className="font-mono text-[16px] text-zinc-500">{ACTIVITY_FEED.length} / 24h</div>
         </div>
-        <HBar data={HOOK_TOP} h={160} />
+        <HBar data={HOOK_TOP} h={240} />
       </section>
     </footer>
   )
