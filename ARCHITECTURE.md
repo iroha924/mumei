@@ -43,7 +43,7 @@ mumei/
 │   │   ├── detectors.sh    # semgrep / osv-scanner runners + severity normalizer
 │   │   ├── review.sh       # shared Phase 5 / /mumei:review pipeline helpers
 │   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
-│   │   ├── cost-log.sh     # reviewer/curator Task usage append (.mumei/.../cost-log.jsonl)
+│   │   ├── cost-log.sh     # optional pre/post wrap helpers; SubagentStop hook is authoritative (REQ-16)
 │   │   ├── reviewer-prompt.sh # immutable prefix + variable suffix builder for cache-friendly prompts
 │   │   ├── byte-exact.sh   # CRLF / tab advisory for byte-exact-prone file types (REQ-11.12)
 │   │   ├── hook-stats.sh   # hook decision recorder (.mumei/.hook-stats.jsonl)
@@ -71,9 +71,10 @@ mumei/
 │   ├── config-change-audit.sh  # ConfigChange: audit + invalid JSON exit 2 (REQ-13.8)
 │   ├── session-end-audit.sh  # SessionEnd: session metadata audit log (REQ-13.9)
 │   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log (REQ-13.10)
-│   └── subagent-cost-log.sh  # SubagentStop: transcript-based usage extraction (REQ-13.11/12)
+│   └── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction (REQ-16)
 ├── scripts/
-│   └── lint-tasks.sh       # X2 (advisory: tasks.md format)
+│   ├── lint-tasks.sh       # X2 (advisory: tasks.md format)
+│   └── cost-backfill.sh    # /mumei:retro: rebuild cost-log.jsonl from session logs (REQ-16)
 ├── tests/                  # bats suite (175+ tests, CI on macOS + Ubuntu)
 ├── schemas/                # shared JSON Schemas (state / review / cost-log + dashboard payloads: feature-summary / meta / trends / feature-detail / activity-event / sse-event) — NOT shipped in plugin tarball
 ├── dashboard/              # mumei-dashboard — Vite + React 19 + Tailwind v4 + shadcn/ui — NOT shipped in plugin tarball

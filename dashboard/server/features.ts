@@ -243,11 +243,19 @@ async function loadCost(args: {
   let totalInput = 0
   let totalOutput = 0
   let totalCacheRead = 0
+  // Dedup (agent, ts) across both source files so the small overlap
+  // between the SubagentStop hook (REQ-16) and any caller that still
+  // invokes mumei_cost_log_after manually does not double-count. ts
+  // has 1-second precision in the schema, so identical pairs are
+  // within the same second by construction.
+  const seen = new Set<string>()
   for (const file of [args.perFeatureFile, args.projectWideFile]) {
     for await (const e of readJsonl<CostLogEntry>(file)) {
       if (e.phase !== 'after') continue
-      // For project-wide log, scope to the requested feature.
       if (file === args.projectWideFile && e.feature !== args.featureKey) continue
+      const key = `${e.agent ?? ''}\t${e.ts ?? ''}`
+      if (seen.has(key)) continue
+      seen.add(key)
       totalInput += e.input_tokens ?? 0
       totalOutput += e.output_tokens ?? 0
       totalCacheRead += e.cache_read_input_tokens ?? 0

@@ -55,21 +55,19 @@ state_path=".mumei/plans/${slug}/state.json"
 
 REQ-9.15 / REQ-9.15.2 — the skill no-ops on missing or spec-vehicle active features and tells the user the right path.
 
-### Cost-log wrap pattern (REQ-11.5)
+### Cost-log recording (automatic via SubagentStop hook)
 
-Every reviewer / curator Task launch in this skill must be wrapped with
-cost-log helpers so token usage is recorded for later aggregation. Plan
-vehicle stores the cost-log under `.mumei/plans/<slug>/cost-log.jsonl`
-(the helper writes there via `mumei_cost_log_path "$slug"`):
+Cost-log records (`phase=after`) are written automatically by
+`hooks/subagent-cost-log.sh` when the SubagentStop event fires for any
+of the 8 mumei reviewer / validator / curator subagents. Plan vehicle
+records land under `.mumei/plans/<slug>/cost-log.jsonl` (the hook
+resolves the path from `.mumei/current` and the present plan dir).
 
-```bash
-mumei_cost_log_before "$slug" "all" "$iter" "<agent-name>"
-# ... Task subagent_type=<agent-name> ...
-mumei_cost_log_after  "$slug" "all" "$iter" "<agent-name>" "$usage_json"
-```
-
-`wave="all"` because plan-vehicle does not have Wave numbering. Aggregate
-via `scripts/aggregate-cost.sh`.
+The `mumei_cost_log_before` / `_after` helpers in
+`hooks/_lib/cost-log.sh` remain available for callers who want a
+`phase=before` bookmark or wave/iteration metadata, but **calling them
+is not required** — the SubagentStop hook is the authoritative path.
+Aggregate via `scripts/aggregate-cost.sh`.
 
 ### Reviewer prompt structure (REQ-11.7)
 

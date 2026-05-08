@@ -64,9 +64,16 @@ fi
 
 # JSON output for dashboard consumption. Emits per-agent / per-iter
 # breakdown plus totals plus cache hit ratio. One JSON object on stdout.
+#
+# `unique_by([.agent, .ts])` collapses (agent, ts) duplicates to one
+# row — protects against the small overlap between the SubagentStop
+# hook (REQ-16) and any caller that still calls
+# mumei_cost_log_after manually. ts has 1-second precision so identical
+# (agent, ts) pairs are within the same second by construction.
 if [[ "$json_mode" == "1" ]]; then
   jq -s --arg feature "${feature:-unknown}" '
-    [.[] | select(.phase == "after")] as $rows
+    [.[] | select(.phase == "after")]
+    | unique_by([.agent, .ts]) as $rows
     | {
         feature: $feature,
         records: ($rows | length),
@@ -112,6 +119,7 @@ _mumei_pivot() {
     printf 'bucket\tinput\toutput\tcache_read\tcache_create\tcount\n'
     jq -sr --arg k "$key" '
       [.[] | select(.phase == "after")]
+      | unique_by([.agent, .ts])
       | group_by(.[$k] // "<null>")
       | map({
           bucket: (.[0][$k] // "<null>"),
@@ -144,7 +152,7 @@ _mumei_pivot "iteration"
 _mumei_pivot "wave"
 
 # Final summary line.
-totals="$(jq -s '[.[] | select(.phase == "after")] | {
+totals="$(jq -s '[.[] | select(.phase == "after")] | unique_by([.agent, .ts]) | {
   count: length,
   input: (map(.input_tokens // 0) | add),
   output: (map(.output_tokens // 0) | add),

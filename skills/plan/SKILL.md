@@ -642,28 +642,30 @@ Source the lib once at the top of Phase 5:
 
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
-source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/cost-log.sh"
 review_dir=".mumei/specs/${feature}/reviews"
 ```
 
-### Cost-log wrap pattern (REQ-11.5)
+### Cost-log recording (automatic via SubagentStop hook)
 
-Every reviewer / curator Task launch in Phase 5 must be wrapped with cost-log
-helpers so token usage is recorded for later aggregation:
+Cost-log records (`phase=after`) are written automatically by
+`hooks/subagent-cost-log.sh` when the SubagentStop event fires for any
+of the 8 mumei reviewer / validator / curator subagents
+(spec-compliance-reviewer / security-reviewer / adversarial-reviewer /
+requirements-reviewer / design-reviewer / tasks-reviewer /
+issue-validator / memory-curator). The hook reverse-looks up the
+subagent's own jsonl from `agent_id` and sums every assistant entry's
+usage — no orchestrator action required.
 
-```bash
-mumei_cost_log_before "$feature" "$current_wave" "$current_iter" "<agent-name>"
-# ... Task subagent_type=<agent-name> ... (Claude Code launches the subagent)
-# Capture the subagent's usage block from the conversation transcript or the
-# Task tool's metadata; pass `{}` if not observable.
-mumei_cost_log_after  "$feature" "$current_wave" "$current_iter" "<agent-name>" "$usage_json"
-```
-
-The pattern applies to: Stage 1 reviewers (spec-compliance / security),
-Stage 2 adversarial-reviewer, Stage 4 issue-validator (one record per
-finding), and Stage 6.5 memory-curator (one record per candidate). The
-records land in `.mumei/specs/<feature>/cost-log.jsonl`; aggregate via
+Records land in `.mumei/specs/<feature>/cost-log.jsonl` (spec vehicle)
+or `.mumei/plans/<slug>/cost-log.jsonl` (plan vehicle); aggregate via
 `scripts/aggregate-cost.sh`.
+
+The `mumei_cost_log_before` / `_after` helpers in
+`hooks/_lib/cost-log.sh` remain available for callers who want a
+`phase=before` bookmark or wave/iteration metadata, but **calling them
+is not required** — the SubagentStop hook is the authoritative path.
+The aggregator dedupes (agent, ts) within a 1-second window so
+duplicate records from both paths merge cleanly.
 
 ### Reviewer prompt structure (REQ-11.7)
 

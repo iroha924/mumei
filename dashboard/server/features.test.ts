@@ -114,6 +114,54 @@ describe('listFeatures', () => {
     expect(f?.cacheHit).toBeCloseTo(0.8, 5)
   })
 
+  it('dedupes cost-log entries by (agent, ts) — REQ-16 dedup defence', async () => {
+    const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-1-foo')
+    await mkdir(featDir, { recursive: true })
+    await writeFile(
+      path.join(featDir, 'state.json'),
+      JSON.stringify({ id: 'REQ-1', slug: 'foo', phase: 'plan' }),
+    )
+    // Two identical (agent, ts) records (forward + accidental backfill)
+    // collapse to one. A third record with a different ts contributes.
+    await writeFile(
+      path.join(featDir, 'cost-log.jsonl'),
+      [
+        JSON.stringify({
+          ts: '2026-05-08T01:00:00Z',
+          feature: 'REQ-1-foo',
+          agent: 'spec-compliance-reviewer',
+          phase: 'after',
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_read_input_tokens: 400,
+        }),
+        JSON.stringify({
+          ts: '2026-05-08T01:00:00Z',
+          feature: 'REQ-1-foo',
+          agent: 'spec-compliance-reviewer',
+          phase: 'after',
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_read_input_tokens: 400,
+        }),
+        JSON.stringify({
+          ts: '2026-05-08T01:00:01Z',
+          feature: 'REQ-1-foo',
+          agent: 'security-reviewer',
+          phase: 'after',
+          input_tokens: 50,
+          output_tokens: 30,
+          cache_read_input_tokens: 200,
+        }),
+      ].join('\n'),
+    )
+    const r = await listFeatures({ projectRoot, now: NOW })
+    const f = r[0]
+    // Without dedup: 250 input + 130 output = 380 tokens.
+    // With dedup: (100+50) + (50+30) = 230 tokens.
+    expect(f?.tokens).toBe(230)
+  })
+
   it('reports findings counts from latest review JSON', async () => {
     const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-1-foo')
     await mkdir(path.join(featDir, 'reviews'), { recursive: true })
