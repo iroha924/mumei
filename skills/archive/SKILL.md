@@ -64,6 +64,21 @@ if [[ "$phase" != "done" ]]; then
   exit 1
 fi
 
+# Phase D — cross-feature dependency guard.
+# Refuse to archive when an active feature declares a Wave-level
+# `**Depends-Feature**:` directive pointing at this feature. The user
+# can override by either retiring the dependency (remove the
+# directive in the dependent's tasks.md) or by archiving in the
+# correct order (dependents first).
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/dependencies.sh"
+dependents="$(mumei_dependencies_active_dependents_of "$feature" 2>/dev/null || true)"
+if [[ -n "$dependents" ]]; then
+  echo "Cannot archive ${feature}: active dependent feature(s) still declare it via Wave **Depends-Feature**:" >&2
+  printf '  %s\n' $dependents >&2
+  echo "Either archive the dependents first, or remove the Depends-Feature line." >&2
+  exit 1
+fi
+
 # Calculate archive subdir based on creation month (or current month if missing).
 # Both schemas have created_at as ISO 8601.
 created_at="$(mumei_state_read_any "$feature" '.created_at' 2>/dev/null || true)"

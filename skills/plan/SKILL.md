@@ -498,6 +498,7 @@ Generate `.mumei/specs/<feature>/tasks.md` from the design's Wave Plan:
 
 **Goal**: <1 line>
 **Verify**: <executable command or observation>
+**Depends-Feature**: <comma-separated REQ-N or REQ-N-slug, optional>
 
 - [ ] 1.1 <task description>
   - _Files: <comma-separated file paths>_
@@ -514,6 +515,8 @@ Generate `.mumei/specs/<feature>/tasks.md` from the design's Wave Plan:
 ```
 
 Each task MUST have `_Files:_`, `_Depends:_`, `_Requirements:_`. Each Wave MUST have `**Goal**:` and `**Verify**:`. The `tasks-reviewer` agent will block on missing meta.
+
+`**Depends-Feature**:` is optional. Add it only when the Wave's implementation references symbols, files, or interfaces from another feature (typically still in `.mumei/specs/<other>/` or already archived). When present, `/mumei:archive` refuses to move the depended-upon feature out of the active workspace until either this Wave's feature is also archived or the directive is removed. Use the bare `REQ-N` form to depend on whatever slug the dependency currently uses; use the compound `REQ-N-slug` form to pin to an exact dir.
 
 #### Format invariants (enforced by the parser, not just the reviewer)
 

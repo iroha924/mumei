@@ -127,6 +127,40 @@ mumei_tasks_requirements() {
   _mumei_tasks_extract_meta "$task_id" "Requirements" "$tf"
 }
 
+# Wave-level cross-feature dependency. REQ-15 may declare it depends on
+# REQ-14 by adding a `**Depends-Feature**:` line after `**Goal**:` and
+# `**Verify**:` in any Wave header. The value is a comma-separated list
+# of feature ids (REQ-N) or compound keys (REQ-N-slug).
+#
+# Example tasks.md fragment:
+#   ## Wave 1: ...
+#   **Goal**: ...
+#   **Verify**: ...
+#   **Depends-Feature**: REQ-14, REQ-12
+#
+# Echo the deduplicated, space-separated list of features the spec
+# depends on across ALL Waves, or empty when none are declared.
+mumei_tasks_wave_depends_features() {
+  local feature="$1"
+  local tf
+  tf="$(mumei_tasks_path "$feature")"
+  [[ -f "$tf" ]] || return 1
+  awk '
+    /^## Wave [0-9]+:/ { in_wave = 1; next }
+    in_wave && /^\*\*Depends-Feature\*\*:[[:space:]]*/ {
+      s = $0
+      sub(/^\*\*Depends-Feature\*\*:[[:space:]]*/, "", s)
+      n = split(s, parts, ",")
+      for (i = 1; i <= n; i++) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", parts[i])
+        if (parts[i] != "" && parts[i] != "-") print parts[i]
+      }
+      next
+    }
+    /^## / && !/^## Wave / { in_wave = 0 }
+  ' "$tf" | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//'
+}
+
 # Return the tasks that own the given file path (multiple matches possible, space-separated).
 # Used by scope-creep detection (I2) and to reverse-lookup the owning task during edits (I1).
 mumei_tasks_owners_of_file() {
