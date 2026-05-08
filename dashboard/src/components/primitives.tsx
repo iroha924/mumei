@@ -1,6 +1,8 @@
 import type { ReactElement, ReactNode } from 'react'
-import type { Vehicle, Verdict } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+
+type Vehicle = 'spec' | 'plan'
+type Verdict = 'PASS' | 'NEEDS_IMPROVEMENT' | 'MAJOR_ISSUES'
 
 /**
  * Verdict pill — tone matches the dusty palette: sage = PASS,

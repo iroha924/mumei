@@ -57,6 +57,31 @@ class EventSourceStub {
 
 const handlers = [
   http.get('/api/features', () => HttpResponse.json([])),
+  http.get('/api/meta', () => HttpResponse.json({ projectLabel: '~/test-project' })),
+  http.get('/api/meta/stats', () =>
+    HttpResponse.json({
+      activeCount: 0,
+      monthTokens: 0,
+      cacheHitRate: 0,
+      hooksPerSec: 0,
+      eventCount24h: 0,
+    }),
+  ),
+  http.get('/api/trends/tokens', () => HttpResponse.json([])),
+  http.get('/api/trends/reviews', () => HttpResponse.json([])),
+  http.get('/api/trends/hooks', () => HttpResponse.json([])),
+  http.get('/api/feature/:slug/detail', () =>
+    HttpResponse.json({
+      slug: 'unknown',
+      planVehicle: false,
+      timeline: [],
+      acs: [],
+      waveplan: [],
+      reviews: [],
+      costPerIter: [],
+    }),
+  ),
+  http.get('/api/activity', () => HttpResponse.json([])),
   http.get('/api/cost', () =>
     HttpResponse.json({
       feature: 'unknown',

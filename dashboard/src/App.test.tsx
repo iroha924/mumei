@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { App } from './App'
 
@@ -13,22 +13,24 @@ function renderApp() {
 }
 
 describe('App', () => {
-  it('renders the mumei brand mark in the top bar', () => {
+  it('renders the mumei brand mark in the top bar', async () => {
     renderApp()
-    expect(screen.getByText('mumei')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('mumei')).toBeInTheDocument()
+    })
   })
 
-  it('exposes a polite live region for SSE connection status', () => {
+  it('exposes a polite live region for SSE connection status', async () => {
     renderApp()
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toBeInTheDocument()
+    })
   })
 
-  it('renders the active feature grid (mock-data fallback)', () => {
+  it('renders the empty state when no features exist', async () => {
     renderApp()
-    // Mock-data fallback seeds the active features.
-    // Several locations may render the same text (card + activity
-    // feed + top-bar path), so just assert presence > 0.
-    expect(screen.getAllByText(/harness-quality-improv/i).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('REQ-14').length).toBeGreaterThan(0)
+    await waitFor(() => {
+      expect(screen.getByText('No features yet')).toBeInTheDocument()
+    })
   })
 })
