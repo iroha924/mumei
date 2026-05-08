@@ -201,9 +201,14 @@ your-project/
 ## Acceptance Criteria
 
 - REQ-1.1 [CONFIRMED] WHEN 有効な認証情報を提出したら、システムは SHALL session cookie を発行する。
+  Examples:
+  - alice@example.com が正しいパスワードで送信し、`Set-Cookie: session=...` を受け取って `/dashboard` に遷移する。
+  - bob@example.com が email 未検証のアカウントで送信、システムは 403 で拒否し session cookie を発行しない。
 - REQ-1.2 [ASSUMPTION] WHILE ユーザーがログイン中、システムは SHALL 30 分ごとに session を refresh する。
 - REQ-1.3 [NEEDS CLARIFICATION: どの IdP?] WHERE SSO が有効なとき、システムは SHALL 設定された IdP に委任する。
 ```
+
+各 AC は inline `Examples:` block (0-2 件、自然言語) を持てる (上限 2 件)。high-risk AC (`IF` / `UNLESS` を含む、または failure / lock / reject に言及するもの) には最低 1 例、単純 AC は 0 例も可。`requirements-reviewer` が Examples のカバレッジと内部整合性 (actor / trigger が User Story actor と AC EARS 句に一致しているか) を audit する。Examples は LLM が一発 draft、user は markdown を直接編集するのみで個別確認 prompt はない。
 
 annotation: `[CONFIRMED]` (ユーザー発言で裏付け)、`[ASSUMPTION]` (合理的な
 推定)、`[NEEDS CLARIFICATION: ...]` (解決まで phase 遷移を block)。

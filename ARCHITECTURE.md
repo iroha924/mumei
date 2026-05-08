@@ -172,7 +172,7 @@ mumei stores zero state outside the project tree. Everything lives under
 .mumei/
 ├── current                       # active feature slug (1 line, gitignored)
 ├── specs/<feature>/
-│   ├── requirements.md           # User Story + EARS ACs
+│   ├── requirements.md           # User Story + EARS ACs (each with inline Examples block)
 │   ├── design.md                 # Architecture + Wave Plan
 │   ├── tasks.md                  # Wave > Task hierarchy with _Files: _Depends: _Requirements:
 │   ├── state.json                # phase / current_wave / created_at / updated_at (gitignored)

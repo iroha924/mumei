@@ -1165,6 +1165,8 @@ After phase=done is set, the orchestrator MUST hand off to archive cleanup. Skip
 2. **Do NOT clear `.mumei/current`.** Only `/mumei:archive` is allowed to mutate `.mumei/current` — see archive skill which auto-clears the file when archiving the currently-active feature. Clearing it elsewhere (orchestrator, manual edit) creates a session-handoff inconsistency where the next session sees no active feature even though the spec dir still exists.
 3. **Do NOT invoke `/mumei:archive` directly.** The archive skill is `disable-model-invocation: true` by design — it only runs on explicit user invocation. The orchestrator's job ends at the archive prompt.
 
+   In particular: do **NOT** call the `Skill` tool with `mumei:archive`, do **NOT** ask the user via `AskUserQuestion` whether to "trigger archive" (the user must type `/mumei:archive <feature>` themselves — there is no path the orchestrator can take to invoke it). The right behaviour is: print one line saying `Run /mumei:archive <feature> when ready`, then stop. Any attempt to wrap it in a tool call produces `Skill mumei:archive cannot be used with Skill tool due to disable-model-invocation` and wastes a turn.
+
 If `verdict == MAJOR_ISSUES` or `NEEDS_IMPROVEMENT`:
 
 - Show findings to user.
@@ -1202,3 +1204,4 @@ Do NOT redo completed sub-phases unless the user explicitly says to.
 - Don't skip the spec-reviewer iteration loop. Even if a reviewer returns NEEDS_IMPROVEMENT after iteration 3, escalate to the user — do NOT silently continue.
 - Don't write findings directly to `state.json`. Findings live in `spec-reviews/` (Phase 1-3) and `reviews/` (Phase 5).
 - Don't read or write the legacy `coverage-check.json` file. The Coverage Check / extractor / validator pipeline was removed; its responsibility now lives in `requirements-reviewer`.
+- Don't try to invoke `/mumei:archive` via the `Skill` tool, and don't ask the user via `AskUserQuestion` whether to run it for them. The skill is `disable-model-invocation: true`; the only valid handoff is a one-line text instruction telling the user to type `/mumei:archive <feature>` themselves.

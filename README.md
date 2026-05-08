@@ -70,7 +70,7 @@ flowchart LR
 
 - **Hook-enforced phases** — phase / Wave / commit / push transitions are denied at the tool-call boundary; the agent cannot prompt its way around them.
 - **Deterministic security ground-truth** — `semgrep` + `osv-scanner` run before LLM reviewers. HIGH findings pin the verdict to `MAJOR_ISSUES`.
-- **3 spec reviewers + 4-stage review pipeline** — independent `requirements` / `design` / `tasks` reviewers on fresh contexts (auto-iter ≤ 3); `spec-compliance` + `security` parallel, then `adversarial`, then per-issue validator.
+- **3 spec reviewers + 4-stage review pipeline** — independent `requirements` / `design` / `tasks` reviewers on fresh contexts (auto-iter ≤ 3); `spec-compliance` + `security` parallel, then `adversarial`, then per-issue validator. `requirements-reviewer` audits AC `examples_coverage` (zero examples on high-risk AC, actor-trigger inconsistency) and `requirement_smell` (ambiguity / vagueness / incompleteness).
 - **Wave-based commits** — 1 Wave = 1 commit. Hooks cross-check the diff against each task's `_Files:_` to block phantom completion.
 - **Curator-gated reviewer memory** — independent `memory-curator` (sonnet, read-only) scores candidates on a 7-axis rubric; only `≥ 15/21` is persisted.
 - **Signed, attestable releases** — Sigstore keyless signing, SLSA Level 3, CycloneDX SBOM, signed commits + tags. See [docs/getting-started.md → Security & supply chain](./docs/getting-started.md#security--supply-chain).

@@ -211,9 +211,14 @@ As a registered user, I want to log in with email and password, so that I can ac
 ## Acceptance Criteria
 
 - REQ-1.1 [CONFIRMED] WHEN the user submits valid credentials, the system SHALL issue a session cookie.
+  Examples:
+  - alice@example.com submits a valid password and lands on `/dashboard` with `Set-Cookie: session=...`.
+  - bob@example.com submits an unverified-email account; the system rejects with 403 and no session cookie.
 - REQ-1.2 [ASSUMPTION] WHILE the user is logged in, the system SHALL refresh the session every 30 minutes.
 - REQ-1.3 [NEEDS CLARIFICATION: which IdP?] WHERE SSO is enabled, the system SHALL delegate to the configured IdP.
 ```
+
+Each AC may carry an inline `Examples:` block of 0–2 natural-language list items (cap at 2). High-risk ACs (those with `IF` / `UNLESS`, or whose body mentions failure / lock / reject) should carry at least one example; single-path ACs may have zero. `requirements-reviewer` audits Examples coverage and internal consistency (actor / trigger must agree with the User Story actor and the AC's EARS clause). Examples are LLM-drafted in a single pass — you edit the markdown if a draft is off, no per-example confirmation prompt.
 
 Annotations: `[CONFIRMED]` (backed by user statement), `[ASSUMPTION]`
 (reasonable inference), `[NEEDS CLARIFICATION: ...]` (blocks phase
