@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import type { MumeiFeatureSummary } from '../src/types/feature-summary.ts'
+import { type CostLogEntry, readJsonl } from './lib/aggregator.ts'
 
 const exec = promisify(execFile)
 
@@ -10,57 +12,48 @@ interface StateFile {
   slug?: string
   phase?: 'plan' | 'implement' | 'review' | 'done'
   current_wave?: number
-  created_at?: string
+  task_created_count?: number
+  task_completed_count?: number
   updated_at?: string
 }
 
-interface FeatureSummary {
-  feature: string
-  id: string
-  slug: string
-  vehicle: 'spec' | 'plan'
-  phase: 'plan' | 'implement' | 'review' | 'done'
-  current_wave: number
-  total_waves: number | null
-  last_review_verdict: 'PASS' | 'NEEDS_IMPROVEMENT' | 'MAJOR_ISSUES' | null
-  last_activity_at: string
-  ac_count: number
-  task_total: number
-  task_done: number
-  cost_input: number
-  cost_output: number
-  cost_cache_read: number
-  cost_cache_create: number
-  cache_hit_rate: number | null
+const PHASE_NEXT: Record<MumeiFeatureSummary['phase'], MumeiFeatureSummary['nextPhase']> = {
+  plan: 'implement',
+  implement: 'review',
+  review: 'done',
+  done: null,
 }
 
 /**
- * Walk .mumei/{specs,plans,archive} and produce the feature summary
- * list the dashboard renders. Each feature gets its rich derived
- * fields (AC count, Wave count, latest review verdict, cost summary)
- * by reading the per-feature artifacts.
+ * Walk .mumei/{specs,plans} (active features only — archive excluded
+ * from the listing per scope) and produce a FeatureSummary[] matching
+ * schemas/feature-summary.schema.json.
  */
-export async function listFeatures(projectRoot: string): Promise<FeatureSummary[]> {
-  const summaries: FeatureSummary[] = []
+export async function listFeatures(args: {
+  projectRoot: string
+  now?: Date
+}): Promise<MumeiFeatureSummary[]> {
+  const { projectRoot, now = new Date() } = args
+  const summaries: MumeiFeatureSummary[] = []
 
   for (const vehicle of ['spec', 'plan'] as const) {
     const dir = path.join(projectRoot, '.mumei', vehicle === 'spec' ? 'specs' : 'plans')
     const entries = await safeReaddir(dir)
     for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const summary = await summariseFeature({
-          projectRoot,
-          featureDir: path.join(dir, entry.name),
-          featureKey: entry.name,
-          vehicle,
-        })
-        if (summary) summaries.push(summary)
-      }
+      if (!entry.isDirectory()) continue
+      const summary = await summariseFeature({
+        projectRoot,
+        featureDir: path.join(dir, entry.name),
+        featureKey: entry.name,
+        vehicle,
+        now,
+      })
+      if (summary) summaries.push(summary)
     }
   }
 
-  // Active first (created_at desc), capped to a reasonable count.
-  summaries.sort((a, b) => b.last_activity_at.localeCompare(a.last_activity_at))
+  // Active first by lastActivityMin ascending (smaller = more recent).
+  summaries.sort((a, b) => a.lastActivityMin - b.lastActivityMin)
   return summaries
 }
 
@@ -69,8 +62,9 @@ async function summariseFeature(args: {
   featureDir: string
   featureKey: string
   vehicle: 'spec' | 'plan'
-}): Promise<FeatureSummary | null> {
-  const { projectRoot, featureDir, featureKey, vehicle } = args
+  now: Date
+}): Promise<MumeiFeatureSummary | null> {
+  const { projectRoot, featureDir, featureKey, vehicle, now } = args
   const stateRaw = await safeReadFile(path.join(featureDir, 'state.json'))
   if (!stateRaw) return null
   let state: StateFile
@@ -80,92 +74,177 @@ async function summariseFeature(args: {
     return null
   }
 
-  const requirementsBody = await safeReadFile(path.join(featureDir, 'requirements.md'))
-  const ac_count = requirementsBody ? (requirementsBody.match(/^- REQ-\d+\.\d+/gm) ?? []).length : 0
+  const phase = state.phase ?? 'plan'
 
   const tasksBody = await safeReadFile(path.join(featureDir, 'tasks.md'))
-  const wave_count = tasksBody ? (tasksBody.match(/^## Wave \d+:/gm) ?? []).length : 0
-  const task_total = tasksBody ? (tasksBody.match(/^- \[/gm) ?? []).length : 0
-  const task_done = tasksBody ? (tasksBody.match(/^- \[x\]/gm) ?? []).length : 0
+  const tasksWaveCount = tasksBody ? (tasksBody.match(/^## Wave \d+:/gm) ?? []).length : 0
 
-  const last_review_verdict = await latestReviewVerdict(path.join(featureDir, 'reviews'))
+  const review = await latestReview(path.join(featureDir, 'reviews'))
+  const cost = await loadCost({
+    perFeatureFile: path.join(featureDir, 'cost-log.jsonl'),
+    projectWideFile: path.join(projectRoot, '.mumei', 'cost-log.jsonl'),
+    featureKey,
+  })
 
-  const cost = await loadCost(projectRoot, featureKey)
+  const stateMtime = await safeMtime(path.join(featureDir, 'state.json'))
+  const gitMtime = await latestCommitTimestamp(projectRoot, path.relative(projectRoot, featureDir))
+  const lastActivityIso = pickMostRecent([stateMtime, gitMtime, state.updated_at ?? null])
+  const lastActivityMin = lastActivityIso
+    ? Math.max(0, Math.floor((now.getTime() - new Date(lastActivityIso).getTime()) / 60_000))
+    : 999_999
 
-  const lastTouchTs = await latestMtime(featureDir)
+  let totalWaves = 0
+  let waveProgress = 0
+  let currentWave: number | null = null
+  if (vehicle === 'spec') {
+    totalWaves = tasksWaveCount
+    currentWave = state.current_wave ?? 0
+    if (tasksBody) waveProgress = countCompletedWaves(tasksBody)
+  } else {
+    totalWaves = state.task_created_count ?? 0
+    waveProgress = state.task_completed_count ?? 0
+    currentWave = null
+  }
 
   return {
-    feature: featureKey,
     id: state.id ?? featureKey,
     slug: state.slug ?? featureKey,
     vehicle,
-    phase: state.phase ?? 'plan',
-    current_wave: state.current_wave ?? 0,
-    total_waves: wave_count > 0 ? wave_count : null,
-    last_review_verdict,
-    last_activity_at: state.updated_at ?? lastTouchTs ?? new Date().toISOString(),
-    ac_count,
-    task_total,
-    task_done,
-    cost_input: cost.input,
-    cost_output: cost.output,
-    cost_cache_read: cost.cache_read,
-    cost_cache_create: cost.cache_create,
-    cache_hit_rate: cost.cache_hit_rate,
+    phase,
+    nextPhase: PHASE_NEXT[phase],
+    currentWave,
+    totalWaves,
+    waveProgress,
+    lastVerdict: review?.verdict ?? null,
+    lastIter: review?.iteration ?? null,
+    tokens: cost.tokens,
+    cacheHit: cost.cacheHit,
+    lastActivityMin,
+    pulse: derivePulse(lastActivityMin),
+    findings: review?.findings ?? { high: 0, medium: 0, low: 0 },
   }
 }
 
-async function latestReviewVerdict(
-  reviewsDir: string,
-): Promise<FeatureSummary['last_review_verdict']> {
+function derivePulse(min: number): MumeiFeatureSummary['pulse'] {
+  if (min < 60) return 'active'
+  if (min < 1440) return 'idle'
+  return 'stalled'
+}
+
+function countCompletedWaves(tasksBody: string): number {
+  // A Wave is "completed" when every checkbox under its `## Wave N:` header is `[x]`.
+  // We walk line-by-line accumulating per-wave [ ] count; a wave with zero `- [ ]`
+  // and at least one `- [x]` qualifies as complete.
+  const lines = tasksBody.split('\n')
+  let completed = 0
+  let currentTotal = 0
+  let currentDone = 0
+  let inWave = false
+  for (const line of lines) {
+    if (/^## Wave \d+:/.test(line)) {
+      if (inWave && currentTotal > 0 && currentDone === currentTotal) completed += 1
+      inWave = true
+      currentTotal = 0
+      currentDone = 0
+      continue
+    }
+    if (!inWave) continue
+    if (/^- \[ \]/.test(line)) {
+      currentTotal += 1
+    } else if (/^- \[x\]/.test(line)) {
+      currentTotal += 1
+      currentDone += 1
+    }
+  }
+  if (inWave && currentTotal > 0 && currentDone === currentTotal) completed += 1
+  return completed
+}
+
+interface ReviewSummary {
+  verdict: 'PASS' | 'NEEDS_IMPROVEMENT' | 'MAJOR_ISSUES'
+  iteration: number
+  findings: { high: number; medium: number; low: number }
+}
+
+async function latestReview(reviewsDir: string): Promise<ReviewSummary | null> {
   const entries = await safeReaddir(reviewsDir)
-  const reviewFiles = entries
+  const candidates = entries
     .filter((e) => e.isFile() && e.name.endsWith('.json') && !e.name.endsWith('-detectors.json'))
     .map((e) => e.name)
     .sort()
-  const latestName = reviewFiles[reviewFiles.length - 1]
+  const latestName = candidates[candidates.length - 1]
   if (!latestName) return null
-  const latestPath = path.join(reviewsDir, latestName)
-  const body = await safeReadFile(latestPath)
+  const body = await safeReadFile(path.join(reviewsDir, latestName))
   if (!body) return null
   try {
-    const parsed = JSON.parse(body) as { verdict?: FeatureSummary['last_review_verdict'] }
-    return parsed.verdict ?? null
+    const parsed = JSON.parse(body) as {
+      verdict?: ReviewSummary['verdict']
+      iteration?: number
+      findings_surfaced?: { severity?: string }[]
+    }
+    if (!parsed.verdict) return null
+    const surfaced = parsed.findings_surfaced ?? []
+    const findings = { high: 0, medium: 0, low: 0 }
+    for (const f of surfaced) {
+      if (f.severity === 'CRITICAL' || f.severity === 'HIGH') findings.high += 1
+      else if (f.severity === 'MEDIUM') findings.medium += 1
+      else if (f.severity === 'LOW') findings.low += 1
+    }
+    return {
+      verdict: parsed.verdict,
+      iteration: parsed.iteration ?? 1,
+      findings,
+    }
   } catch {
     return null
   }
 }
 
-async function loadCost(
-  projectRoot: string,
-  feature: string,
-): Promise<{
-  input: number
-  output: number
-  cache_read: number
-  cache_create: number
-  cache_hit_rate: number | null
-}> {
-  try {
-    const { stdout } = await exec('bash', [
-      path.join(projectRoot, 'scripts/aggregate-cost.sh'),
-      '--json',
-      feature,
-    ])
-    const parsed = JSON.parse(stdout) as {
-      totals?: { input?: number; output?: number; cache_read?: number; cache_create?: number }
-      cache_hit_rate?: number | null
+async function loadCost(args: {
+  perFeatureFile: string
+  projectWideFile: string
+  featureKey: string
+}): Promise<{ tokens: number; cacheHit: number }> {
+  let totalInput = 0
+  let totalOutput = 0
+  let totalCacheRead = 0
+  for (const file of [args.perFeatureFile, args.projectWideFile]) {
+    for await (const e of readJsonl<CostLogEntry>(file)) {
+      if (e.phase !== 'after') continue
+      // For project-wide log, scope to the requested feature.
+      if (file === args.projectWideFile && e.feature !== args.featureKey) continue
+      totalInput += e.input_tokens ?? 0
+      totalOutput += e.output_tokens ?? 0
+      totalCacheRead += e.cache_read_input_tokens ?? 0
     }
-    return {
-      input: parsed.totals?.input ?? 0,
-      output: parsed.totals?.output ?? 0,
-      cache_read: parsed.totals?.cache_read ?? 0,
-      cache_create: parsed.totals?.cache_create ?? 0,
-      cache_hit_rate: parsed.cache_hit_rate ?? null,
-    }
-  } catch {
-    return { input: 0, output: 0, cache_read: 0, cache_create: 0, cache_hit_rate: null }
   }
+  const denom = totalInput + totalCacheRead
+  return {
+    tokens: totalInput + totalOutput,
+    cacheHit: denom > 0 ? totalCacheRead / denom : 0,
+  }
+}
+
+async function latestCommitTimestamp(projectRoot: string, relPath: string): Promise<string | null> {
+  try {
+    const { stdout } = await exec('git', ['log', '-1', '--format=%cI', '--', relPath], {
+      cwd: projectRoot,
+      maxBuffer: 256 * 1024,
+    })
+    const ts = stdout.trim()
+    return ts || null
+  } catch {
+    return null
+  }
+}
+
+function pickMostRecent(values: (string | null)[]): string | null {
+  let best: string | null = null
+  for (const v of values) {
+    if (!v) continue
+    if (!best || v > best) best = v
+  }
+  return best
 }
 
 async function safeReaddir(
@@ -186,9 +265,9 @@ async function safeReadFile(p: string): Promise<string | null> {
   }
 }
 
-async function latestMtime(dir: string): Promise<string | null> {
+async function safeMtime(p: string): Promise<string | null> {
   try {
-    const s = await stat(dir)
+    const s = await stat(p)
     return s.mtime.toISOString()
   } catch {
     return null

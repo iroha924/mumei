@@ -9,6 +9,7 @@ import { watch } from 'chokidar'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 
 import { listFeatures } from './features.ts'
+import { buildMeta, buildMetaStats } from './meta.ts'
 
 const exec = promisify(execFile)
 
@@ -84,7 +85,19 @@ const FeatureQuery = Type.Object({
 // REST: /api/features — full feature summary list, sorted active-first
 // ---------------------------------------------------------------------------
 app.get('/api/features', async () => {
-  return listFeatures(PROJECT_ROOT)
+  return listFeatures({ projectRoot: PROJECT_ROOT })
+})
+
+// ---------------------------------------------------------------------------
+// REST: /api/meta — project label
+// REST: /api/meta/stats — TopBar aggregate counters
+// ---------------------------------------------------------------------------
+app.get('/api/meta', async () => {
+  return buildMeta({ projectRoot: PROJECT_ROOT })
+})
+
+app.get('/api/meta/stats', async () => {
+  return buildMetaStats({ projectRoot: PROJECT_ROOT })
 })
 
 // ---------------------------------------------------------------------------

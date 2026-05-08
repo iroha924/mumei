@@ -80,10 +80,23 @@ dashboard/
 
 ## Configuration
 
-| Env var                     | Default | Effect              |
-| --------------------------- | ------- | ------------------- |
-| `MUMEI_DASHBOARD_PORT`      | `3001`  | Fastify listen port |
-| `MUMEI_DASHBOARD_LOG_LEVEL` | `info`  | Pino log level      |
+| Env var                        | Default                   | Effect                                                                  |
+| ------------------------------ | ------------------------- | ----------------------------------------------------------------------- |
+| `MUMEI_DASHBOARD_PORT`         | `3001`                    | Fastify listen port                                                     |
+| `MUMEI_DASHBOARD_LOG_LEVEL`    | `info`                    | Pino log level                                                          |
+| `MUMEI_DASHBOARD_CORS_ORIGINS` | `http://localhost:5173`   | Comma-separated allowlist of origins permitted for `/api/*` and `/api/events` |
+
+### REST endpoints
+
+| Path                           | Purpose                                                                            |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| `GET /api/meta`                | Project label (home-relative path)                                                 |
+| `GET /api/meta/stats`          | TopBar counters: active count, month tokens, cache hit rate, hooks/sec, 24h events |
+| `GET /api/features`            | FeatureSummary[] from `.mumei/specs/` + `.mumei/plans/`                            |
+| `GET /api/feature/:slug/:doc`  | Read-only Markdown: requirements / design / tasks                                  |
+| `GET /api/cost?feature=<slug>` | Aggregate cost-log via `scripts/aggregate-cost.sh --json`                          |
+| `GET /api/hook-stats`          | Aggregate hook stats via `scripts/aggregate-hook-stats.sh --json`                  |
+| `GET /events`                  | Server-Sent Events: `feature.update`, `cost.updated`, `activity.added`             |
 
 ## Distribution
 
