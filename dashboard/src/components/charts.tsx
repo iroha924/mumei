@@ -66,7 +66,7 @@ export function LineChart({
           <text
             x={pad.l - 6}
             y={ys(t) + 3}
-            fontSize="9"
+            fontSize="11"
             fill="#8e8470"
             textAnchor="end"
             fontFamily="JetBrains Mono, monospace"
@@ -86,7 +86,7 @@ export function LineChart({
             key={`xl-${d.d}`}
             x={xs(i)}
             y={h - 4}
-            fontSize="9"
+            fontSize="11"
             fill="#8e8470"
             textAnchor="middle"
             fontFamily="JetBrains Mono, monospace"
@@ -144,7 +144,7 @@ export function StackedBar({
           <text
             x={pad.l - 6}
             y={ys(max * t) + 3}
-            fontSize="9"
+            fontSize="11"
             fill="#8e8470"
             textAnchor="end"
             fontFamily="JetBrains Mono, monospace"
@@ -189,7 +189,7 @@ export function StackedBar({
               <text
                 x={x + bw / 2}
                 y={h - 4}
-                fontSize="9"
+                fontSize="11"
                 fill="#8e8470"
                 textAnchor="middle"
                 fontFamily="JetBrains Mono, monospace"
@@ -241,7 +241,7 @@ export function HBar({
             <text
               x={pad.l}
               y={y + rowH / 2 + 3}
-              fontSize="10"
+              fontSize="12"
               fill="#4a4234"
               fontFamily="JetBrains Mono, monospace"
             >
@@ -259,7 +259,7 @@ export function HBar({
             <text
               x={pad.l + labelW + barW + 6}
               y={y + rowH / 2 + 3}
-              fontSize="10"
+              fontSize="12"
               fill="#8e8470"
               fontFamily="JetBrains Mono, monospace"
             >

@@ -19,10 +19,10 @@ export function DetailPanel({
     return (
       <div className="h-full flex flex-col">
         <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-          <div className="text-[12px] font-mono text-zinc-400 uppercase tracking-wider">
+          <div className="text-[15px] font-mono text-zinc-400 uppercase tracking-wider">
             Activity
           </div>
-          <div className="flex items-center gap-3 text-[11px] font-mono text-zinc-500">
+          <div className="flex items-center gap-3 text-[17px] font-mono text-zinc-500">
             <span>last 24h</span>
           </div>
         </div>
@@ -39,9 +39,9 @@ export function DetailPanel({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-[13px] text-zinc-400">{feature.id}</span>
+              <span className="font-mono text-[16px] text-zinc-400">{feature.id}</span>
               <span className="text-zinc-700">/</span>
-              <span className="font-mono text-[13px] text-zinc-100">{feature.slug}</span>
+              <span className="font-mono text-[16px] text-zinc-100">{feature.slug}</span>
             </div>
             <div className="mt-1.5 flex items-center gap-2 flex-wrap">
               <VehicleBadge vehicle={feature.vehicle} />
@@ -68,7 +68,7 @@ export function DetailPanel({
             aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={cn(
-              'py-2.5 text-[12px] font-mono border-b-2 -mb-px transition-colors whitespace-nowrap',
+              'py-2.5 text-[15px] font-mono border-b-2 -mb-px transition-colors whitespace-nowrap',
               tab === t
                 ? 'text-zinc-100 border-violet-500'
                 : 'text-zinc-500 border-transparent hover:text-zinc-300',
@@ -117,14 +117,14 @@ function ActivityFeed(): ReactElement {
           key={`${e.ts}-${e.id}-${e.kind}`}
           className="px-4 py-2.5 flex items-start gap-3 hover:bg-zinc-900/40"
         >
-          <span className="font-mono text-[11px] text-zinc-500 tabular-nums w-12 shrink-0 mt-0.5">
+          <span className="font-mono text-[17px] text-zinc-500 tabular-nums w-12 shrink-0 mt-0.5">
             {e.ts}
           </span>
-          <span className={cn('font-mono text-[11px] w-4 shrink-0 mt-0.5', kindColor(e.kind))}>
+          <span className={cn('font-mono text-[17px] w-4 shrink-0 mt-0.5', kindColor(e.kind))}>
             {kindIcon(e.kind)}
           </span>
-          <span className="font-mono text-[11px] text-violet-400 w-14 shrink-0 mt-0.5">{e.id}</span>
-          <span className="font-mono text-[11px] text-zinc-300 leading-relaxed">{e.msg}</span>
+          <span className="font-mono text-[17px] text-violet-400 w-14 shrink-0 mt-0.5">{e.id}</span>
+          <span className="font-mono text-[17px] text-zinc-300 leading-relaxed">{e.msg}</span>
         </div>
       ))}
     </div>
@@ -135,7 +135,7 @@ function OverviewTab(): ReactElement {
   return (
     <div className="p-4 space-y-5">
       <div>
-        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-3">
+        <div className="text-[16px] font-mono uppercase tracking-wider text-zinc-500 mb-3">
           Timeline
         </div>
         <div className="relative pl-4">
@@ -151,13 +151,13 @@ function OverviewTab(): ReactElement {
               <div className="flex items-center justify-between gap-3">
                 <span
                   className={cn(
-                    'font-mono text-[12px]',
+                    'font-mono text-[15px]',
                     t.done ? 'text-zinc-100' : 'text-zinc-500',
                   )}
                 >
                   {t.label}
                 </span>
-                <span className="font-mono text-[10px] text-zinc-500 tabular-nums">
+                <span className="font-mono text-[16px] text-zinc-500 tabular-nums">
                   {t.ts || '—'}
                 </span>
               </div>
@@ -166,7 +166,7 @@ function OverviewTab(): ReactElement {
         </div>
       </div>
       <div>
-        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
+        <div className="text-[16px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
           Recent events
         </div>
         <div className="rounded-2xl border border-zinc-800 divide-y divide-zinc-800/80">
@@ -175,7 +175,7 @@ function OverviewTab(): ReactElement {
             .map((e) => (
               <div
                 key={`${e.ts}-${e.kind}`}
-                className="px-3 py-2 flex items-start gap-2 font-mono text-[11px]"
+                className="px-3 py-2 flex items-start gap-2 font-mono text-[17px]"
               >
                 <span className="text-zinc-500 w-10 tabular-nums">{e.ts}</span>
                 <span className="text-zinc-300 flex-1">{e.msg}</span>
@@ -202,19 +202,19 @@ function ACsTab(): ReactElement {
               <button
                 type="button"
                 onClick={() => setOpen((o) => ({ ...o, [ac.id]: !o[ac.id] }))}
-                className="text-zinc-500 hover:text-zinc-300 mt-0.5 font-mono text-[10px] w-3"
+                className="text-zinc-500 hover:text-zinc-300 mt-0.5 font-mono text-[16px] w-3"
                 aria-expanded={!!isOpen}
                 aria-controls={`ac-body-${ac.id}`}
               >
                 {isOpen ? '▾' : '▸'}
               </button>
-              <span className="font-mono text-[11px] text-violet-400 tabular-nums shrink-0 w-16">
+              <span className="font-mono text-[17px] text-violet-400 tabular-nums shrink-0 w-16">
                 {ac.id}
               </span>
-              <span className="text-[12px] text-zinc-200 leading-relaxed flex-1">{ac.text}</span>
+              <span className="text-[15px] text-zinc-200 leading-relaxed flex-1">{ac.text}</span>
               <span
                 className={cn(
-                  'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-mono ring-1',
+                  'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[16px] font-mono ring-1',
                   ac.status === 'CONFIRMED'
                     ? 'text-emerald-400 bg-emerald-500/10 ring-emerald-500/20'
                     : 'text-zinc-400 bg-zinc-800/60 ring-zinc-700',
@@ -226,7 +226,7 @@ function ACsTab(): ReactElement {
             {isOpen && (
               <div
                 id={`ac-body-${ac.id}`}
-                className="ml-[5.25rem] mt-2 px-3 py-2 rounded-2xl bg-zinc-900/60 border border-zinc-800 font-mono text-[10.5px] text-zinc-400 leading-relaxed whitespace-pre-wrap"
+                className="ml-[5.25rem] mt-2 px-3 py-2 rounded-2xl bg-zinc-900/60 border border-zinc-800 font-mono text-[17px] text-zinc-400 leading-relaxed whitespace-pre-wrap"
               >
                 {`Examples:
   Given a markdown file with nested \`\`\`fence\`\`\`
@@ -270,26 +270,26 @@ function WavePlanTab(): ReactElement {
       {waves.map((w) => (
         <div key={w.n} className="rounded-2xl border border-zinc-800 overflow-hidden">
           <div className="px-3 py-2 bg-zinc-900/60 border-b border-zinc-800 flex items-center justify-between">
-            <div className="font-mono text-[12px] text-zinc-100">Wave {w.n}</div>
-            <span className="font-mono text-[10px] text-emerald-400">
+            <div className="font-mono text-[15px] text-zinc-100">Wave {w.n}</div>
+            <span className="font-mono text-[16px] text-emerald-400">
               {w.tasks.filter((t) => t.done).length}/{w.tasks.length} done
             </span>
           </div>
           <div className="p-3 space-y-2">
-            <div className="font-mono text-[11px]">
+            <div className="font-mono text-[17px]">
               <span className="text-zinc-500">Goal: </span>
               <span className="text-zinc-200">{w.goal}</span>
             </div>
-            <div className="font-mono text-[11px]">
+            <div className="font-mono text-[17px]">
               <span className="text-zinc-500">Verify: </span>
               <span className="text-zinc-300">{w.verify}</span>
             </div>
             <ul className="mt-1 space-y-1.5">
               {w.tasks.map((t) => (
-                <li key={t.id} className="flex items-start gap-2 font-mono text-[11px]">
+                <li key={t.id} className="flex items-start gap-2 font-mono text-[17px]">
                   <span
                     className={cn(
-                      'w-3.5 h-3.5 rounded-sm border flex items-center justify-center text-[9px] mt-0.5',
+                      'w-3.5 h-3.5 rounded-sm border flex items-center justify-center text-[15px] mt-0.5',
                       t.done
                         ? 'bg-violet-500 border-violet-500 text-white'
                         : 'border-zinc-700 text-transparent',
@@ -323,11 +323,11 @@ function ReviewsTab(): ReactElement {
               className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-zinc-900/40"
               aria-expanded={!!isOpen}
             >
-              <span className="text-zinc-500 font-mono text-[10px] w-3">{isOpen ? '▾' : '▸'}</span>
-              <span className="font-mono text-[12px] text-zinc-300 w-12">iter {r.iter}</span>
+              <span className="text-zinc-500 font-mono text-[16px] w-3">{isOpen ? '▾' : '▸'}</span>
+              <span className="font-mono text-[15px] text-zinc-300 w-12">iter {r.iter}</span>
               <VerdictBadge verdict={r.verdict} />
               <FindingsPills findings={r.findings} />
-              <span className="ml-auto font-mono text-[10px] text-zinc-500">
+              <span className="ml-auto font-mono text-[16px] text-zinc-500">
                 {Object.keys(r.reviewers).length} reviewers
               </span>
             </button>
@@ -338,7 +338,7 @@ function ReviewsTab(): ReactElement {
                     key={k}
                     className="rounded-full border border-zinc-800 bg-zinc-900/40 px-2.5 py-1.5 flex items-center justify-between"
                   >
-                    <span className="font-mono text-[11px] text-zinc-300">{k}</span>
+                    <span className="font-mono text-[17px] text-zinc-300">{k}</span>
                     <VerdictBadge verdict={v} />
                   </div>
                 ))}
@@ -366,7 +366,7 @@ function CostTab(): ReactElement {
   return (
     <div className="p-4 space-y-3">
       <div className="rounded-2xl border border-zinc-800 overflow-hidden">
-        <div className="grid grid-cols-6 px-3 py-2 bg-zinc-900/60 border-b border-zinc-800 font-mono text-[10px] text-zinc-500 uppercase tracking-wider">
+        <div className="grid grid-cols-6 px-3 py-2 bg-zinc-900/60 border-b border-zinc-800 font-mono text-[16px] text-zinc-500 uppercase tracking-wider">
           <span>iter</span>
           <span className="text-right">in</span>
           <span className="text-right">out</span>
@@ -377,7 +377,7 @@ function CostTab(): ReactElement {
         {REQ14_DETAIL.costPerIter.map((c) => (
           <div
             key={c.iter}
-            className="grid grid-cols-6 px-3 py-2 border-b border-zinc-800/60 last:border-b-0 font-mono text-[11px]"
+            className="grid grid-cols-6 px-3 py-2 border-b border-zinc-800/60 last:border-b-0 font-mono text-[17px]"
           >
             <span className="text-zinc-300">{c.iter}</span>
             <span className="text-right text-zinc-300 tabular-nums">{fmt(c.in)}</span>
@@ -387,7 +387,7 @@ function CostTab(): ReactElement {
             <span className="text-right text-zinc-100 tabular-nums">{fmt(c.total)}</span>
           </div>
         ))}
-        <div className="grid grid-cols-6 px-3 py-2 bg-zinc-900/40 font-mono text-[11px]">
+        <div className="grid grid-cols-6 px-3 py-2 bg-zinc-900/40 font-mono text-[17px]">
           <span className="text-zinc-400">total</span>
           <span className="text-right text-zinc-300 tabular-nums">{fmt(totals.in)}</span>
           <span className="text-right text-zinc-300 tabular-nums">{fmt(totals.out)}</span>
@@ -396,7 +396,7 @@ function CostTab(): ReactElement {
           <span className="text-right text-violet-400 tabular-nums">{fmt(totals.total)}</span>
         </div>
       </div>
-      <div className="font-mono text-[10px] text-zinc-500 leading-relaxed">
+      <div className="font-mono text-[16px] text-zinc-500 leading-relaxed">
         cache·r = cache_read tokens, cache·c = cache_creation tokens. Cache hit ratio across this
         feature: <span className="text-zinc-300">73%</span>
       </div>

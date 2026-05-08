@@ -15,7 +15,7 @@ export function VerdictBadge({
 }): ReactElement {
   if (!verdict) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl bg-zinc-800/60 text-zinc-500 text-[11px] font-mono">
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl bg-zinc-800/60 text-zinc-500 text-[17px] font-mono">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
         no review
       </span>
@@ -45,7 +45,7 @@ export function VerdictBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl ring-1 text-[11px] font-mono',
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl ring-1 text-[17px] font-mono',
         c.bg,
         c.ring,
         c.text,
@@ -72,7 +72,7 @@ export function VehicleBadge({ vehicle }: { vehicle: Vehicle }): ReactElement {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl ring-1 text-[11px] font-mono',
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl ring-1 text-[17px] font-mono',
         c.bg,
         c.ring,
         c.text,
@@ -92,7 +92,7 @@ export function PhaseTransition({
   next: string | null
 }): ReactElement {
   return (
-    <div className="flex items-center gap-2 font-mono text-[11px]">
+    <div className="flex items-center gap-2 font-mono text-[17px]">
       <span className="text-zinc-500">phase:</span>
       <span className="text-zinc-100">{phase}</span>
       {next && (
@@ -116,7 +116,7 @@ export function FindingsPills({
     { k: 'L', n: findings.low, color: 'text-zinc-400 bg-zinc-800/60 ring-zinc-700' },
   ]
   return (
-    <div className="flex items-center gap-1 font-mono text-[10px]">
+    <div className="flex items-center gap-1 font-mono text-[16px]">
       {pills.map((p) => (
         <span
           key={p.k}
@@ -136,7 +136,7 @@ export function FindingsPills({
 export function LivePulse({ connected = true }: { connected?: boolean }): ReactElement {
   return (
     <div
-      className="inline-flex items-center gap-2 font-mono text-[11px] text-zinc-400"
+      className="inline-flex items-center gap-2 font-mono text-[17px] text-zinc-400"
       role="status"
       aria-live="polite"
     >

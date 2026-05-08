@@ -65,7 +65,7 @@ export function CompactDashboard(): ReactElement {
               onClick={() => setShowArchived((s) => !s)}
               aria-expanded={showArchived}
               aria-controls="archived-grid"
-              className="w-full py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700 font-mono text-[10px] text-zinc-400 flex items-center justify-center gap-2"
+              className="w-full py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700 font-mono text-[16px] text-zinc-400 flex items-center justify-center gap-2"
             >
               <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
               <span>archived ({archived.length})</span>
@@ -123,7 +123,7 @@ function TopBar({
   connected: boolean
 }): ReactElement {
   return (
-    <header className="h-[52px] shrink-0 border-b border-zinc-800 flex items-center px-3 sm:px-5 gap-3 sm:gap-5">
+    <header className="h-[64px] shrink-0 border-b border-zinc-800 flex items-center px-3 sm:px-5 gap-3 sm:gap-5">
       <div className="flex items-center gap-2 shrink-0">
         <img
           src="/mumei-mascot.png"
@@ -131,15 +131,15 @@ function TopBar({
           className="w-6 h-6 shrink-0"
           style={{ imageRendering: 'pixelated' }}
         />
-        <span className="font-mono text-[13px] tracking-tight text-zinc-100">mumei</span>
+        <span className="font-mono text-[16px] tracking-tight text-zinc-100">mumei</span>
       </div>
-      <div className="hidden sm:flex flex-1 items-center gap-2 max-w-md font-mono text-[11px] min-w-0">
+      <div className="hidden sm:flex flex-1 items-center gap-2 max-w-md font-mono text-[17px] min-w-0">
         <span className="text-zinc-500 shrink-0">~/code/</span>
         <span className="text-zinc-200 truncate">harness-quality-improv</span>
       </div>
       <div className="flex-1 sm:flex-none" />
       {/* Stats — progressively reveal as space allows. */}
-      <div className="flex items-center gap-3 lg:gap-4 font-mono text-[10.5px]">
+      <div className="flex items-center gap-3 lg:gap-4 font-mono text-[17px]">
         <CompactStat n={activeCount} label="active" />
         <CompactStat n="74.8M" label="tokens" />
         <CompactStat n="74%" label="cache" tone="emerald" />
@@ -172,7 +172,7 @@ function CompactStat({
       >
         {n}
       </span>
-      <span className="text-zinc-500 uppercase text-[9px] tracking-wider">{label}</span>
+      <span className="text-zinc-500 uppercase text-[15px] tracking-wider">{label}</span>
     </div>
   )
 }
@@ -180,7 +180,7 @@ function CompactStat({
 function FilterStrip(): ReactElement {
   return (
     <div className="px-3 sm:px-5 py-3 border-b border-zinc-800/60 flex flex-wrap items-center gap-2 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
-      <div className="flex items-center gap-1 font-mono text-[10px] flex-wrap">
+      <div className="flex items-center gap-1 font-mono text-[16px] flex-wrap">
         {(['all', 'plan', 'implement', 'review', 'done'] as const).map((p, i) => (
           <button
             type="button"
@@ -197,7 +197,7 @@ function FilterStrip(): ReactElement {
         ))}
       </div>
       <span className="w-px h-4 bg-zinc-800 mx-1 hidden md:inline-block" />
-      <div className="flex items-center gap-1 font-mono text-[10px]">
+      <div className="flex items-center gap-1 font-mono text-[16px]">
         {(['all', 'spec', 'plan'] as const).map((v, i) => (
           <button
             type="button"
@@ -217,9 +217,9 @@ function FilterStrip(): ReactElement {
       <input
         placeholder="filter slug…"
         aria-label="filter slug"
-        className="font-mono text-[11px] bg-zinc-900/70 border border-zinc-800 rounded-full px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-32 sm:w-44"
+        className="font-mono text-[17px] bg-zinc-900/70 border border-zinc-800 rounded-full px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-32 sm:w-44"
       />
-      <div className="hidden sm:flex items-center gap-1 font-mono text-[10px]">
+      <div className="hidden sm:flex items-center gap-1 font-mono text-[16px]">
         <button
           type="button"
           className="px-2 py-1 rounded-full border border-zinc-800 text-zinc-400 hover:border-zinc-700"
@@ -251,9 +251,9 @@ function CompactCard({
           selected ? 'border-violet-500/60' : 'border-zinc-800 hover:border-zinc-700',
         )}
       >
-        <div className="px-3 h-[34px] flex items-center gap-2">
-          <span className="font-mono text-[11px] text-zinc-500 tabular-nums">{f.id}</span>
-          <span className="font-mono text-[11px] text-zinc-100 truncate flex-1">{f.slug}</span>
+        <div className="px-3 h-[42px] flex items-center gap-2">
+          <span className="font-mono text-[17px] text-zinc-500 tabular-nums">{f.id}</span>
+          <span className="font-mono text-[17px] text-zinc-100 truncate flex-1">{f.slug}</span>
           <span
             className={cn(
               'w-1.5 h-1.5 rounded-full',
@@ -262,7 +262,7 @@ function CompactCard({
             aria-hidden="true"
           />
         </div>
-        <div className="px-3 h-[18px] flex items-center gap-2">
+        <div className="px-3 h-[24px] flex items-center gap-2">
           <div className="flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
             <div
               className={cn(
@@ -272,7 +272,7 @@ function CompactCard({
               style={{ width: `${(f.totalWaves > 0 ? f.waveProgress : 0) * 100}%` }}
             />
           </div>
-          <span className="font-mono text-[9px] tabular-nums shrink-0 w-7 text-right">
+          <span className="font-mono text-[15px] tabular-nums shrink-0 w-7 text-right">
             {f.totalWaves > 0 ? (
               <span className="text-zinc-300">{Math.round(f.waveProgress * 100)}%</span>
             ) : (
@@ -280,20 +280,20 @@ function CompactCard({
             )}
           </span>
         </div>
-        <div className="px-3 h-[20px] flex items-center">
-          <span className="font-mono text-[10px] text-zinc-400 truncate">
+        <div className="px-3 h-[26px] flex items-center">
+          <span className="font-mono text-[16px] text-zinc-400 truncate">
             {f.phase}
             {f.nextPhase ? ` ▶ ${f.nextPhase}` : ''}
           </span>
         </div>
-        <div className="px-3 h-[36px] flex items-center">
+        <div className="px-3 h-[44px] flex items-center">
           {f.lastVerdict ? (
             <VerdictBadge verdict={f.lastVerdict} iter={f.lastIter || null} />
           ) : (
-            <span className="font-mono text-[10px] text-zinc-600">— no review yet</span>
+            <span className="font-mono text-[16px] text-zinc-600">— no review yet</span>
           )}
         </div>
-        <div className="px-3 h-[28px] border-t border-zinc-800/80 flex items-center justify-between font-mono text-[10px]">
+        <div className="px-3 h-[34px] border-t border-zinc-800/80 flex items-center justify-between font-mono text-[16px]">
           <span className="text-zinc-500 tabular-nums">
             {formatTokens(f.tokens)} · {Math.round(f.cacheHit * 100)}%
           </span>
@@ -310,37 +310,37 @@ function TrendBar(): ReactElement {
   // 200px height. Chart SVG height shrinks slightly on narrower
   // viewports to keep titles + legend readable.
   return (
-    <footer className="shrink-0 border-t border-zinc-800 h-40 lg:h-[200px] flex overflow-x-auto snap-x snap-mandatory lg:snap-none">
+    <footer className="shrink-0 border-t border-zinc-800 h-48 lg:h-[240px] flex overflow-x-auto snap-x snap-mandatory lg:snap-none">
       <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 border-r border-zinc-800/60 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+          <div className="font-mono text-[16px] uppercase tracking-wider text-zinc-500">
             Tokens / day
           </div>
-          <div className="font-mono text-[10px] text-zinc-300 tabular-nums">74.8M</div>
+          <div className="font-mono text-[16px] text-zinc-300 tabular-nums">74.8M</div>
         </div>
-        <LineChart data={TOKEN_SERIES} h={120} />
+        <LineChart data={TOKEN_SERIES} h={160} />
       </section>
       <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 border-r border-zinc-800/60 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+          <div className="font-mono text-[16px] uppercase tracking-wider text-zinc-500">
             Review outcomes
           </div>
-          <div className="flex gap-2 font-mono text-[10px]">
+          <div className="flex gap-2 font-mono text-[16px]">
             <LegendDot color="#6e8e64" label="PASS" />
             <LegendDot color="#a88347" label="NI" />
             <LegendDot color="#b86a55" label="MI" />
           </div>
         </div>
-        <StackedBar data={REVIEW_SERIES} h={120} />
+        <StackedBar data={REVIEW_SERIES} h={160} />
       </section>
       <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+          <div className="font-mono text-[16px] uppercase tracking-wider text-zinc-500">
             Hooks · top 10
           </div>
-          <div className="font-mono text-[10px] text-zinc-500">{ACTIVITY_FEED.length} / 24h</div>
+          <div className="font-mono text-[16px] text-zinc-500">{ACTIVITY_FEED.length} / 24h</div>
         </div>
-        <HBar data={HOOK_TOP} h={120} />
+        <HBar data={HOOK_TOP} h={160} />
       </section>
     </footer>
   )
