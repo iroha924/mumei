@@ -421,7 +421,7 @@ function CompactCard({
         className={cn(
           'w-full text-left rounded-2xl bg-zinc-900/70 hover:bg-zinc-900 transition-colors flex flex-col cursor-pointer',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60',
-          selected ? 'border-4 border-orange-500' : 'border border-zinc-800 hover:border-zinc-700',
+          selected ? 'border border-black' : 'border border-zinc-800 hover:border-zinc-700',
         )}
       >
         <div className="px-3 h-[42px] flex items-center gap-2">
