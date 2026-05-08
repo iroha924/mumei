@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import {
   Component,
   type ErrorInfo,
@@ -7,6 +8,10 @@ import {
   Suspense,
   useState,
 } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useEventStream } from '@/hooks/useEventStream'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useMeta, useMetaStats } from '@/hooks/useMeta'
@@ -234,7 +239,7 @@ function TopBar({
 function TopBarSkeleton(): ReactElement {
   return (
     <header className="h-[80px] shrink-0 border-b border-zinc-800 flex items-center px-3 sm:px-5">
-      <div className="h-6 w-32 rounded bg-zinc-800/60 animate-pulse" />
+      <Skeleton className="h-6 w-32" />
     </header>
   )
 }
@@ -272,32 +277,23 @@ function FilterStrip({
   onSlugChange: (s: string) => void
 }): ReactElement {
   return (
-    <div className="px-3 sm:px-5 py-3 border-b border-zinc-800/60 flex flex-wrap items-center gap-2 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
-      <div className="flex items-center gap-1 font-mono text-[16px] flex-wrap">
-        {(['all', 'plan', 'implement', 'review', 'done'] as const).map((p) => (
-          <button
-            type="button"
-            key={p}
-            onClick={() => onPhaseChange(p)}
-            aria-pressed={phase === p}
-            className={cn(
-              'px-2 py-1 rounded-full border cursor-pointer',
-              phase === p
-                ? 'border-violet-500/60 text-zinc-100 bg-violet-500/10'
-                : 'border-zinc-800 text-zinc-400 hover:border-zinc-700',
-            )}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
+    <div className="px-3 sm:px-5 py-3 border-b border-zinc-800/60 flex flex-wrap items-center gap-3 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
+      <Tabs value={phase} onValueChange={(v) => onPhaseChange(v as PhaseFilter)}>
+        <TabsList variant="line" className="bg-transparent">
+          {(['all', 'plan', 'implement', 'review', 'done'] as const).map((p) => (
+            <TabsTrigger key={p} value={p} className="font-mono text-xs">
+              {p}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       <div className="flex-1 min-w-[8rem]" />
-      <input
+      <Input
         value={slug}
         onChange={(e) => onSlugChange(e.target.value)}
         placeholder="filter slug…"
         aria-label="filter slug"
-        className="font-mono text-[17px] bg-zinc-900/70 border border-zinc-800 rounded-full px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-32 sm:w-44"
+        className="font-mono w-32 sm:w-44"
       />
     </div>
   )
@@ -346,16 +342,17 @@ function FeatureGrid({
       )}
       {archived.length > 0 && (
         <div>
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => setShowArchived((s) => !s)}
             aria-expanded={showArchived}
             aria-controls="archived-grid"
-            className="w-full py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700 font-mono text-[16px] text-zinc-400 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full font-mono text-[16px]"
           >
-            <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
+            {showArchived ? <ChevronDownIcon /> : <ChevronRightIcon />}
             <span>archived ({archived.length})</span>
-          </button>
+          </Button>
           {showArchived && (
             <div
               id="archived-grid"
@@ -382,10 +379,7 @@ function FeatureGridSkeleton(): ReactElement {
   return (
     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-fr">
       {Array.from({ length: 6 }, (_, i) => i).map((i) => (
-        <div
-          key={i}
-          className="h-[170px] rounded-2xl border border-zinc-800 bg-zinc-900/50 animate-pulse"
-        />
+        <Skeleton key={i} className="h-[170px] rounded-2xl" />
       ))}
     </div>
   )
@@ -529,8 +523,8 @@ function TrendBarSkeleton(): ReactElement {
           key={i}
           className="flex-1 px-3 sm:px-4 py-2.5 border-r border-zinc-800/60 min-w-[280px]"
         >
-          <div className="h-4 w-32 rounded bg-zinc-800/60 animate-pulse mb-2" />
-          <div className="h-[240px] rounded bg-zinc-900/40 animate-pulse" />
+          <Skeleton className="h-4 w-32 mb-2" />
+          <Skeleton className="h-[240px] w-full" />
         </section>
       ))}
     </footer>

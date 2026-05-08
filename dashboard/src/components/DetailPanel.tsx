@@ -1,7 +1,10 @@
-import { type ReactElement, type ReactNode, Suspense, useState } from 'react'
+import { type ReactElement, type ReactNode, Suspense } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDetail } from '@/hooks/useDetail'
 import { formatTokens } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import type { MumeiFeatureDetailPayload } from '@/types/feature-detail'
 import { VerdictBadge } from './primitives'
 
@@ -46,19 +49,18 @@ function DetailEmpty(): ReactElement {
 function DetailSkeleton(): ReactElement {
   return (
     <div className="h-full p-4 space-y-3">
-      <div className="h-6 w-48 rounded bg-zinc-800/60 animate-pulse" />
-      <div className="h-4 w-32 rounded bg-zinc-800/60 animate-pulse" />
-      <div className="h-32 rounded bg-zinc-900/50 animate-pulse" />
-      <div className="h-32 rounded bg-zinc-900/50 animate-pulse" />
+      <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-4 w-32" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
     </div>
   )
 }
 
 function DetailContent({ slug, onClose }: { slug: string; onClose: () => void }): ReactElement {
   const detail = useDetail(slug).data
-  const [tab, setTab] = useState<Tab>('timeline')
   return (
-    <div className="h-full flex flex-col">
+    <Tabs defaultValue="timeline" className="h-full flex flex-col gap-0">
       <header className="border-b border-zinc-800 px-4 py-3 flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="font-mono text-[17px] text-zinc-100 truncate">{detail.slug}</div>
@@ -66,41 +68,43 @@ function DetailContent({ slug, onClose }: { slug: string; onClose: () => void })
             {detail.planVehicle ? 'plan vehicle' : 'spec vehicle'}
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={onClose}
           aria-label="close detail"
-          className="rounded-full px-2 py-0.5 font-mono text-xs text-zinc-400 border border-zinc-800 hover:border-zinc-600 cursor-pointer"
         >
           close
-        </button>
+        </Button>
       </header>
-      <nav className="border-b border-zinc-800 px-2 py-1.5 flex gap-1 overflow-x-auto">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            aria-pressed={tab === t.id}
-            className={cn(
-              'rounded-full px-2.5 py-1 font-mono text-xs cursor-pointer',
-              tab === t.id
-                ? 'bg-violet-500/15 text-violet-300 border border-violet-500/40'
-                : 'text-zinc-400 border border-transparent hover:text-zinc-200',
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        {tab === 'timeline' && <TimelineTab detail={detail} />}
-        {tab === 'acs' && <AcsTab detail={detail} />}
-        {tab === 'waveplan' && <WaveplanTab detail={detail} />}
-        {tab === 'reviews' && <ReviewsTab detail={detail} />}
-        {tab === 'cost' && <CostTab detail={detail} />}
+      <div className="border-b border-zinc-800 px-2 py-1.5 overflow-x-auto">
+        <TabsList variant="line" className="bg-transparent">
+          {TABS.map((t) => (
+            <TabsTrigger key={t.id} value={t.id} className="font-mono text-xs">
+              {t.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
       </div>
-    </div>
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        <TabsContent value="timeline">
+          <TimelineTab detail={detail} />
+        </TabsContent>
+        <TabsContent value="acs">
+          <AcsTab detail={detail} />
+        </TabsContent>
+        <TabsContent value="waveplan">
+          <WaveplanTab detail={detail} />
+        </TabsContent>
+        <TabsContent value="reviews">
+          <ReviewsTab detail={detail} />
+        </TabsContent>
+        <TabsContent value="cost">
+          <CostTab detail={detail} />
+        </TabsContent>
+      </div>
+    </Tabs>
   )
 }
 
@@ -137,16 +141,16 @@ function AcsTab({ detail }: { detail: MumeiFeatureDetailPayload }): ReactElement
         <li key={ac.id} className="rounded border border-zinc-800/80 p-3">
           <div className="flex items-center gap-2 font-mono text-[14px]">
             <span className="text-zinc-300">{ac.id}</span>
-            <span
-              className={cn(
-                'rounded-full px-1.5 py-0.5 text-[11px]',
+            <Badge
+              variant="outline"
+              className={
                 ac.confirmed
-                  ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-amber-500/10 text-amber-300 border border-amber-500/30',
-              )}
+                  ? 'border-emerald-500/40 text-emerald-300'
+                  : 'border-amber-500/40 text-amber-300'
+              }
             >
               {ac.confirmed ? 'CONFIRMED' : 'ASSUMPTION'}
-            </span>
+            </Badge>
           </div>
           <p className="mt-2 font-mono text-[14px] text-zinc-300 whitespace-pre-wrap">{ac.body}</p>
           {(ac.examples ?? []).length > 0 && (
@@ -214,18 +218,19 @@ function ReviewsTab({ detail }: { detail: MumeiFeatureDetailPayload }): ReactEle
                   key={`${r.ts}::${f.id ?? ''}::${f.severity}::${f.message.slice(0, 16)}`}
                   className="font-mono text-zinc-300"
                 >
-                  <span
-                    className={cn(
-                      'mr-2 rounded px-1.5 py-0.5 text-[11px]',
-                      f.severity === 'CRITICAL' || f.severity === 'HIGH'
-                        ? 'bg-rose-500/10 text-rose-300'
+                  <Badge
+                    variant="outline"
+                    className={
+                      'mr-2 ' +
+                      (f.severity === 'CRITICAL' || f.severity === 'HIGH'
+                        ? 'border-rose-500/40 text-rose-300'
                         : f.severity === 'MEDIUM'
-                          ? 'bg-amber-500/10 text-amber-300'
-                          : 'bg-zinc-800/60 text-zinc-400',
-                    )}
+                          ? 'border-amber-500/40 text-amber-300'
+                          : 'border-zinc-700 text-zinc-400')
+                    }
                   >
                     {f.severity}
-                  </span>
+                  </Badge>
                   {f.message}
                 </li>
               ))}

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { App } from './App'
 import './index.css'
 
@@ -22,7 +23,9 @@ if (!rootEl) {
 createRoot(rootEl).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <TooltipProvider delayDuration={150}>
+        <App />
+      </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,
 )
