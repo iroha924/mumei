@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -18,9 +19,24 @@ const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT ?? path.resolve(import.meta.d
 
 const exec = promisify(execFile)
 
-// CWD when started: the user's project root. We read .mumei/ relative
-// to it. The `cwd` arg lets `npx mumei-dashboard` work from any path.
-const PROJECT_ROOT = process.cwd()
+// Resolve PROJECT_ROOT by walking up from cwd to find the nearest
+// directory containing `.mumei/`. This makes the server work both
+// when invoked from the project root (`npx mumei-dashboard`) AND from
+// a subdirectory like `dashboard/` (monorepo dev: `cd dashboard &&
+// npm run dev`). Falls back to cwd if no .mumei is found, preserving
+// the empty-state UX for fresh projects.
+function resolveProjectRoot(start: string = process.cwd()): string {
+  let dir = path.resolve(start)
+  for (;;) {
+    if (existsSync(path.join(dir, '.mumei'))) return dir
+    const parent = path.dirname(dir)
+    if (parent === dir) return start // reached filesystem root
+    dir = parent
+  }
+}
+const PROJECT_ROOT = process.env.MUMEI_DASHBOARD_PROJECT_ROOT
+  ? path.resolve(process.env.MUMEI_DASHBOARD_PROJECT_ROOT)
+  : resolveProjectRoot()
 const MUMEI_DIR = path.join(PROJECT_ROOT, '.mumei')
 const PORT = Number(process.env.MUMEI_DASHBOARD_PORT ?? '3001')
 const LOG_LEVEL = process.env.MUMEI_DASHBOARD_LOG_LEVEL ?? 'info'

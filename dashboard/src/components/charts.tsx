@@ -86,12 +86,12 @@ export function LineChart({
             key={`xl-${d.d}`}
             x={xs(i)}
             y={h - 4}
-            fontSize="14"
+            fontSize="11"
             fill="#8e8470"
             textAnchor="middle"
             fontFamily="JetBrains Mono, monospace"
           >
-            {d.d.replace(' ', ' ')}
+            {d.d.slice(5)}
           </text>
         ) : null,
       )}
@@ -189,12 +189,12 @@ export function StackedBar({
               <text
                 x={x + bw / 2}
                 y={h - 4}
-                fontSize="14"
+                fontSize="11"
                 fill="#8e8470"
                 textAnchor="middle"
                 fontFamily="JetBrains Mono, monospace"
               >
-                {d.d.split(' ')[1]}
+                {d.d.slice(5)}
               </text>
             ) : null}
           </g>
