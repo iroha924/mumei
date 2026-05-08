@@ -38,6 +38,17 @@ _mumei_log_rotate_filesize() {
   fi
 }
 
+# Portable mtime lookup — epoch seconds. Used by the stale-lock reaper.
+_mumei_log_rotate_filemtime() {
+  local target="$1"
+  [[ -e "$target" ]] || return 1
+  if [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == *BSD* ]]; then
+    stat -f %m "$target" 2>/dev/null
+  else
+    stat -c %Y "$target" 2>/dev/null
+  fi
+}
+
 # Check the target's current size; truncate to the latest 5000 lines
 # when it exceeds MUMEI_LOG_MAX_MB (default 10 MB). Returns 0 in every
 # observable path — failures are logged via mumei_log_warn but never
@@ -79,11 +90,31 @@ mumei_log_rotate_check_and_truncate() {
   [[ "$size" =~ ^[0-9]+$ ]] || return 0
   ((size <= max_bytes)) && return 0
 
-  # Take an mkdir lock to serialize rotators. If another rotator is
-  # already in progress, skip silently — that rotator's mv will leave
-  # the file at <= max_lines and any subsequent append re-checks size.
+  # Take an mkdir lock to serialize rotators with three guarantees:
+  #   1. Live concurrent rotator → skip silently (mkdir EEXIST).
+  #   2. Stale lock from SIGKILL/OOM (mtime > 60s) → reap and retry.
+  #      Rotation in practice completes in well under a second; a
+  #      lock older than that means the prior holder died abnormally
+  #      and the trap RETURN never fired.
+  #   3. mkdir failure for non-EEXIST reasons (EACCES / ENOSPC) →
+  #      emit a warn so disk-full / permission-loss events surface.
   local lock_dir="${target}.rotate.lock"
+  if [[ -d "$lock_dir" ]]; then
+    local now_s lock_mtime_s
+    now_s="$(date +%s)"
+    lock_mtime_s="$(_mumei_log_rotate_filemtime "$lock_dir" 2>/dev/null || true)"
+    if [[ -n "$lock_mtime_s" ]] && [[ "$lock_mtime_s" =~ ^[0-9]+$ ]] &&
+      ((now_s - lock_mtime_s > 60)); then
+      rmdir "$lock_dir" 2>/dev/null || true
+      mumei_log_warn "log-rotate: reaped stale lock for ${target} (age >60s)"
+    else
+      return 0
+    fi
+  fi
   if ! mkdir "$lock_dir" 2>/dev/null; then
+    if [[ ! -d "$lock_dir" ]]; then
+      mumei_log_warn "log-rotate skipped: lock mkdir failed for ${target}"
+    fi
     return 0
   fi
   # shellcheck disable=SC2064  # lock path is fully resolved here, intentional capture

@@ -137,6 +137,24 @@ _pad_jsonl_to_mb() {
   [ ! -f .mumei/audit-log/never-existed.jsonl ]
 }
 
+@test "stale lock (mtime >60s) is reaped and rotation proceeds (regression: SIGKILL/OOM recovery)" {
+  mkdir -p .mumei
+  _make_jsonl 6000 ".mumei/.hook-stats.jsonl"
+  _pad_jsonl_to_mb ".mumei/.hook-stats.jsonl" 11
+  # Simulate a stale lock by mkdir-ing it and back-dating to >60s ago.
+  mkdir ".mumei/.hook-stats.jsonl.rotate.lock"
+  touch -t "$(date -v-2M +%Y%m%d%H%M.%S 2>/dev/null || date -d '2 minutes ago' +%Y%m%d%H%M.%S)" \
+    ".mumei/.hook-stats.jsonl.rotate.lock"
+  run --separate-stderr mumei_log_rotate_check_and_truncate ".mumei/.hook-stats.jsonl"
+  [ "$status" -eq 0 ]
+  local after_lines
+  after_lines="$(wc -l <.mumei/.hook-stats.jsonl | tr -d ' ')"
+  [ "$after_lines" -eq 5000 ]
+  [[ "$stderr" == *"reaped stale lock"* ]]
+  # Trap RETURN should clean up the fresh lock dir.
+  [ ! -d ".mumei/.hook-stats.jsonl.rotate.lock" ]
+}
+
 @test "rotator-vs-rotator lock: only one rotator runs, second skips silently" {
   mkdir -p .mumei
   _make_jsonl 6000 ".mumei/.hook-stats.jsonl"
