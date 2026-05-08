@@ -1,116 +1,223 @@
 @import "tailwindcss";
 
-/* Tailwind v4: @theme directive declares design tokens.
-   Aligns with the dashboard prompt's aesthetic — Linear / Vercel / Stripe dev-tool feel.
-   shadcn/ui (new-york) reads from CSS variables below; tokens here drive both. */
+/* mumei dashboard — light, organic, dusty palette.
+   Source of truth: Claude Design handoff (2026-05-08) — warm cream page,
+   paper-cream surfaces, dusty mauve / sage / ochre / terracotta / dusty teal.
+   Tailwind v3 in the prototype remapped zinc/violet/etc; we mirror that
+   here with @theme so the same utility classes (`bg-zinc-900`, `text-violet-400`)
+   resolve to the organic palette. */
 @theme {
   --font-sans:
-    "Inter", "Geist Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    "Inter", "ui-sans-serif", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono:
     "JetBrains Mono", "Geist Mono", ui-monospace, "SF Mono", Consolas, monospace;
 
-  --radius: 0.5rem;
+  --radius: 1rem;
+
+  /* Warm neutrals — scale meaning preserved (950=page, 100=primary text) */
+  --color-zinc-50: #1e1c14;
+  --color-zinc-100: #2c281f;
+  --color-zinc-200: #3a352a;
+  --color-zinc-300: #4a4234;
+  --color-zinc-400: #6e6655;
+  --color-zinc-500: #8e8470;
+  --color-zinc-600: #aea58e;
+  --color-zinc-700: #cec1a3;
+  --color-zinc-800: #e3dac1;
+  --color-zinc-900: #fbf6ea;
+  --color-zinc-950: #f3ecdc;
+
+  /* Dusty mauve (replaces violet) — primary accent */
+  --color-violet-300: #c5acbe;
+  --color-violet-400: #a98aa3;
+  --color-violet-500: #876680;
+  --color-violet-600: #6c5066;
+  --color-violet-700: #523c4d;
+
+  /* Sage (replaces emerald) — PASS */
+  --color-emerald-300: #a8c39c;
+  --color-emerald-400: #8aa97f;
+  --color-emerald-500: #6e8e64;
+  --color-emerald-600: #577150;
+
+  /* Muted ochre (replaces amber) — NEEDS_IMPROVEMENT */
+  --color-amber-300: #d4b884;
+  --color-amber-400: #c2a16d;
+  --color-amber-500: #a88347;
+
+  /* Dusty terracotta (replaces rose) — MAJOR_ISSUES */
+  --color-rose-300: #d6a696;
+  --color-rose-400: #c88775;
+  --color-rose-500: #b86a55;
+
+  /* Dusty teal (replaces sky) — vehicle: spec */
+  --color-sky-300: #9cbbb7;
+  --color-sky-400: #7ea3a0;
+  --color-sky-500: #5e8a85;
 }
 
-/* shadcn/ui CSS variable layer. New-york style + zinc base. */
 :root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.546 0.245 262.881);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.546 0.245 262.881);
-
-  --status-pass: oklch(0.696 0.17 162.48);
-  --status-needs-improvement: oklch(0.769 0.188 70.08);
-  --status-major-issues: oklch(0.637 0.237 25.331);
+  --mumei-page: #f3ecdc;
+  --mumei-surface: #fbf6ea;
+  --mumei-border: #e3dac1;
+  --mumei-border-strong: #cec1a3;
+  --mumei-mauve: #876680;
+  --mumei-mauve-soft: #b59ab0;
+  --mumei-sage: #6e8e64;
+  --mumei-ochre: #a88347;
+  --mumei-terracotta: #b86a55;
+  --mumei-teal: #5e8a85;
+  --mumei-text: #2c281f;
+  --mumei-text-muted: #8e8470;
 }
 
-.dark {
-  --background: oklch(0.135 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.18 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.7 0.18 280);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.225 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.225 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.225 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.265 0 0);
-  --input: oklch(0.265 0 0);
-  --ring: oklch(0.7 0.18 280);
-
-  --status-pass: oklch(0.7 0.18 165);
-  --status-needs-improvement: oklch(0.78 0.19 75);
-  --status-major-issues: oklch(0.65 0.24 25);
+html,
+body {
+  background: var(--mumei-page);
+  color: var(--mumei-text);
+  font-family: "Inter", system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+body {
+  margin: 0;
 }
 
-/* Pulse animation for realtime event indicator on feature cards. */
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 var(--primary);
-  }
-  60% {
-    box-shadow: 0 0 0 6px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Rotating shimmer ring for new-event cards.
+   Spinning conic-gradient under a border-only mask = a single highlight
+   that sweeps around the card edge. */
+.mumei-shimmer {
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  overflow: hidden;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.mumei-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(135, 102, 128, 0) 0deg,
+    rgba(135, 102, 128, 0) 220deg,
+    rgba(135, 102, 128, 0.25) 250deg,
+    rgba(135, 102, 128, 0.95) 295deg,
+    rgba(135, 102, 128, 0.35) 325deg,
+    rgba(135, 102, 128, 0) 355deg
+  );
+  animation: mumei-spin 2.4s linear infinite;
+}
+
+/* Soft static glow under the spinning highlight so the card always reads
+   as "live" between sweeps. */
+.mumei-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 1px rgba(135, 102, 128, 0.18) inset;
+}
+
+@keyframes mumei-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-.realtime-pulse {
-  animation: pulse-ring 800ms ease-out 1;
-}
-
-/* WCAG 2.2 — honour the OS-level animation reduction preference.
-   Cards still flash via background colour change; only the keyframe
-   pulse is silenced. */
 @media (prefers-reduced-motion: reduce) {
-  .realtime-pulse {
+  .mumei-shimmer::before {
     animation: none;
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
   }
+}
+
+/* Scrollbar — warm muted */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8cdb1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c2b69a;
+}
+
+/* Soft floating treatment for surface cards (anything with bg-zinc-900*).
+   Warm low-contrast shadow stack — paper-on-paper, not material design. */
+.paper-bg [class*="bg-zinc-900"] {
+  box-shadow:
+    0 1px 0 rgba(74, 66, 52, 0.025),
+    0 4px 14px -6px rgba(74, 66, 52, 0.08),
+    0 22px 44px -28px rgba(74, 66, 52, 0.12);
+  border-color: rgba(206, 193, 163, 0.55) !important;
+}
+.paper-bg .border-zinc-800,
+.paper-bg [class*="border-zinc-800/"] {
+  border-color: rgba(206, 193, 163, 0.55) !important;
+}
+
+/* Hover lift on interactive cards */
+.paper-bg button[class*="bg-zinc-900"]:hover,
+.paper-bg a[class*="bg-zinc-900"]:hover {
+  box-shadow:
+    0 1px 0 rgba(74, 66, 52, 0.035),
+    0 6px 20px -6px rgba(74, 66, 52, 0.12),
+    0 26px 50px -28px rgba(74, 66, 52, 0.16);
+  transform: translateY(-1px);
+}
+.paper-bg button[class*="bg-zinc-900"],
+.paper-bg a[class*="bg-zinc-900"] {
+  transition:
+    transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-bg button[class*="bg-zinc-900"]:hover,
+  .paper-bg a[class*="bg-zinc-900"]:hover {
+    transform: none;
+  }
+}
+
+/* Drop hard column dividers — they cut the soft surface into boxes.
+   Replace with a faint warm tint between sections. */
+.paper-bg .border-r,
+.paper-bg .border-l,
+.paper-bg .border-t,
+.paper-bg .border-b {
+  border-color: rgba(206, 193, 163, 0.45);
+}
+
+/* Paper texture — newspaper-grade coarse grain, deliberately understated.
+   Two noise layers at different scales for irregularity (no uniform pattern). */
+.paper-bg {
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='460' height='460'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='1' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.18  0 0 0 0 0.15  0 0 0 0 0.10  0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='1' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.18  0 0 0 0 0.15  0 0 0 0 0.10  0 0 0 0.04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size:
+    460px 460px,
+    180px 180px;
+  background-repeat: repeat, repeat;
+}
+
+:focus-visible {
+  outline: none;
 }

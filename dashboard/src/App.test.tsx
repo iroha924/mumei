@@ -23,10 +23,12 @@ describe('App', () => {
     expect(screen.getByRole('status')).toBeInTheDocument()
   })
 
-  it('shows the empty-state hint when no features are returned', async () => {
+  it('renders the active feature grid (mock-data fallback)', () => {
     renderApp()
-    expect(
-      await screen.findByText(/No features yet\. Run \/mumei:plan in your project to start one\./),
-    ).toBeInTheDocument()
+    // Mock-data fallback seeds the active features.
+    // Several locations may render the same text (card + activity
+    // feed + top-bar path), so just assert presence > 0.
+    expect(screen.getAllByText(/harness-quality-improv/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('REQ-14').length).toBeGreaterThan(0)
   })
 })
