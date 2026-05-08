@@ -29,23 +29,33 @@ _make_jsonl() {
 }
 
 # Pad a JSONL file to roughly N MB by appending bulky filler records
-# (one per line). Used to push files past size thresholds without
-# generating tens of thousands of structurally-tiny records.
+# (one per line). Used to push files past size thresholds quickly —
+# emits a 100-record block per inner loop and runs entirely in awk
+# instead of a bash printf loop, which keeps the test runtime under a
+# second even for double-digit MB targets.
 _pad_jsonl_to_mb() {
   local target="$1" target_mb="$2"
   mkdir -p "$(dirname "$target")"
-  local filler
-  filler="$(printf '%.0sX' {1..400})"
-  local target_bytes=$((target_mb * 1024 * 1024))
   local cur
   cur="$(wc -c <"$target" 2>/dev/null | tr -d ' ')"
   cur="${cur:-0}"
-  local i=0
-  while ((cur < target_bytes)); do
-    i=$((i + 1))
-    printf '{"pad":%d,"x":"%s"}\n' "$i" "$filler" >>"$target"
-    cur=$((cur + 421))
-  done
+  local target_bytes=$((target_mb * 1024 * 1024))
+  ((cur >= target_bytes)) && return 0
+  local need=$((target_bytes - cur))
+  awk -v need="$need" '
+    BEGIN {
+      filler = ""
+      for (i = 0; i < 400; i++) filler = filler "X"
+      written = 0
+      seq = 0
+      while (written < need) {
+        seq++
+        line = sprintf("{\"pad\":%d,\"x\":\"%s\"}", seq, filler)
+        print line
+        written += length(line) + 1
+      }
+    }
+  ' >>"$target"
 }
 
 @test "kuroko gate: returns 0 silently when .mumei/ is absent" {
@@ -115,11 +125,9 @@ _pad_jsonl_to_mb() {
   _pad_jsonl_to_mb ".mumei/audit-log/test.jsonl" 11
   run mumei_log_rotate_check_and_truncate ".mumei/audit-log/test.jsonl"
   [ "$status" -eq 0 ]
-  # Every surviving line must be valid JSON: a partial mid-line cut
-  # would leave a malformed record that jq -e fails on.
-  while IFS= read -r line; do
-    echo "$line" | jq -e 'type == "object"' >/dev/null
-  done <.mumei/audit-log/test.jsonl
+  # All 5000 lines must parse as JSON in one jq pass; a partial
+  # mid-line cut would surface as a non-zero rc here.
+  jq -ce 'type == "object"' <.mumei/audit-log/test.jsonl >/dev/null
 }
 
 @test "absent target file: returns 0 without creating anything" {
@@ -129,11 +137,32 @@ _pad_jsonl_to_mb() {
   [ ! -f .mumei/audit-log/never-existed.jsonl ]
 }
 
-@test "informational stderr is emitted when rotation fires" {
+@test "rotator-vs-rotator lock: only one rotator runs, second skips silently" {
   mkdir -p .mumei
   _make_jsonl 6000 ".mumei/.hook-stats.jsonl"
   _pad_jsonl_to_mb ".mumei/.hook-stats.jsonl" 11
-  run mumei_log_rotate_check_and_truncate ".mumei/.hook-stats.jsonl"
+  # Pre-create the lock dir to simulate another rotator already in
+  # progress. The function must observe it and return 0 without
+  # touching the file (no truncate, no warn).
+  mkdir ".mumei/.hook-stats.jsonl.rotate.lock"
+  local before_lines
+  before_lines="$(wc -l <.mumei/.hook-stats.jsonl | tr -d ' ')"
+  run --separate-stderr mumei_log_rotate_check_and_truncate ".mumei/.hook-stats.jsonl"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"auto-cleanup"* ]] || [[ "$stderr" == *"auto-cleanup"* ]]
+  local after_lines
+  after_lines="$(wc -l <.mumei/.hook-stats.jsonl | tr -d ' ')"
+  [ "$after_lines" -eq "$before_lines" ]
+  [ -d ".mumei/.hook-stats.jsonl.rotate.lock" ]
+  rmdir ".mumei/.hook-stats.jsonl.rotate.lock"
+}
+
+@test "informational stderr is emitted when rotation fires (stderr only, not stdout)" {
+  mkdir -p .mumei
+  _make_jsonl 6000 ".mumei/.hook-stats.jsonl"
+  _pad_jsonl_to_mb ".mumei/.hook-stats.jsonl" 11
+  run --separate-stderr mumei_log_rotate_check_and_truncate ".mumei/.hook-stats.jsonl"
+  [ "$status" -eq 0 ]
+  # Hooks write JSON to stdout; the cleanup notice MUST go to stderr.
+  [[ "$stderr" == *"auto-cleanup"* ]]
+  [[ "$output" != *"auto-cleanup"* ]]
 }

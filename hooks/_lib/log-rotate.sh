@@ -40,8 +40,22 @@ _mumei_log_rotate_filesize() {
 
 # Check the target's current size; truncate to the latest 5000 lines
 # when it exceeds MUMEI_LOG_MAX_MB (default 10 MB). Returns 0 in every
-# observable path — failures are logged but never propagated, so the
-# caller's append path stays uninterrupted.
+# observable path — failures are logged via mumei_log_warn but never
+# propagated, so the caller's append path stays uninterrupted.
+#
+# Concurrency:
+#   - rotator-vs-rotator: serialized via an mkdir-based lock on
+#     `<target>.rotate.lock`. mkdir is POSIX-atomic; a second concurrent
+#     rotator skips the work and returns 0.
+#   - writer-vs-rotator: the rename(2) at the end of the truncate path
+#     unlinks the original inode. A concurrent appender whose FD was
+#     opened pre-rename writes to the now-orphaned inode, which is
+#     reaped when its FD closes; that record is lost. With the
+#     PIPE_BUF-bounded line cap (audit-log.sh keeps appends < 400 B)
+#     the loss is bounded to one short append per concurrent writer
+#     per rotation event, and rotation only fires above MAX_MB. mumei
+#     accepts this telemetry-grade loss rather than serializing every
+#     writer through flock.
 mumei_log_rotate_check_and_truncate() {
   local target="$1"
 
@@ -65,22 +79,34 @@ mumei_log_rotate_check_and_truncate() {
   [[ "$size" =~ ^[0-9]+$ ]] || return 0
   ((size <= max_bytes)) && return 0
 
+  # Take an mkdir lock to serialize rotators. If another rotator is
+  # already in progress, skip silently — that rotator's mv will leave
+  # the file at <= max_lines and any subsequent append re-checks size.
+  local lock_dir="${target}.rotate.lock"
+  if ! mkdir "$lock_dir" 2>/dev/null; then
+    return 0
+  fi
+  # shellcheck disable=SC2064  # lock path is fully resolved here, intentional capture
+  trap "rmdir '${lock_dir}' 2>/dev/null || true" RETURN
+
   local size_before_mb
   size_before_mb="$(awk -v b="$size" 'BEGIN { printf "%.1f", b / 1048576 }')"
 
-  # Atomic rename: write the tail to a sibling tmp file, then mv. Any
-  # concurrent append lands either on the original (pre-mv) inode or on
-  # the new file (post-mv); both paths are valid JSONL.
   local tmp
-  tmp="$(mktemp "${target}.XXXXXX" 2>/dev/null)" || return 0
+  if ! tmp="$(mktemp "${target}.XXXXXX" 2>/dev/null)"; then
+    mumei_log_warn "log-rotate skipped: mktemp failed for ${target}"
+    return 0
+  fi
 
   if ! tail -n "$max_lines" "$target" >"$tmp" 2>/dev/null; then
     rm -f "$tmp"
+    mumei_log_warn "log-rotate skipped: tail failed for ${target}"
     return 0
   fi
 
   if ! mv "$tmp" "$target" 2>/dev/null; then
     rm -f "$tmp"
+    mumei_log_warn "log-rotate skipped: mv failed for ${target}"
     return 0
   fi
 

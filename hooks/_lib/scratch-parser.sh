@@ -37,8 +37,13 @@ _mumei_scratch_count_acs() {
   # The scratch may use REQ trace IDs (matured drafts) OR the brainstorm
   # tag form `- [Event] ...` / `- [Unwanted] ...` / `- [State] ...`.
   # Both count as ACs for vehicle-picker signal purposes.
+  #
+  # `grep -c` always prints a number to stdout (including "0" on no
+  # match) and exits 1 only when no match. We rely on the stdout, NOT
+  # the exit code — a `|| echo 0` here would double-output "0\n0" and
+  # poison downstream arithmetic.
   local count
-  count="$(grep -cE '^[[:space:]]*-[[:space:]]+(REQ-[0-9]+\.[0-9]+|\[(Event|Unwanted|State|Optional)\])' "$path" 2>/dev/null || echo 0)"
+  count="$(grep -cE '^[[:space:]]*-[[:space:]]+(REQ-[0-9]+\.[0-9]+|\[(Event|Unwanted|State|Optional)\])' "$path" 2>/dev/null)"
   printf '%s' "${count:-0}"
 }
 

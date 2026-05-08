@@ -89,6 +89,28 @@ _make_scratch() {
   [ "$output" = "spec" ]
 }
 
+@test "ac_count=0 scratch with complexity keyword → recommend spec (regression: grep -c double-output)" {
+  # Builds a scratch with zero AC bullets but a Goal mentioning a
+  # complexity keyword. `grep -c` exits 1 on no match while still
+  # printing "0"; a `|| echo 0` in the parser would yield "0\n0" and
+  # poison downstream arithmetic. This test pins the correct behavior.
+  local path=".mumei/scratch/empty-acs.md"
+  {
+    printf '# Brainstorm: empty-acs\n\n'
+    printf '## Goal (JTBD)\n\nredesign the auth subsystem\n\n'
+    printf '## Acceptance Criteria\n\n(none yet — drafting in progress)\n'
+  } >"$path"
+
+  run mumei_scratch_parse "empty-acs"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.ac_count' <<<"$output")" -eq 0 ]
+  [ "$(jq -r '.recommended_vehicle' <<<"$output")" = "spec" ]
+
+  run mumei_scratch_recommend_vehicle "empty-acs"
+  [ "$status" -eq 0 ]
+  [ "$output" = "spec" ]
+}
+
 @test "parse output JSON is well-formed and contains required fields" {
   _make_scratch "shape-check" 5 "migration of legacy schema"
   run mumei_scratch_parse "shape-check"
