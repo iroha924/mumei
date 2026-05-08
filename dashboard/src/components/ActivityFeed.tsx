@@ -49,7 +49,10 @@ function ActivityRow({ event }: { event: MumeiActivityEvent }): ReactElement {
   switch (event.kind) {
     case 'commit':
       return (
-        <div className="flex items-baseline gap-2">
+        <div
+          className="flex items-baseline gap-2"
+          title={`${ts}\ncommit ${event.ref}\n${event.message}`}
+        >
           <span className="text-zinc-500 tabular-nums">{ts}</span>
           <span className="text-emerald-300">commit</span>
           <span className="text-zinc-400 truncate flex-1">{event.message}</span>
@@ -58,7 +61,10 @@ function ActivityRow({ event }: { event: MumeiActivityEvent }): ReactElement {
       )
     case 'review':
       return (
-        <div className="flex items-baseline gap-2">
+        <div
+          className="flex items-baseline gap-2"
+          title={`${ts}\nreview ${event.slug} · iter ${event.iter} · ${event.verdict}`}
+        >
           <span className="text-zinc-500 tabular-nums">{ts}</span>
           <span className="text-violet-300">review</span>
           <span className="text-zinc-400 truncate flex-1">
@@ -69,7 +75,10 @@ function ActivityRow({ event }: { event: MumeiActivityEvent }): ReactElement {
       )
     case 'phase':
       return (
-        <div className="flex items-baseline gap-2">
+        <div
+          className="flex items-baseline gap-2"
+          title={`${ts}\nphase ${event.slug}: ${event.from} → ${event.to}`}
+        >
           <span className="text-zinc-500 tabular-nums">{ts}</span>
           <span className="text-sky-300">phase</span>
           <span className="text-zinc-400 truncate flex-1">
@@ -79,7 +88,10 @@ function ActivityRow({ event }: { event: MumeiActivityEvent }): ReactElement {
       )
     case 'hook':
       return (
-        <div className="flex items-baseline gap-2">
+        <div
+          className="flex items-baseline gap-2"
+          title={`${ts}\nhook ${event.rule_id} · ${event.decision}`}
+        >
           <span className="text-zinc-500 tabular-nums">{ts}</span>
           <span className="text-amber-300">hook</span>
           <span className="text-zinc-400 truncate flex-1">{event.rule_id}</span>

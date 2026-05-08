@@ -70,7 +70,7 @@ function DetailContent({ slug, onClose }: { slug: string; onClose: () => void })
           type="button"
           onClick={onClose}
           aria-label="close detail"
-          className="rounded-full px-2 py-0.5 font-mono text-xs text-zinc-400 border border-zinc-800 hover:border-zinc-600"
+          className="rounded-full px-2 py-0.5 font-mono text-xs text-zinc-400 border border-zinc-800 hover:border-zinc-600 cursor-pointer"
         >
           close
         </button>
@@ -83,7 +83,7 @@ function DetailContent({ slug, onClose }: { slug: string; onClose: () => void })
             onClick={() => setTab(t.id)}
             aria-pressed={tab === t.id}
             className={cn(
-              'rounded-full px-2.5 py-1 font-mono text-xs',
+              'rounded-full px-2.5 py-1 font-mono text-xs cursor-pointer',
               tab === t.id
                 ? 'bg-violet-500/15 text-violet-300 border border-violet-500/40'
                 : 'text-zinc-400 border border-transparent hover:text-zinc-200',

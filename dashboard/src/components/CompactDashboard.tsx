@@ -34,6 +34,9 @@ const SECTION_INVALIDATIONS: Record<string, ReadonlyArray<readonly (string | num
   activity: [['activity', 50]],
 }
 
+type Phase = 'plan' | 'implement' | 'review' | 'done'
+type PhaseFilter = 'all' | Phase
+
 /**
  * Compact-variant dashboard. Wired entirely to backend hooks; mock data
  * has been replaced with EmptyState fallback for fresh projects per
@@ -41,6 +44,8 @@ const SECTION_INVALIDATIONS: Record<string, ReadonlyArray<readonly (string | num
  */
 export function CompactDashboard(): ReactElement {
   const [selected, setSelected] = useState<string | null>(null)
+  const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('all')
+  const [slugFilter, setSlugFilter] = useState('')
   const live = useEventStream('/api/events')
 
   return (
@@ -53,10 +58,21 @@ export function CompactDashboard(): ReactElement {
 
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 border-r border-zinc-800 overflow-y-auto">
-          <FilterStrip />
+          <FilterStrip
+            phase={phaseFilter}
+            onPhaseChange={setPhaseFilter}
+            slug={slugFilter}
+            onSlugChange={setSlugFilter}
+          />
           <ErrorBoundarySection name="features">
             <Suspense fallback={<FeatureGridSkeleton />}>
-              <FeatureGrid pulses={live.pulses} selected={selected} onSelect={setSelected} />
+              <FeatureGrid
+                pulses={live.pulses}
+                selected={selected}
+                onSelect={setSelected}
+                phaseFilter={phaseFilter}
+                slugFilter={slugFilter}
+              />
             </Suspense>
           </ErrorBoundarySection>
         </div>
@@ -244,17 +260,29 @@ function CompactStat({
   )
 }
 
-function FilterStrip(): ReactElement {
+function FilterStrip({
+  phase,
+  onPhaseChange,
+  slug,
+  onSlugChange,
+}: {
+  phase: PhaseFilter
+  onPhaseChange: (p: PhaseFilter) => void
+  slug: string
+  onSlugChange: (s: string) => void
+}): ReactElement {
   return (
     <div className="px-3 sm:px-5 py-3 border-b border-zinc-800/60 flex flex-wrap items-center gap-2 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
       <div className="flex items-center gap-1 font-mono text-[16px] flex-wrap">
-        {(['all', 'plan', 'implement', 'review', 'done'] as const).map((p, i) => (
+        {(['all', 'plan', 'implement', 'review', 'done'] as const).map((p) => (
           <button
             type="button"
             key={p}
+            onClick={() => onPhaseChange(p)}
+            aria-pressed={phase === p}
             className={cn(
-              'px-2 py-1 rounded-full border',
-              i === 0
+              'px-2 py-1 rounded-full border cursor-pointer',
+              phase === p
                 ? 'border-violet-500/60 text-zinc-100 bg-violet-500/10'
                 : 'border-zinc-800 text-zinc-400 hover:border-zinc-700',
             )}
@@ -265,6 +293,8 @@ function FilterStrip(): ReactElement {
       </div>
       <div className="flex-1 min-w-[8rem]" />
       <input
+        value={slug}
+        onChange={(e) => onSlugChange(e.target.value)}
         placeholder="filter slug…"
         aria-label="filter slug"
         className="font-mono text-[17px] bg-zinc-900/70 border border-zinc-800 rounded-full px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-32 sm:w-44"
@@ -277,18 +307,28 @@ function FeatureGrid({
   pulses,
   selected,
   onSelect,
+  phaseFilter,
+  slugFilter,
 }: {
   pulses: Set<string>
   selected: string | null
   onSelect: (slug: string | null) => void
+  phaseFilter: PhaseFilter
+  slugFilter: string
 }): ReactElement {
   const features = useFeatures().data
   const [showArchived, setShowArchived] = useState(true)
   if (features.length === 0) {
     return <EmptyState />
   }
-  const active = features.filter((f) => !f.archived)
-  const archived = features.filter((f) => f.archived)
+  const slugQuery = slugFilter.trim().toLowerCase()
+  const matches = (f: MumeiFeatureSummary): boolean => {
+    if (phaseFilter !== 'all' && f.phase !== phaseFilter) return false
+    if (slugQuery && !f.slug.toLowerCase().includes(slugQuery)) return false
+    return true
+  }
+  const active = features.filter((f) => !f.archived && matches(f))
+  const archived = features.filter((f) => f.archived && matches(f))
   return (
     <div className="p-4 space-y-3">
       {active.length > 0 && (
@@ -311,7 +351,7 @@ function FeatureGrid({
             onClick={() => setShowArchived((s) => !s)}
             aria-expanded={showArchived}
             aria-controls="archived-grid"
-            className="w-full py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700 font-mono text-[16px] text-zinc-400 flex items-center justify-center gap-2"
+            className="w-full py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700 font-mono text-[16px] text-zinc-400 flex items-center justify-center gap-2 cursor-pointer"
           >
             <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
             <span>archived ({archived.length})</span>
@@ -369,7 +409,7 @@ function CompactCard({
         type="button"
         onClick={() => onSelect(f.slug)}
         className={cn(
-          'w-full text-left rounded-2xl border bg-zinc-900/70 hover:bg-zinc-900 transition-colors flex flex-col',
+          'w-full text-left rounded-2xl border bg-zinc-900/70 hover:bg-zinc-900 transition-colors flex flex-col cursor-pointer',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60',
           selected ? 'border-violet-500/60' : 'border-zinc-800 hover:border-zinc-700',
         )}

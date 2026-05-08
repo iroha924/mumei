@@ -32,7 +32,7 @@ export function ErrorBanner({ name, error, onRetry }: ErrorBannerProps): ReactEl
         onClick={() => {
           void onRetry()
         }}
-        className="rounded border border-red-600/60 px-2 py-0.5 font-mono text-xs text-red-100 transition-colors hover:bg-red-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+        className="rounded border border-red-600/60 px-2 py-0.5 font-mono text-xs text-red-100 transition-colors hover:bg-red-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 cursor-pointer"
       >
         Retry
       </button>

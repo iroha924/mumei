@@ -16,7 +16,7 @@ export interface SeriesPoint {
 
 export function LineChart({
   data,
-  w = 360,
+  w = 480,
   h = 140,
   accent = '#876680',
   format = formatTokens,
@@ -87,8 +87,12 @@ export function LineChart({
       {data.map((d, i) => (
         <circle key={`pt-${d.d}`} cx={xs(i)} cy={ys(d.v)} r="1.8" fill={accent} />
       ))}
-      {data.map((d, i) =>
-        i % 3 === 0 || i === data.length - 1 ? (
+      {data.map((d, i) => {
+        const isLast = i === data.length - 1
+        const isStride = i % 3 === 0
+        const collidesWithLast = i === data.length - 2
+        if (!(isStride || isLast) || (isStride && collidesWithLast)) return null
+        return (
           <text
             key={`xl-${d.d}`}
             x={xs(i)}
@@ -100,8 +104,8 @@ export function LineChart({
           >
             {d.d.slice(5)}
           </text>
-        ) : null,
-      )}
+        )
+      })}
     </svg>
   )
 }
@@ -115,7 +119,7 @@ export interface ReviewPoint {
 
 export function StackedBar({
   data,
-  w = 360,
+  w = 480,
   h = 140,
 }: {
   data: ReviewPoint[]
@@ -193,18 +197,24 @@ export function StackedBar({
               fill="#b86a55"
               opacity="0.9"
             />
-            {i % 3 === 0 || i === data.length - 1 ? (
-              <text
-                x={x + bw / 2}
-                y={h - 4}
-                fontSize="11"
-                fill="#8e8470"
-                textAnchor="middle"
-                fontFamily="JetBrains Mono, monospace"
-              >
-                {d.d.slice(5)}
-              </text>
-            ) : null}
+            {(() => {
+              const isLast = i === data.length - 1
+              const isStride = i % 3 === 0
+              const collidesWithLast = i === data.length - 2
+              if (!(isStride || isLast) || (isStride && collidesWithLast)) return null
+              return (
+                <text
+                  x={x + bw / 2}
+                  y={h - 4}
+                  fontSize="11"
+                  fill="#8e8470"
+                  textAnchor="middle"
+                  fontFamily="JetBrains Mono, monospace"
+                >
+                  {d.d.slice(5)}
+                </text>
+              )
+            })()}
           </g>
         )
       })}
