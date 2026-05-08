@@ -53,8 +53,13 @@ JSON_LINE="$(jq -n -c \
 [[ -n "$JSON_LINE" ]] && mumei_audit_log_append "config-change" "$JSON_LINE"
 
 if [[ "$VALID" == "false" ]]; then
-  printf '[mumei] config-change blocked: %s contains invalid JSON\n' "$SETTINGS_PATH" >&2
-  exit 2
+  # Demoted from exit 2 (block) to warning-only (exit 0): editor mid-save
+  # / git pull conflict markers / transient parse failure are common at
+  # the time ConfigChange fires. Blocking here is non-actionable for the
+  # user. The audit-log record above keeps `valid: false` for
+  # downstream review. Pre-edit-style enforcement should live in
+  # pre-edit-guard.sh, not in this post-change observer.
+  printf '[mumei] config-change warning: %s contains invalid JSON (recorded as valid=false in audit log)\n' "$SETTINGS_PATH" >&2
 fi
 
 exit 0

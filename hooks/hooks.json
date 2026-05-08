@@ -180,7 +180,7 @@
     ],
     "UserPromptExpansion": [
       {
-        "matcher": "mumei:archive",
+        "matcher": "^mumei:archive$",
         "hooks": [
           {
             "type": "command",
@@ -229,7 +229,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": ".*-reviewer|.*-validator|memory-curator",
+        "matcher": "^(adversarial-reviewer|design-reviewer|requirements-reviewer|security-reviewer|spec-compliance-reviewer|tasks-reviewer|issue-validator|memory-curator)$",
         "hooks": [
           {
             "type": "command",

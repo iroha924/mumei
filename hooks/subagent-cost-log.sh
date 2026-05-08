@@ -6,14 +6,17 @@
 # with note="extraction-failed: <reason>" and emit stderr warning. Never
 # crash the session.
 #
-# Heuristic:
-#   - transcript jsonl entries do not carry `agent_id` directly.
-#   - Subagent assistant messages are identified by `.isSidechain == true`
-#     AND `.message.usage` non-null.
-#   - The most recent matching entry at SubagentStop time is treated as
-#     this subagent's final usage block.
-#   - This is best-effort; the orchestrator's `mumei_cost_log_before/after`
-#     wrap remains the primary cost-tracking path.
+# Approach:
+#   - Transcript jsonl entries do not expose `agent_id`, and the most
+#     recent sidechain assistant entry at SubagentStop time may belong to
+#     another subagent running in parallel (mumei review pipeline launches
+#     spec-compliance + security in parallel). Heuristic-based attribution
+#     is therefore unreliable.
+#   - This hook records the SubagentStop event metadata + a placeholder
+#     usage object; the orchestrator's `mumei_cost_log_before/after` wrap
+#     remains the authoritative cost-tracking path. The hook adds an
+#     audit trail (start/stop ts per agent_id) without misattributing
+#     usage across parallel agents.
 #
 # Env knobs:
 #   MUMEI_BYPASS=1 — short-circuit (silent exit)
@@ -27,7 +30,6 @@ fi
 INPUT="$(cat 2>/dev/null || true)"
 [[ -z "$INPUT" ]] && exit 0
 
-TRANSCRIPT_PATH="$(jq -r '.transcript_path // empty' <<<"$INPUT" 2>/dev/null || true)"
 AGENT_ID="$(jq -r '.agent_id // empty' <<<"$INPUT" 2>/dev/null || true)"
 AGENT_TYPE="$(jq -r '.agent_type // empty' <<<"$INPUT" 2>/dev/null || true)"
 STOP_REASON="$(jq -r '.stop_reason // empty' <<<"$INPUT" 2>/dev/null || true)"
@@ -73,25 +75,6 @@ emit_record() {
   fi
 }
 
-if [[ -z "$TRANSCRIPT_PATH" || ! -f "$TRANSCRIPT_PATH" ]]; then
-  emit_record '{}' "extraction-failed: transcript_path missing or unreadable"
-  printf '[mumei] subagent-cost-log warning: transcript_path missing for agent_id=%s\n' "$AGENT_ID" >&2
-  exit 0
-fi
-
-# Extract the most recent sidechain usage block. Capping the scan window
-# keeps the hook fast on long transcripts.
-USAGE="$(tail -n 500 "$TRANSCRIPT_PATH" 2>/dev/null |
-  jq -c 'select(.isSidechain == true and .message.usage)' 2>/dev/null |
-  tail -n 1 |
-  jq -c '.message.usage' 2>/dev/null || true)"
-
-if [[ -z "$USAGE" || "$USAGE" == "null" ]]; then
-  emit_record '{}' "extraction-failed: no sidechain usage entry found"
-  printf '[mumei] subagent-cost-log warning: no sidechain usage in transcript for agent_id=%s\n' "$AGENT_ID" >&2
-  exit 0
-fi
-
-emit_record "$USAGE" ""
+emit_record '{}' "stop-event-only: usage tracked by orchestrator wrap"
 
 exit 0

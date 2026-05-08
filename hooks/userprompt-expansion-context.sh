@@ -51,9 +51,16 @@ if [[ -n "$LATEST_REVIEW" && -f "$LATEST_REVIEW" ]]; then
   VERDICT="$(jq -r '.verdict // "unknown"' "$LATEST_REVIEW" 2>/dev/null || echo "unknown")"
 fi
 
-if [[ -f "${FEATURE_DIR}/tasks.md" ]]; then
-  WAVE_COUNT="$(grep -cE '^## Wave [0-9]+:' "${FEATURE_DIR}/tasks.md" 2>/dev/null || echo "?")"
-fi
+# Vehicle-aware Wave count: spec vehicle has tasks.md with Wave headers;
+# plan vehicle has no Wave concept (Claude Code TaskCreate task list).
+case "$FEATURE_DIR" in
+.mumei/plans/*) WAVE_COUNT="n/a (plan vehicle)" ;;
+*)
+  if [[ -f "${FEATURE_DIR}/tasks.md" ]]; then
+    WAVE_COUNT="$(grep -cE '^## Wave [0-9]+:' "${FEATURE_DIR}/tasks.md" 2>/dev/null || echo "?")"
+  fi
+  ;;
+esac
 
 # Commit count: count commits whose message references the feature slug
 # since feature creation. Best-effort; falls back to "?" if git is absent.
