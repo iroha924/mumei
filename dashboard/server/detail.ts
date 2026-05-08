@@ -67,6 +67,8 @@ async function resolveFeatureDir(
   projectRoot: string,
   featureKey: string,
 ): Promise<{ absDir: string; subroot: 'specs' | 'plans' } | null> {
+  // Direct lookup: featureKey is the dir name (compound REQ-N-slug for
+  // spec, bare slug for plan).
   for (const subroot of ['specs', 'plans'] as const) {
     const absDir = path.join(projectRoot, '.mumei', subroot, featureKey)
     try {
@@ -76,6 +78,47 @@ async function resolveFeatureDir(
       // try next
     }
   }
+
+  // Suffix lookup: featureKey is the bare slug ("dashboard-live-data")
+  // and we need to find a compound dir ending in `-<featureKey>`. Scan
+  // .mumei/specs/ for the first match.
+  const specsRoot = path.join(projectRoot, '.mumei', 'specs')
+  try {
+    const fs = await import('node:fs/promises')
+    const entries = await fs.readdir(specsRoot, { withFileTypes: true })
+    for (const ent of entries) {
+      if (ent.isDirectory() && ent.name.endsWith(`-${featureKey}`)) {
+        return { absDir: path.join(specsRoot, ent.name), subroot: 'specs' }
+      }
+    }
+  } catch {
+    // specs/ absent — fall through
+  }
+
+  // Archive lookup: walk .mumei/archive/<YYYY-MM>/* for either an
+  // exact match or a `-<featureKey>` suffix match.
+  const archiveRoot = path.join(projectRoot, '.mumei', 'archive')
+  try {
+    const fs = await import('node:fs/promises')
+    const months = await fs.readdir(archiveRoot, { withFileTypes: true })
+    for (const month of months) {
+      if (!month.isDirectory()) continue
+      const monthDir = path.join(archiveRoot, month.name)
+      const slugs = await fs.readdir(monthDir, { withFileTypes: true })
+      for (const slug of slugs) {
+        if (!slug.isDirectory()) continue
+        if (slug.name === featureKey || slug.name.endsWith(`-${featureKey}`)) {
+          // Vehicle is unknown from archive layout alone; spec-vehicle
+          // dir names start with "REQ-N-", plan-vehicle dirs are bare.
+          const subroot: 'specs' | 'plans' = /^REQ-[0-9]+-/.test(slug.name) ? 'specs' : 'plans'
+          return { absDir: path.join(monthDir, slug.name), subroot }
+        }
+      }
+    }
+  } catch {
+    // archive/ absent — fall through
+  }
+
   return null
 }
 

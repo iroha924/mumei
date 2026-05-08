@@ -31,20 +31,76 @@ interface MemoEntry {
 const memo = new Map<string, MemoEntry>()
 
 /**
- * Resolve <projectRoot>/.mumei/specs/<feature>/tasks.md. Plan-vehicle
- * features (.mumei/plans/<slug>/) deliberately do not have a tasks.md
- * — the bash parser hooks/_lib/tasks.sh hard-codes the specs/ path,
- * so resolving plans/ here would produce a TS/bash split where Wave
- * headers come from one file and task IDs come from another.
+ * Resolve the tasks.md for `featureKey` by checking, in order:
+ *   1. .mumei/specs/<featureKey>/tasks.md (compound key, active)
+ *   2. .mumei/specs/<dir-ending-in-featureKey>/tasks.md (bare slug → compound)
+ *   3. .mumei/archive/<YYYY-MM>/<featureKey or compound>/tasks.md
+ * Plan-vehicle features (.mumei/plans/<slug>/) deliberately have no
+ * tasks.md, so they are not consulted.
+ *
+ * Archive matches return the file path so `extractWaveHeaders` can
+ * still emit Wave goal/verify; the bash-driven task ID extraction
+ * (`mumei_tasks_path` always queries .mumei/specs/) returns empty for
+ * archive paths, leaving each Wave with goals + headers but no task
+ * rows — acceptable degradation for read-only archive view.
  */
 async function resolveTasksFile(projectRoot: string, featureKey: string): Promise<string | null> {
-  const fp = path.join(projectRoot, '.mumei', 'specs', featureKey, 'tasks.md')
+  const direct = path.join(projectRoot, '.mumei', 'specs', featureKey, 'tasks.md')
   try {
-    await access(fp)
-    return fp
+    await access(direct)
+    return direct
   } catch {
-    return null
+    // try other lookups
   }
+
+  // bare slug → compound dir under specs/
+  const fs = await import('node:fs/promises')
+  try {
+    const specsEntries = await fs.readdir(path.join(projectRoot, '.mumei', 'specs'), {
+      withFileTypes: true,
+    })
+    for (const ent of specsEntries) {
+      if (ent.isDirectory() && ent.name.endsWith(`-${featureKey}`)) {
+        const fp = path.join(projectRoot, '.mumei', 'specs', ent.name, 'tasks.md')
+        try {
+          await access(fp)
+          return fp
+        } catch {
+          // fall through
+        }
+      }
+    }
+  } catch {
+    // specs/ absent
+  }
+
+  // archive walk
+  try {
+    const months = await fs.readdir(path.join(projectRoot, '.mumei', 'archive'), {
+      withFileTypes: true,
+    })
+    for (const month of months) {
+      if (!month.isDirectory()) continue
+      const monthDir = path.join(projectRoot, '.mumei', 'archive', month.name)
+      const slugs = await fs.readdir(monthDir, { withFileTypes: true })
+      for (const slug of slugs) {
+        if (!slug.isDirectory()) continue
+        if (slug.name === featureKey || slug.name.endsWith(`-${featureKey}`)) {
+          const fp = path.join(monthDir, slug.name, 'tasks.md')
+          try {
+            await access(fp)
+            return fp
+          } catch {
+            // fall through
+          }
+        }
+      }
+    }
+  } catch {
+    // archive/ absent
+  }
+
+  return null
 }
 
 /**

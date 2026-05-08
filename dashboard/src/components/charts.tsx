@@ -30,8 +30,11 @@ export function LineChart({
   const pad = { l: 28, r: 8, t: 12, b: 20 }
   const iw = w - pad.l - pad.r
   const ih = h - pad.t - pad.b
-  const max = Math.max(...data.map((d) => d.v)) * 1.15
-  const xs = (i: number) => pad.l + (i / (data.length - 1)) * iw
+  // Guard against all-zero data: max=0 → ys() divides by zero → NaN
+  // path. Floor max at 1 so ticks/curve render flat at the baseline.
+  const rawMax = Math.max(...data.map((d) => d.v))
+  const max = Math.max(rawMax, 1) * 1.15
+  const xs = (i: number) => (data.length <= 1 ? pad.l : pad.l + (i / (data.length - 1)) * iw)
   const ys = (v: number) => pad.t + ih - (v / max) * ih
   const path = data
     .map((d, i) => `${i === 0 ? 'M' : 'L'} ${xs(i).toFixed(1)} ${ys(d.v).toFixed(1)}`)
@@ -53,8 +56,12 @@ export function LineChart({
           <stop offset="100%" stopColor={accent} stopOpacity="0" />
         </linearGradient>
       </defs>
-      {ticks.map((t) => (
-        <g key={`tick-${t.toFixed(3)}`}>
+      {ticks.map((t, ti) => (
+        // Combined index + value key — ticks 0..1 may collide on
+        // value alone when max is small; including the index makes
+        // the key unique without flagging biome's noArrayIndexKey.
+        // biome-ignore lint/suspicious/noArrayIndexKey: tick array is fixed-length [0,0.5,1] — order is the identity
+        <g key={`tick-${ti}-${t.toFixed(3)}`}>
           <line
             x1={pad.l}
             x2={w - pad.r}
@@ -66,7 +73,7 @@ export function LineChart({
           <text
             x={pad.l - 6}
             y={ys(t) + 3}
-            fontSize="14"
+            fontSize="11"
             fill="#8e8470"
             textAnchor="end"
             fontFamily="JetBrains Mono, monospace"
@@ -131,8 +138,9 @@ export function StackedBar({
       role="img"
       aria-label="Review outcome distribution"
     >
-      {[0, 0.5, 1].map((t) => (
-        <g key={`grid-${t}`}>
+      {[0, 0.5, 1].map((t, ti) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: gridline tick array is fixed-length [0,0.5,1] — order is the identity
+        <g key={`grid-${ti}-${t}`}>
           <line
             x1={pad.l}
             x2={w - pad.r}
@@ -144,7 +152,7 @@ export function StackedBar({
           <text
             x={pad.l - 6}
             y={ys(max * t) + 3}
-            fontSize="14"
+            fontSize="11"
             fill="#8e8470"
             textAnchor="end"
             fontFamily="JetBrains Mono, monospace"
@@ -220,10 +228,34 @@ export function HBar({
   h?: number
 }): ReactElement {
   const pad = { l: 8, r: 8, t: 8, b: 8 }
-  const max = Math.max(...data.map((d) => d.n))
-  const rowH = (h - pad.t - pad.b) / data.length
+  // Floor max at 1 to avoid divide-by-zero NaN when data is empty or
+  // all rows have count 0.
+  const max = Math.max(1, ...data.map((d) => d.n))
+  const rowH = data.length > 0 ? (h - pad.t - pad.b) / data.length : 0
   const colorFor = (d: HBarRow) =>
     d.decision === 'deny' ? '#b86a55' : d.decision === 'pass' ? '#6e8e64' : '#8e8470'
+  if (data.length === 0) {
+    return (
+      <svg
+        width="100%"
+        height={h}
+        viewBox={`0 0 ${w} ${h}`}
+        role="img"
+        aria-label="Hook firing top 10"
+      >
+        <text
+          x={w / 2}
+          y={h / 2}
+          fontSize="12"
+          fill="#8e8470"
+          textAnchor="middle"
+          fontFamily="JetBrains Mono, monospace"
+        >
+          No hook firings in this window
+        </text>
+      </svg>
+    )
+  }
   return (
     <svg
       width="100%"
