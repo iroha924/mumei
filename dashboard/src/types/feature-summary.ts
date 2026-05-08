@@ -63,4 +63,8 @@ export interface MumeiFeatureSummary {
     medium: number;
     low: number;
   };
+  /**
+   * True when feature lives under .mumei/archive/<YYYY-MM>/<slug>/. Frontend collapses these into a separate section.
+   */
+  archived: boolean;
 }

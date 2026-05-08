@@ -19,7 +19,8 @@
     "cacheHit",
     "lastActivityMin",
     "pulse",
-    "findings"
+    "findings",
+    "archived"
   ],
   "additionalProperties": false,
   "properties": {
@@ -102,6 +103,10 @@
         "low": { "type": "integer", "minimum": 0 }
       },
       "description": "Surfaced findings count from latest review JSON."
+    },
+    "archived": {
+      "type": "boolean",
+      "description": "True when feature lives under .mumei/archive/<YYYY-MM>/<slug>/. Frontend collapses these into a separate section."
     }
   }
 }

@@ -25,9 +25,10 @@ const PHASE_NEXT: Record<MumeiFeatureSummary['phase'], MumeiFeatureSummary['next
 }
 
 /**
- * Walk .mumei/{specs,plans} (active features only — archive excluded
- * from the listing per scope) and produce a FeatureSummary[] matching
- * schemas/feature-summary.schema.json.
+ * Walk .mumei/{specs,plans,archive} and produce a FeatureSummary[]
+ * matching schemas/feature-summary.schema.json. Archived features are
+ * marked archived=true so the frontend can collapse them into a
+ * separate section.
  */
 export async function listFeatures(args: {
   projectRoot: string
@@ -46,6 +47,38 @@ export async function listFeatures(args: {
         featureDir: path.join(dir, entry.name),
         featureKey: entry.name,
         vehicle,
+        archived: false,
+        now,
+      })
+      if (summary) summaries.push(summary)
+    }
+  }
+
+  // Walk archive/YYYY-MM/<slug>/ — vehicle is auto-detected from the
+  // state.json shape (archive layout doesn't preserve specs/plans
+  // distinction at the path level).
+  const archiveRoot = path.join(projectRoot, '.mumei', 'archive')
+  for (const month of await safeReaddir(archiveRoot)) {
+    if (!month.isDirectory()) continue
+    const monthDir = path.join(archiveRoot, month.name)
+    for (const slug of await safeReaddir(monthDir)) {
+      if (!slug.isDirectory()) continue
+      const featureDir = path.join(monthDir, slug.name)
+      const stateRaw = await safeReadFile(path.join(featureDir, 'state.json'))
+      let vehicle: 'spec' | 'plan' = 'spec'
+      try {
+        const parsed = stateRaw ? (JSON.parse(stateRaw) as { id?: string; slug?: string }) : null
+        // spec vehicle: id is REQ-N. plan vehicle: id == slug.
+        if (parsed?.id && !/^REQ-[0-9]+$/.test(parsed.id)) vehicle = 'plan'
+      } catch {
+        // fall through with default vehicle=spec
+      }
+      const summary = await summariseFeature({
+        projectRoot,
+        featureDir,
+        featureKey: slug.name,
+        vehicle,
+        archived: true,
         now,
       })
       if (summary) summaries.push(summary)
@@ -62,9 +95,10 @@ async function summariseFeature(args: {
   featureDir: string
   featureKey: string
   vehicle: 'spec' | 'plan'
+  archived: boolean
   now: Date
 }): Promise<MumeiFeatureSummary | null> {
-  const { projectRoot, featureDir, featureKey, vehicle, now } = args
+  const { projectRoot, featureDir, featureKey, vehicle, archived, now } = args
   const stateRaw = await safeReadFile(path.join(featureDir, 'state.json'))
   if (!stateRaw) return null
   let state: StateFile
@@ -122,6 +156,7 @@ async function summariseFeature(args: {
     lastActivityMin,
     pulse: derivePulse(lastActivityMin),
     findings: review?.findings ?? { high: 0, medium: 0, low: 0 },
+    archived,
   }
 }
 

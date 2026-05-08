@@ -283,20 +283,57 @@ function FeatureGrid({
   onSelect: (slug: string | null) => void
 }): ReactElement {
   const features = useFeatures().data
+  const [showArchived, setShowArchived] = useState(true)
   if (features.length === 0) {
     return <EmptyState />
   }
+  const active = features.filter((f) => !f.archived)
+  const archived = features.filter((f) => f.archived)
   return (
-    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-fr">
-      {features.map((f) => (
-        <CompactCard
-          key={f.slug}
-          f={f}
-          selected={selected === f.slug}
-          pulse={pulses.has(f.slug) || f.pulse === 'active'}
-          onSelect={onSelect}
-        />
-      ))}
+    <div className="p-4 space-y-3">
+      {active.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-fr">
+          {active.map((f) => (
+            <CompactCard
+              key={f.slug}
+              f={f}
+              selected={selected === f.slug}
+              pulse={pulses.has(f.slug) || f.pulse === 'active'}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
+      {archived.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowArchived((s) => !s)}
+            aria-expanded={showArchived}
+            aria-controls="archived-grid"
+            className="w-full py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700 font-mono text-[16px] text-zinc-400 flex items-center justify-center gap-2"
+          >
+            <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
+            <span>archived ({archived.length})</span>
+          </button>
+          {showArchived && (
+            <div
+              id="archived-grid"
+              className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-fr opacity-70"
+            >
+              {archived.map((f) => (
+                <CompactCard
+                  key={f.slug}
+                  f={f}
+                  selected={selected === f.slug}
+                  pulse={false}
+                  onSelect={onSelect}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

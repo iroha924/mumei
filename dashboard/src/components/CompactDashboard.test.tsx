@@ -34,6 +34,7 @@ const sampleFeature: MumeiFeatureSummary = {
   lastActivityMin: 5,
   pulse: 'active',
   findings: { high: 0, medium: 0, low: 0 },
+  archived: false,
 }
 
 describe('CompactDashboard', () => {
