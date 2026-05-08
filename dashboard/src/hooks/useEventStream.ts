@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import type { MumeiActivityEvent } from '@/types/activity-event'
 import type { MumeiDashboardSSEEvent } from '@/types/sse-event'
 
 const DISCONNECT_THRESHOLD = 5
@@ -62,7 +61,11 @@ export function useEventStream(path = '/api/events'): {
       const timeouts = pulseTimeouts.current
       for (const t of timeouts.values()) clearTimeout(t)
       timeouts.clear()
+      // Reset connection state on cleanup so a remount under React 19
+      // StrictMode does not inherit a stale errorCount/disconnected.
+      errorCount.current = 0
       setConnected(false)
+      setDisconnected(false)
     }
   }, [path, qc])
 
@@ -79,6 +82,9 @@ function handleEvent(
     case 'feature.update': {
       void qc.invalidateQueries({ queryKey: ['features'] })
       void qc.invalidateQueries({ queryKey: ['feature', evt.slug, 'detail'] })
+      // TopBar counters (activeCount, eventCount24h, hooksPerSec) derive
+      // from feature/state aggregates; refresh them too.
+      void qc.invalidateQueries({ queryKey: ['meta', 'stats'] })
       pulseFor(evt.slug, setPulses, timeouts)
       return
     }
@@ -90,11 +96,12 @@ function handleEvent(
       }
       return
     }
-    case 'activity.added': {
-      void qc.setQueryData<MumeiActivityEvent[]>(['activity', 50], (prev) => {
-        if (!prev) return [evt.event]
-        return [evt.event, ...prev].slice(0, 200)
-      })
+    case 'activity.added':
+    case 'activity.changed': {
+      // /api/activity is the single source of truth — let TanStack
+      // Query refetch instead of merging server-built placeholders.
+      void qc.invalidateQueries({ queryKey: ['activity', 50] })
+      void qc.invalidateQueries({ queryKey: ['meta', 'stats'] })
       return
     }
   }

@@ -16,6 +16,7 @@ import { useTrendTokens } from '@/hooks/useTrendTokens'
 import { formatTokens, relTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { MumeiFeatureSummary } from '@/types/feature-summary'
+import { ActivityFeed } from './ActivityFeed'
 import { HBar, LegendDot, LineChart, StackedBar } from './charts'
 import { DetailPanel } from './DetailPanel'
 import { EmptyState } from './EmptyState'
@@ -30,6 +31,7 @@ const SECTION_INVALIDATIONS: Record<string, ReadonlyArray<readonly (string | num
     ['trend', 'reviews', 14],
     ['trend', 'hooks', 10, 24],
   ],
+  activity: [['activity', 50]],
 }
 
 /**
@@ -61,14 +63,24 @@ export function CompactDashboard(): ReactElement {
 
         <aside
           className={cn(
-            'shrink-0 bg-zinc-950/40 transition-all',
-            'hidden lg:block lg:w-[480px] xl:w-[600px] 2xl:w-[720px]',
+            'shrink-0 bg-zinc-950/40 transition-all overflow-y-auto',
+            'hidden lg:flex lg:flex-col lg:w-[480px] xl:w-[600px] 2xl:w-[720px]',
             selected !== null &&
-              'fixed inset-0 z-30 block w-full lg:static lg:inset-auto lg:z-auto bg-zinc-950',
+              'fixed inset-0 z-30 flex flex-col w-full lg:static lg:inset-auto lg:z-auto bg-zinc-950',
           )}
           aria-label="feature detail"
         >
-          <DetailPanel slug={selected} onClose={() => setSelected(null)} />
+          <div className="flex-1 min-h-0 border-b border-zinc-800/60">
+            <DetailPanel slug={selected} onClose={() => setSelected(null)} />
+          </div>
+          <div className="shrink-0 max-h-[40%] overflow-y-auto">
+            <div className="px-3 py-2 font-mono text-[14px] uppercase tracking-wider text-zinc-500 border-b border-zinc-800/60">
+              Activity
+            </div>
+            <ErrorBoundarySection name="activity">
+              <ActivityFeed />
+            </ErrorBoundarySection>
+          </div>
         </aside>
       </div>
 

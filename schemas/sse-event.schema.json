@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mumei.dev/schemas/sse-event.schema.json#v0.1.0",
   "title": "mumei dashboard SSE event",
-  "description": "Server-Sent Events emitted by dashboard/server/sse.ts on /api/events. All events are debounced 200ms per (event, slug). state.json updates emit BOTH feature.update and activity.added (REQ-15.15 dual-emit). Producer: backend chokidar -> EventEmitter pipeline. Consumer: dashboard/src/hooks/useEventStream.ts.",
+  "description": "Server-Sent Events emitted by dashboard/server/sse.ts on /api/events. All events are debounced 200ms per (event, slug). state.json updates emit BOTH feature.update AND activity.changed; review/hook activity emits only activity.changed. The client treats activity.changed and activity.added as cache-invalidation triggers and refetches /api/activity. Producer: backend chokidar -> EventEmitter pipeline. Consumer: dashboard/src/hooks/useEventStream.ts.",
   "type": "object",
   "required": ["type"],
   "properties": {
     "type": {
       "type": "string",
-      "enum": ["feature.update", "cost.updated", "activity.added"]
+      "enum": ["feature.update", "cost.updated", "activity.added", "activity.changed"]
     }
   },
   "oneOf": [
@@ -21,7 +21,7 @@
         "slug": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]*$",
-          "description": "Feature slug whose state.json changed; useEventStream invalidates ['features'] and ['feature', slug, 'detail']."
+          "description": "Feature slug whose state.json changed; useEventStream invalidates ['features'], ['feature', slug, 'detail'], AND ['meta','stats']."
         }
       }
     },
@@ -35,6 +35,14 @@
           "type": ["string", "null"],
           "description": "Feature slug owning the cost-log, or null when the change was project-wide."
         }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "activity.changed" }
       }
     },
     {

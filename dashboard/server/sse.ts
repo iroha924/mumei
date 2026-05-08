@@ -1,8 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { stat } from 'node:fs/promises'
-import path from 'node:path'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import type { MumeiActivityEvent } from '../src/types/activity-event.ts'
 import type { MumeiDashboardSSEEvent } from '../src/types/sse-event.ts'
 import { type RawFsEvent, startFsWatcher } from './lib/fs-watch.ts'
 
@@ -87,12 +84,12 @@ export function registerSse(
     ignoreInitial: args.ignoreInitial,
   })
   watcher.emitter.on('event', (raw: RawFsEvent) => {
-    handleRawEvent(raw, args.projectRoot, broadcast, debouncer, debounceMs).catch((err) =>
-      app.log.error({ err }, 'sse handleRawEvent failed'),
-    )
+    handleRawEvent(raw, args.projectRoot, broadcast, debouncer, debounceMs)
   })
 
-  // Heartbeat every 25s to keep proxies from idling out the connection.
+  // 15s heartbeat per tasks.md 4.2 — keep proxies from idling out the
+  // connection, but short enough that EventSource onerror retries
+  // within a reasonable window.
   const hb = setInterval(() => {
     for (const c of clients) {
       try {
@@ -101,7 +98,7 @@ export function registerSse(
         clients.delete(c)
       }
     }
-  }, 25_000)
+  }, 15_000)
 
   app.get('/api/events', (req: FastifyRequest, reply: FastifyReply) => {
     reply.raw.setHeader('Content-Type', 'text/event-stream')
@@ -125,9 +122,7 @@ export function registerSse(
   return {
     emit: broadcast,
     injectRawForTest: (raw) => {
-      handleRawEvent(raw, args.projectRoot, broadcast, debouncer, debounceMs).catch((err) =>
-        app.log.error({ err }, 'sse handleRawEvent (test) failed'),
-      )
+      handleRawEvent(raw, args.projectRoot, broadcast, debouncer, debounceMs)
     },
     subscribeForTest: (fn) => {
       observers.add(fn)
@@ -151,36 +146,26 @@ export function registerSse(
   }
 }
 
-async function handleRawEvent(
+function handleRawEvent(
   raw: RawFsEvent,
   projectRoot: string,
   emit: EmitFn,
   debouncer: Debouncer,
   debounceMs: number,
-): Promise<void> {
+): void {
   switch (raw.kind) {
     case 'state': {
       if (!raw.slug) return
       const slug = raw.slug
-      // state.json updates emit BOTH feature.update AND activity.added
-      // per REQ-15.15 dual-emit invariant.
+      // state.json updates affect FeatureGrid (lastActivityMin / pulse)
+      // and the activity feed (phase change). Emit feature.update so
+      // the grid + detail refetch, and activity.changed so the feed
+      // refetches /api/activity (which reconstructs the phase event
+      // from state.json mtime — no need to fabricate a payload).
       debouncer.schedule(`feature.update::${slug}`, debounceMs, () =>
         emit({ type: 'feature.update', slug }),
       )
-      debouncer.schedule(`activity.added::phase::${slug}`, debounceMs, async () => {
-        const phase = await readPhase(raw.filePath)
-        if (!phase) return
-        emit({
-          type: 'activity.added',
-          event: {
-            ts: new Date().toISOString(),
-            kind: 'phase',
-            slug,
-            from: phase,
-            to: phase,
-          } as MumeiActivityEvent,
-        })
-      })
+      debouncer.schedule('activity.changed', debounceMs, () => emit({ type: 'activity.changed' }))
       return
     }
     case 'cost-log': {
@@ -192,61 +177,25 @@ async function handleRawEvent(
     case 'review': {
       if (!raw.slug) return
       const slug = raw.slug
-      debouncer.schedule(`activity.added::review::${slug}`, debounceMs, () => {
-        emit({
-          type: 'activity.added',
-          event: {
-            ts: new Date().toISOString(),
-            kind: 'review',
-            slug,
-            verdict: 'PASS', // placeholder; client refetches the latest review JSON
-            iter: 1,
-          } as MumeiActivityEvent,
-        })
-      })
+      // Reviews change a feature's lastVerdict in the FeatureGrid AND
+      // append a row to the ActivityFeed. Emit feature.update (so the
+      // grid refetches /api/features) and an activity.changed marker
+      // (so the feed refetches /api/activity). The client invalidates
+      // both caches; /api/activity reads the real verdict from disk so
+      // we never need to inline placeholder fields here.
+      debouncer.schedule(`feature.update::${slug}`, debounceMs, () =>
+        emit({ type: 'feature.update', slug }),
+      )
+      debouncer.schedule('activity.changed', debounceMs, () => emit({ type: 'activity.changed' }))
       return
     }
     case 'hook-stats': {
-      // Project-wide; coalesce all changes.
-      debouncer.schedule('activity.added::hook::*', debounceMs, () => {
-        emit({
-          type: 'activity.added',
-          event: {
-            ts: new Date().toISOString(),
-            kind: 'hook',
-            rule_id: 'aggregate',
-            decision: 'noop',
-          } as MumeiActivityEvent,
-        })
-      })
+      // Project-wide; coalesce all changes. Same pattern as review:
+      // emit a marker, let the client refetch /api/activity.
+      debouncer.schedule('activity.changed', debounceMs, () => emit({ type: 'activity.changed' }))
       return
     }
   }
   // unreachable
   void projectRoot
 }
-
-async function readPhase(
-  stateFile: string,
-): Promise<'plan' | 'implement' | 'review' | 'done' | null> {
-  try {
-    await stat(stateFile)
-  } catch {
-    return null
-  }
-  try {
-    const fs = await import('node:fs/promises')
-    const body = await fs.readFile(stateFile, 'utf8')
-    const parsed = JSON.parse(body) as { phase?: string }
-    const phase = parsed.phase
-    if (phase === 'plan' || phase === 'implement' || phase === 'review' || phase === 'done') {
-      return phase
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-// path import kept for re-use if needed downstream
-void path

@@ -34,7 +34,10 @@ export function startFsWatcher(args: { projectRoot: string; ignoreInitial?: bool
     persistent: true,
     awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 25 },
     ignored: (target: string) =>
-      target.includes('/.hook-stats.jsonl.rotate.lock') || target.includes('/state.json.tmp.'),
+      // Atomic state.json writes use `mktemp "${state.json}.XXXXXX"`
+      // (see hooks/_lib/state.sh). Match the literal mktemp suffix
+      // pattern so the temp file isn't surfaced as an event.
+      /\.rotate\.lock$/.test(target) || /\/state\.json\.[A-Za-z0-9]{6}$/.test(target),
   })
 
   watcher.on('all', (_event, target) => {

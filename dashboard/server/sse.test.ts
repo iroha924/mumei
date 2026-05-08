@@ -18,7 +18,7 @@ describe('registerSse', () => {
     await rm(projectRoot, { recursive: true, force: true })
   })
 
-  it('emits feature.update + activity.added phase for state.json change (debounced)', async () => {
+  it('emits feature.update + activity.changed for state.json change (debounced)', async () => {
     const app = Fastify({ logger: false })
     const reg = registerSse(app, { projectRoot, debounceMs: DEBOUNCE_MS, ignoreInitial: true })
     const events: MumeiDashboardSSEEvent[] = []
@@ -42,12 +42,9 @@ describe('registerSse', () => {
     await app.close()
 
     const featureUpdates = events.filter((e) => e.type === 'feature.update')
-    const phaseActivities = events.filter(
-      (e) =>
-        e.type === 'activity.added' && (e.event as { kind?: string } | undefined)?.kind === 'phase',
-    )
+    const activityChanged = events.filter((e) => e.type === 'activity.changed')
     expect(featureUpdates.length).toBe(1)
-    expect(phaseActivities.length).toBe(1)
+    expect(activityChanged.length).toBe(1)
   })
 
   it('coalesces cost-log updates within debounce window', async () => {

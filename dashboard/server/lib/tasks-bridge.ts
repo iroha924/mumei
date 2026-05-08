@@ -31,22 +31,20 @@ interface MemoEntry {
 const memo = new Map<string, MemoEntry>()
 
 /**
- * Resolve <projectRoot>/.mumei/specs/<feature>/tasks.md OR
- * <projectRoot>/.mumei/plans/<slug>/tasks.md, whichever exists.
- * For plan vehicle there is no tasks.md; the caller passes plan.md
- * synthesised waves via {@link parsePlanModeTasks} instead.
+ * Resolve <projectRoot>/.mumei/specs/<feature>/tasks.md. Plan-vehicle
+ * features (.mumei/plans/<slug>/) deliberately do not have a tasks.md
+ * — the bash parser hooks/_lib/tasks.sh hard-codes the specs/ path,
+ * so resolving plans/ here would produce a TS/bash split where Wave
+ * headers come from one file and task IDs come from another.
  */
 async function resolveTasksFile(projectRoot: string, featureKey: string): Promise<string | null> {
-  for (const sub of ['specs', 'plans'] as const) {
-    const fp = path.join(projectRoot, '.mumei', sub, featureKey, 'tasks.md')
-    try {
-      await access(fp)
-      return fp
-    } catch {
-      // try next
-    }
+  const fp = path.join(projectRoot, '.mumei', 'specs', featureKey, 'tasks.md')
+  try {
+    await access(fp)
+    return fp
+  } catch {
+    return null
   }
-  return null
 }
 
 /**
@@ -76,7 +74,14 @@ export async function buildWaveplan(args: {
   let waveplan: WaveMeta[]
   try {
     waveplan = await parseTasksMdViaBash({ pluginRoot, tasksFile: tf, featureKey, projectRoot })
-  } catch {
+  } catch (err) {
+    // REQ-15.11: bash exec failure → return empty + log to server
+    // log. Bare process.stderr write avoids threading the Fastify
+    // logger into this lib module.
+    const message = err instanceof Error ? err.message : String(err)
+    process.stderr.write(
+      `[tasks-bridge] parseTasksMdViaBash failed for ${featureKey}: ${message}\n`,
+    )
     waveplan = []
   }
   memo.set(memoKey, { ts: Date.now(), payload: waveplan })

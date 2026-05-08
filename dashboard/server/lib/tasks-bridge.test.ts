@@ -83,6 +83,33 @@ describe('buildWaveplan', () => {
     expect(wp).toEqual([])
   })
 
+  it('returns [] and logs to stderr when bash itself is unavailable', async () => {
+    // Override PATH so the `bash` binary cannot be located by execFile.
+    // The lib's catch path runs, returns [], and writes a [tasks-bridge]
+    // line to stderr. Verifies the REQ-15.11 logging requirement.
+    const stderrWrites: string[] = []
+    const origWrite = process.stderr.write.bind(process.stderr)
+    const origPath = process.env.PATH
+    process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+      stderrWrites.push(typeof chunk === 'string' ? chunk : chunk.toString())
+      return true
+    }) as typeof process.stderr.write
+    process.env.PATH = '/nonexistent/path'
+    try {
+      const wp = await buildWaveplan({
+        projectRoot,
+        featureKey: 'REQ-1-demo',
+        pluginRoot: PLUGIN_ROOT,
+        bustCache: true,
+      })
+      expect(wp).toEqual([])
+      expect(stderrWrites.some((line) => line.includes('[tasks-bridge]'))).toBe(true)
+    } finally {
+      process.stderr.write = origWrite
+      process.env.PATH = origPath
+    }
+  })
+
   it('memoises within TTL', async () => {
     const wp1 = await buildWaveplan({
       projectRoot,

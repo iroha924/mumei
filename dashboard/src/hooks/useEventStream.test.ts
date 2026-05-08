@@ -96,26 +96,16 @@ describe('useEventStream', () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ['feature', 'REQ-1-foo', 'detail'] })
   })
 
-  it('prepends activity events into the activity query data', () => {
+  it('invalidates the activity query on activity.changed', () => {
     const qc = new QueryClient()
-    qc.setQueryData(
-      ['activity', 50],
-      [{ ts: '2026-05-08T10:00:00Z', kind: 'commit', ref: 'abc1234', message: 'old' }],
-    )
+    const spy = vi.spyOn(qc, 'invalidateQueries')
     renderHook(() => useEventStream('/api/events'), { wrapper: wrapper(qc) })
     const es = MockEventSource.instances[0]
     if (!es) throw new Error('EventSource not constructed')
-    const newEvent = {
-      ts: '2026-05-08T11:00:00Z',
-      kind: 'hook',
-      rule_id: 'lint-tasks',
-      decision: 'allow',
-    }
     act(() => {
-      es.fireMessage({ type: 'activity.added', event: newEvent })
+      es.fireMessage({ type: 'activity.changed' })
     })
-    const data = qc.getQueryData(['activity', 50]) as Array<{ ts: string }>
-    expect(data?.[0]?.ts).toBe('2026-05-08T11:00:00Z')
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['activity', 50] })
   })
 
   it('invalidates meta/stats on cost.updated', () => {
