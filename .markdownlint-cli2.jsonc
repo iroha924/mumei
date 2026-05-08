@@ -39,7 +39,8 @@
     "**/*.md"
   ],
   "ignores": [
-    "node_modules/**",
+    "**/node_modules/**",
+    "**/dist/**",
     ".mumei/**",
     ".claude/**",
     "docs/**",
