@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { classify } from './fs-watch.ts'
+import { classify, shouldIgnore } from './fs-watch.ts'
 
 const ROOT = '/proj/.mumei'
 
@@ -80,5 +80,30 @@ describe('classify', () => {
 
   it('returns null for tasks.md (not a watched event source)', () => {
     expect(classify(ROOT, path.join(ROOT, 'specs/REQ-15-foo/tasks.md'))).toBeNull()
+  })
+})
+
+describe('shouldIgnore', () => {
+  it('ignores mktemp atomic-write tmp files (6 alphanumeric suffix)', () => {
+    expect(shouldIgnore('/proj/.mumei/specs/REQ-1/state.json.aB3xZ9')).toBe(true)
+    expect(shouldIgnore('/proj/.mumei/plans/foo/state.json.000aaa')).toBe(true)
+  })
+
+  it('does not ignore the canonical state.json file itself', () => {
+    expect(shouldIgnore('/proj/.mumei/specs/REQ-1/state.json')).toBe(false)
+  })
+
+  it('does not match suffix lengths other than 6 (defensive against template change)', () => {
+    expect(shouldIgnore('/proj/.mumei/specs/REQ-1/state.json.aB3xZ91')).toBe(false)
+    expect(shouldIgnore('/proj/.mumei/specs/REQ-1/state.json.aB3xZ')).toBe(false)
+  })
+
+  it('ignores .rotate.lock from hook-stats log rotation', () => {
+    expect(shouldIgnore('/proj/.mumei/.hook-stats.jsonl.rotate.lock')).toBe(true)
+  })
+
+  it('does not ignore unrelated paths', () => {
+    expect(shouldIgnore('/proj/.mumei/specs/REQ-1/tasks.md')).toBe(false)
+    expect(shouldIgnore('/proj/.mumei/cost-log.jsonl')).toBe(false)
   })
 })

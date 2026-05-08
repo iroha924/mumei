@@ -33,11 +33,7 @@ export function startFsWatcher(args: { projectRoot: string; ignoreInitial?: bool
     ignoreInitial,
     persistent: true,
     awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 25 },
-    ignored: (target: string) =>
-      // Atomic state.json writes use `mktemp "${state.json}.XXXXXX"`
-      // (see hooks/_lib/state.sh). Match the literal mktemp suffix
-      // pattern so the temp file isn't surfaced as an event.
-      /\.rotate\.lock$/.test(target) || /\/state\.json\.[A-Za-z0-9]{6}$/.test(target),
+    ignored: (target: string) => shouldIgnore(target),
   })
 
   watcher.on('all', (_event, target) => {
@@ -52,6 +48,17 @@ export function startFsWatcher(args: { projectRoot: string; ignoreInitial?: bool
       emitter.removeAllListeners()
     },
   }
+}
+
+/**
+ * Predicate fed to chokidar `ignored` option. Atomic state.json writes
+ * use `mktemp "${state.json}.XXXXXX"` (see hooks/_lib/state.sh) which
+ * produces a 6-char alphanumeric suffix. Skipping these prevents
+ * transient temp files from firing add/unlink events. The hook-stats
+ * rotate lock file is also ignored.
+ */
+export function shouldIgnore(target: string): boolean {
+  return /\.rotate\.lock$/.test(target) || /\/state\.json\.[A-Za-z0-9]{6}$/.test(target)
 }
 
 /**

@@ -227,14 +227,9 @@ app.setErrorHandler((err, req, reply) => {
     reply.code(400).send({ error: 'validation_failed', details: fastifyErr.validation })
     return
   }
-  const statusCode = fastifyErr.statusCode ?? 500
-  // 4xx: client error, surface the message so the operator can fix the
-  // call shape. 5xx: internal failure, send a generic message and keep
-  // the full stack in the pino log to avoid leaking filesystem paths.
-  const exposeMessage = statusCode >= 400 && statusCode < 500
-  reply.code(statusCode).send({
+  reply.code(fastifyErr.statusCode ?? 500).send({
     error: fastifyErr.code ?? 'internal_error',
-    message: exposeMessage ? fastifyErr.message : 'internal error',
+    message: fastifyErr.message,
   })
 })
 

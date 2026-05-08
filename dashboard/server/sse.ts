@@ -160,12 +160,15 @@ function handleRawEvent(
       // state.json updates affect FeatureGrid (lastActivityMin / pulse)
       // and the activity feed (phase change). Emit feature.update so
       // the grid + detail refetch, and activity.changed so the feed
-      // refetches /api/activity (which reconstructs the phase event
-      // from state.json mtime — no need to fabricate a payload).
+      // refetches /api/activity. Separate debounce keys per kind so
+      // a busy session (state + review + hook-stats firing in the same
+      // 200ms window) does not starve any one event.
       debouncer.schedule(`feature.update::${slug}`, debounceMs, () =>
         emit({ type: 'feature.update', slug }),
       )
-      debouncer.schedule('activity.changed', debounceMs, () => emit({ type: 'activity.changed' }))
+      debouncer.schedule('activity.changed::state', debounceMs, () =>
+        emit({ type: 'activity.changed' }),
+      )
       return
     }
     case 'cost-log': {
@@ -178,21 +181,20 @@ function handleRawEvent(
       if (!raw.slug) return
       const slug = raw.slug
       // Reviews change a feature's lastVerdict in the FeatureGrid AND
-      // append a row to the ActivityFeed. Emit feature.update (so the
-      // grid refetches /api/features) and an activity.changed marker
-      // (so the feed refetches /api/activity). The client invalidates
-      // both caches; /api/activity reads the real verdict from disk so
-      // we never need to inline placeholder fields here.
+      // append a row to the ActivityFeed.
       debouncer.schedule(`feature.update::${slug}`, debounceMs, () =>
         emit({ type: 'feature.update', slug }),
       )
-      debouncer.schedule('activity.changed', debounceMs, () => emit({ type: 'activity.changed' }))
+      debouncer.schedule('activity.changed::review', debounceMs, () =>
+        emit({ type: 'activity.changed' }),
+      )
       return
     }
     case 'hook-stats': {
-      // Project-wide; coalesce all changes. Same pattern as review:
-      // emit a marker, let the client refetch /api/activity.
-      debouncer.schedule('activity.changed', debounceMs, () => emit({ type: 'activity.changed' }))
+      // Project-wide hook firings; emit only a marker, client refetches.
+      debouncer.schedule('activity.changed::hook', debounceMs, () =>
+        emit({ type: 'activity.changed' }),
+      )
       return
     }
   }

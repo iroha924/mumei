@@ -67,6 +67,23 @@ export async function buildWaveplan(args: {
 
   const tf = await resolveTasksFile(projectRoot, featureKey)
   if (!tf) {
+    // Surface a single info line on the FIRST miss within a memo TTL so
+    // operators can distinguish "plan-vehicle by design" from "parse
+    // failure" without having to read source. The memo dedupes
+    // subsequent calls within 5s. (REQ-15 review iter 2 finding.)
+    if (!memo.has(memoKey)) {
+      try {
+        await access(path.join(projectRoot, '.mumei', 'plans', featureKey))
+        process.stderr.write(
+          `[tasks-bridge] plan-vehicle feature ${featureKey} has no tasks.md by design — returning empty waveplan\n`,
+        )
+      } catch {
+        // Not a plan-vehicle feature either — featureKey unknown.
+        process.stderr.write(
+          `[tasks-bridge] no tasks.md found for ${featureKey} (specs and plans both absent) — returning empty waveplan\n`,
+        )
+      }
+    }
     memo.set(memoKey, { ts: Date.now(), payload: [] })
     return []
   }
