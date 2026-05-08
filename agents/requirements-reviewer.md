@@ -61,6 +61,14 @@ Coverage gap is the **mumei spec-quality gate**. Even one missing requirement sh
 
 The user explicitly excluded something but the spec implies it via an AC. (Will only catch from requirements.md alone — full check happens in design/tasks reviewers too.)
 
+### Examples coverage gap (high-risk AC with zero examples)
+
+An AC is high-risk — its EARS clause uses `IF` / `UNLESS`, OR the AC body explicitly mentions a failure / lock / reject path — AND the AC has zero `Examples:` lines beneath it. High-risk ACs without at least one concrete example leave the negative path unmoored from a verifiable scenario.
+
+### Examples internal inconsistency (actor or trigger disagreement)
+
+An `Examples:` line under an AC names an actor that disagrees with the User Story actor, OR describes a trigger that disagrees with the AC's `WHEN` / `WHILE` / `IF` / `WHERE` clause. Internal inconsistency is a HIGH defect because it silently encodes a hallucinated scenario into the spec — the example reads plausibly but contradicts the AC it claims to illustrate.
+
 ## MEDIUM severity (verdict NEEDS_IMPROVEMENT)
 
 ### Hallucinated AC
@@ -76,6 +84,22 @@ For each hallucinated AC, suggest: `Add [ASSUMPTION] annotation with source` / `
 ### Vague AC
 
 An AC is non-verifiable in its current form ("the system should be fast"). Acceptance criteria must be testable.
+
+### Examples coverage thin (single example on multi-path AC)
+
+An AC has exactly one `Examples:` line AND the AC is not single-path (it does not satisfy the single-path condition: an AC with no `IF` / `UNLESS` / `WHILE` clause that describes a single unconditional action). One example for a multi-path AC fails to illustrate the branch the AC encodes.
+
+### Examples coverage skewed (happy path only with explicit branch)
+
+All `Examples:` lines under an AC describe the happy path only AND the AC has an explicit `IF` / `UNLESS` branch. The branch is unrepresented in the examples even though it is a load-bearing part of the AC's specification.
+
+### Requirement smell — ambiguity, vagueness, incompleteness
+
+Flag MEDIUM-severity findings under the `requirement_smell` category for the following patterns inside an AC body:
+
+- **Ambiguity**: vague modal verbs (`may`, `might`, `could`, `as needed`) without measurable criteria. Acceptance criteria must be testable; speculative modals make verification impossible.
+- **Vagueness**: undefined adjectives such as `fast`, `easy`, `user-friendly`, `efficient`, `reasonable`, `appropriate` without a concrete threshold. Quantify or remove.
+- **Incompleteness**: an AC missing the trigger clause (no `WHEN` / `WHILE` / `IF` / `WHERE` keyword) OR missing the response clause (no `SHALL <response>` segment). Both halves are required for an AC to be testable.
 
 ## LOW severity (verdict PASS with warnings)
 
@@ -106,8 +130,11 @@ A user requirement maps loosely to an AC but the wording is partial (user said "
 6. For each AC in `requirements.md`, search Set A. If no match, classify as `hallucinated` (with potential reasons in the finding).
 7. Inspect each AC for structural quality (EARS, annotations, REQ trace ID).
 8. Inspect `## Out of Scope` for completeness (every user-stated negative requirement should be there).
-9. Compute the verdict per the rules below.
-10. Emit the JSON output.
+9. For each AC, parse the inline `Examples:` block (zero, one, or two natural-language list items beneath the AC line). Classify the AC as single-path (no `IF` / `UNLESS` / `WHILE` clause describing one unconditional action) or multi-path. Apply the `examples_coverage` rules above.
+10. For each `Examples:` line, verify internal consistency: the actor named in the example agrees with the User Story actor, AND the trigger described in the example agrees with the AC's `WHEN` / `WHILE` / `IF` / `WHERE` clause. Any disagreement is a HIGH `examples_coverage` finding.
+11. Inspect each AC body for `requirement_smell` patterns (ambiguity / vagueness / incompleteness) per the MEDIUM rules above.
+12. Compute the verdict per the rules below.
+13. Emit the JSON output.
 
 # Verdict aggregation rules
 
@@ -134,7 +161,7 @@ This agent has NO memory configured. You operate purely on the inputs you receiv
     {
       "id": "F-001",
       "severity": "HIGH|MEDIUM|LOW",
-      "category": "coverage_gap|hallucination|structural|vague|out_of_scope|style",
+      "category": "coverage_gap|hallucination|structural|vague|out_of_scope|style|examples_coverage|requirement_smell",
       "location": "requirements.md#REQ-1.3 (or `(missing)` for coverage gaps)",
       "source_quote": "<verbatim quote from conversation or scratch, if applicable>",
       "source_turn": "<turn number or scratch file path, if applicable>",
@@ -171,3 +198,7 @@ Natural-language fields (`message`, `suggested_fix`, `reasoning`, `reason`, `sum
 - Do NOT propose architectural decisions or implementation details.
 - Do NOT modify `requirements.md`. Reporting only.
 - If conversation transcript or scratch files cannot be read, set `confidence: "LOW"` and note in `summary` (do not silently degrade).
+
+# Bypass policy
+
+When `MUMEI_BYPASS=1` is set in the environment, `examples_coverage` and `requirement_smell` findings MUST still be emitted in the `findings` array (so the audit trail remains intact), but the orchestrator's verdict aggregation treats them as informational only — they do NOT block phase advance. This is consistent with mumei's single-escape-hatch policy: `MUMEI_BYPASS=1` is the only way to surface findings without gating progress, and no per-feature override flag exists.
