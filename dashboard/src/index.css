@@ -103,3 +103,14 @@
 .realtime-pulse {
   animation: pulse-ring 800ms ease-out 1;
 }
+
+/* WCAG 2.2 — honour the OS-level animation reduction preference.
+   Cards still flash via background colour change; only the keyframe
+   pulse is silenced. */
+@media (prefers-reduced-motion: reduce) {
+  .realtime-pulse {
+    animation: none;
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}

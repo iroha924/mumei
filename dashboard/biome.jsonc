@@ -1,0 +1,106 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "src/**/*.{ts,tsx}",
+      "server/**/*.ts",
+      "scripts/**/*.ts",
+      "*.{ts,json,jsonc}",
+      "!dist",
+      "!node_modules",
+      "!src/types"
+    ],
+    "ignoreUnknown": true
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": {
+        "recommended": true,
+        // shadcn/ui の BreadcrumbPage が `role="link"` を持つ <span> を使う既知の競合。
+        // 詳細: https://github.com/shadcn-ui/ui/issues/7639
+        "useFocusableInteractive": "off"
+      },
+      "complexity": {
+        "noUselessTypeConstraint": "error",
+        "useArrowFunction": "error"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "useExhaustiveDependencies": "warn"
+      },
+      "style": {
+        "useImportType": "error",
+        "useNodejsImportProtocol": "error",
+        "noNonNullAssertion": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConsole": {
+          "level": "warn",
+          "options": { "allow": ["error", "warn", "info"] }
+        }
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all",
+      "arrowParentheses": "always",
+      "bracketSpacing": true
+    }
+  },
+  "json": {
+    "formatter": {
+      "trailingCommas": "none"
+    }
+  },
+  "css": {
+    // Tailwind v4 uses non-standard directives (@theme, @theme inline,
+    // @apply, @variants, @utility) that Biome's strict CSS parser
+    // rejects. Disable CSS parsing entirely; Vite + Tailwind v4 plugin
+    // handle the design-token CSS, and shadcn/ui enforces conventions
+    // via `components.json`. Re-enable when Biome ships
+    // tailwind-aware CSS support.
+    "formatter": { "enabled": false },
+    "linter": { "enabled": false }
+  },
+  "overrides": [
+    {
+      // Generated artifacts — do not lint or format.
+      "includes": ["src/types/**/*.ts"],
+      "linter": { "enabled": false },
+      "formatter": { "enabled": false }
+    },
+    {
+      // Tests can use a few patterns we discourage in app code (any in test
+      // doubles, console.log for debugging traces).
+      "includes": ["src/**/*.{test,spec}.{ts,tsx}", "src/test/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "warn",
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
+}

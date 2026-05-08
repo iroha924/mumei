@@ -5,9 +5,10 @@
  * Output lands in src/types/<schema-name>.ts. We commit the generated
  * files so PR review can see schema-driven type drift.
  */
-import { compile } from 'json-schema-to-typescript'
-import { readFile, writeFile, readdir } from 'node:fs/promises'
+
+import { readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { compile } from 'json-schema-to-typescript'
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..')
 const SCHEMAS_DIR = path.join(REPO_ROOT, 'schemas')

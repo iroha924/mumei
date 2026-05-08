@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 import type { ServerEvent } from '@/types/api'
 
 /**
@@ -65,7 +65,7 @@ export function useEventStream(path: string): {
     return () => {
       es.close()
       const timeouts = timeoutsRef.current
-      timeouts.forEach((t) => clearTimeout(t))
+      for (const t of timeouts.values()) clearTimeout(t)
       timeouts.clear()
       setConnected(false)
     }

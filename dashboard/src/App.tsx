@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { FeatureSummary, ServerEvent } from './types/api'
+import { type ReactElement, useEffect } from 'react'
 import { useEventStream } from './hooks/useEventStream'
+import type { FeatureSummary, ServerEvent } from './types/api'
 
 /**
  * Skeleton App. The real layout / styling lands when the user pastes
@@ -14,7 +14,7 @@ import { useEventStream } from './hooks/useEventStream'
  * Replace the markup inside FeatureGrid / DetailPanel with the
  * Claude Design HTML when ready.
  */
-export function App(): JSX.Element {
+export function App(): ReactElement {
   useDarkModeOnMount()
 
   const featuresQuery = useQuery<FeatureSummary[]>({
@@ -40,7 +40,7 @@ export function App(): JSX.Element {
   )
 }
 
-function TopBar({ live }: { live: boolean }): JSX.Element {
+function TopBar({ live }: { live: boolean }): ReactElement {
   return (
     <header className="h-16 border-b border-border flex items-center px-4 gap-4">
       <span className="font-mono text-lg font-semibold tracking-tight">mumei</span>
@@ -48,13 +48,17 @@ function TopBar({ live }: { live: boolean }): JSX.Element {
         {/* TODO: surface project root path from /api/meta */}
         ~/projects
       </span>
-      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span
+        className="flex items-center gap-2 text-xs text-muted-foreground"
+        role="status"
+        aria-live="polite"
+      >
         <span
           className={[
             'inline-block h-2 w-2 rounded-full',
             live ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500',
           ].join(' ')}
-          aria-label={live ? 'live' : 'disconnected'}
+          aria-hidden="true"
         />
         {live ? 'Live' : 'Disconnected'}
       </span>
@@ -68,7 +72,7 @@ function FeatureGrid({
 }: {
   features: FeatureSummary[]
   pulses: Set<string>
-}): JSX.Element {
+}): ReactElement {
   if (features.length === 0) {
     return (
       <section className="flex items-center justify-center text-muted-foreground">
@@ -91,7 +95,7 @@ function FeatureCard({
 }: {
   feature: FeatureSummary
   pulse: boolean
-}): JSX.Element {
+}): ReactElement {
   return (
     <article
       className={[
@@ -118,7 +122,7 @@ function FeatureCard({
   )
 }
 
-function DetailPanel(): JSX.Element {
+function DetailPanel(): ReactElement {
   return (
     <aside className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
       Select a feature to drill in.
@@ -126,7 +130,7 @@ function DetailPanel(): JSX.Element {
   )
 }
 
-function TrendBar(): JSX.Element {
+function TrendBar(): ReactElement {
   return (
     <footer className="h-[280px] border-t border-border p-4 text-sm text-muted-foreground">
       Trend graphs (cost / review iters / hook firing) — Recharts mount goes here.
@@ -137,16 +141,10 @@ function TrendBar(): JSX.Element {
 function useDarkModeOnMount(): void {
   useEffect(() => {
     const prefersDark =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches
+      typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
     document.documentElement.classList.toggle('dark', prefersDark)
   }, [])
 }
 
 // Re-export so other files importing ServerEvent type don't have to know about the hook.
 export type { ServerEvent }
-
-// noUnusedLocals: keep useState live for placeholder hooks the Claude
-// Design integration will need. Will be removed when the real components
-// land.
-void useState

@@ -39,7 +39,11 @@ repos:
     hooks:
       - id: prettier
         types_or: [markdown, yaml, json]
-        exclude: ^(\.mumei/|docs/|examples/|CODE_OF_CONDUCT\.md|\.markdownlint-cli2\.jsonc)
+        # dashboard/ is owned by Biome (`biome check`); prettier and Biome
+        # disagree on line wrap (one-line vs multi-line refs[]) which
+        # causes auto-fix ping-pong. Schemas/ ships JSON Schemas with
+        # specific layout we don't want re-formatted.
+        exclude: ^(\.mumei/|docs/|examples/|CODE_OF_CONDUCT\.md|\.markdownlint-cli2\.jsonc|dashboard/|schemas/)
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.18.1

@@ -1,7 +1,6 @@
+import { execFile } from 'node:child_process'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
-
-import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const exec = promisify(execFile)
@@ -82,9 +81,7 @@ async function summariseFeature(args: {
   }
 
   const requirementsBody = await safeReadFile(path.join(featureDir, 'requirements.md'))
-  const ac_count = requirementsBody
-    ? (requirementsBody.match(/^- REQ-\d+\.\d+/gm) ?? []).length
-    : 0
+  const ac_count = requirementsBody ? (requirementsBody.match(/^- REQ-\d+\.\d+/gm) ?? []).length : 0
 
   const tasksBody = await safeReadFile(path.join(featureDir, 'tasks.md'))
   const wave_count = tasksBody ? (tasksBody.match(/^## Wave \d+:/gm) ?? []).length : 0
@@ -126,8 +123,9 @@ async function latestReviewVerdict(
     .filter((e) => e.isFile() && e.name.endsWith('.json') && !e.name.endsWith('-detectors.json'))
     .map((e) => e.name)
     .sort()
-  if (reviewFiles.length === 0) return null
-  const latestPath = path.join(reviewsDir, reviewFiles[reviewFiles.length - 1]!)
+  const latestName = reviewFiles[reviewFiles.length - 1]
+  if (!latestName) return null
+  const latestPath = path.join(reviewsDir, latestName)
   const body = await safeReadFile(latestPath)
   if (!body) return null
   try {
