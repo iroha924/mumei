@@ -56,7 +56,7 @@ fi
 # Append fallback (placeholder) record. Helper used both for failure
 # branches and for the success branch (which overwrites usage with real
 # values).
-emit_record() {
+_mumei_emit_cost_record() {
   local usage_json="$1"
   local note="$2"
   local record
@@ -75,6 +75,6 @@ emit_record() {
   fi
 }
 
-emit_record '{}' "stop-event-only: usage tracked by orchestrator wrap"
+_mumei_emit_cost_record '{}' "stop-event-only: usage tracked by orchestrator wrap"
 
 exit 0
