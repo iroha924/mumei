@@ -42,15 +42,18 @@ export function CompactDashboard(): ReactElement {
   const archived = features.filter((f) => f.archived)
   const selectedFeature = features.find((f) => f.id === selected) ?? null
 
+  // Detail panel as overlay on narrow screens so the grid keeps full width.
+  const detailOpen = selectedFeature !== null
+
   return (
-    <div className="w-full min-h-screen bg-zinc-950 paper-bg relative text-zinc-200 flex flex-col font-sans">
+    <div className="w-full h-dvh min-h-[640px] bg-zinc-950 paper-bg relative text-zinc-200 flex flex-col font-sans overflow-hidden">
       <TopBar activeCount={active.length} connected={live.connected} />
 
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 border-r border-zinc-800 overflow-y-auto">
           <FilterStrip />
 
-          <div className="p-4 grid grid-cols-4 gap-2.5 auto-rows-fr">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 auto-rows-fr">
             {active.map((f) => (
               <CompactCard key={f.id} f={f} selected={selected === f.id} onSelect={setSelected} />
             ))}
@@ -70,7 +73,7 @@ export function CompactDashboard(): ReactElement {
             {showArchived && (
               <div
                 id="archived-grid"
-                className="mt-2.5 grid grid-cols-4 gap-2.5 auto-rows-fr opacity-70"
+                className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 auto-rows-fr opacity-70"
               >
                 {archived.map((f) => (
                   <CompactCard
@@ -85,7 +88,18 @@ export function CompactDashboard(): ReactElement {
           </div>
         </div>
 
-        <aside className="w-[420px] shrink-0 bg-zinc-950/40">
+        {/* Detail panel: pinned 380–420px on lg+; full-screen overlay below. */}
+        <aside
+          className={cn(
+            'shrink-0 bg-zinc-950/40 transition-all',
+            // Desktop: pinned side panel sized for laptop down to 4K
+            'hidden lg:block lg:w-[340px] xl:w-[380px] 2xl:w-[420px]',
+            // Mobile / tablet: only mount when a feature is selected, then float as drawer
+            detailOpen &&
+              'fixed inset-0 z-30 block w-full lg:static lg:inset-auto lg:z-auto bg-zinc-950',
+          )}
+          aria-label="feature detail"
+        >
           <DetailPanel feature={selectedFeature} onClose={() => setSelected(null)} />
         </aside>
       </div>
@@ -109,8 +123,8 @@ function TopBar({
   connected: boolean
 }): ReactElement {
   return (
-    <header className="h-[52px] shrink-0 border-b border-zinc-800 flex items-center px-5 gap-5">
-      <div className="flex items-center gap-2">
+    <header className="h-[52px] shrink-0 border-b border-zinc-800 flex items-center px-3 sm:px-5 gap-3 sm:gap-5">
+      <div className="flex items-center gap-2 shrink-0">
         <img
           src="/mumei-mascot.png"
           alt="mumei"
@@ -119,17 +133,23 @@ function TopBar({
         />
         <span className="font-mono text-[13px] tracking-tight text-zinc-100">mumei</span>
       </div>
-      <div className="flex-1 flex items-center gap-2 max-w-md font-mono text-[11px]">
-        <span className="text-zinc-500">~/code/</span>
+      <div className="hidden sm:flex flex-1 items-center gap-2 max-w-md font-mono text-[11px] min-w-0">
+        <span className="text-zinc-500 shrink-0">~/code/</span>
         <span className="text-zinc-200 truncate">harness-quality-improv</span>
       </div>
-      <div className="flex items-center gap-4 font-mono text-[10.5px]">
+      <div className="flex-1 sm:flex-none" />
+      {/* Stats — progressively reveal as space allows. */}
+      <div className="flex items-center gap-3 lg:gap-4 font-mono text-[10.5px]">
         <CompactStat n={activeCount} label="active" />
         <CompactStat n="74.8M" label="tokens" />
         <CompactStat n="74%" label="cache" tone="emerald" />
-        <CompactStat n="2.3/s" label="hooks" />
-        <CompactStat n="441" label="events" />
-        <span className="w-px h-4 bg-zinc-800" />
+        <span className="hidden xl:inline-flex items-baseline gap-1">
+          <CompactStat n="2.3/s" label="hooks" />
+        </span>
+        <span className="hidden 2xl:inline-flex items-baseline gap-1">
+          <CompactStat n="441" label="events" />
+        </span>
+        <span className="hidden sm:inline-block w-px h-4 bg-zinc-800" />
         <LivePulse connected={connected} />
       </div>
     </header>
@@ -159,8 +179,8 @@ function CompactStat({
 
 function FilterStrip(): ReactElement {
   return (
-    <div className="px-5 py-3 border-b border-zinc-800/60 flex items-center gap-2 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
-      <div className="flex items-center gap-1 font-mono text-[10px]">
+    <div className="px-3 sm:px-5 py-3 border-b border-zinc-800/60 flex flex-wrap items-center gap-2 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
+      <div className="flex items-center gap-1 font-mono text-[10px] flex-wrap">
         {(['all', 'plan', 'implement', 'review', 'done'] as const).map((p, i) => (
           <button
             type="button"
@@ -176,7 +196,7 @@ function FilterStrip(): ReactElement {
           </button>
         ))}
       </div>
-      <span className="w-px h-4 bg-zinc-800 mx-1" />
+      <span className="w-px h-4 bg-zinc-800 mx-1 hidden md:inline-block" />
       <div className="flex items-center gap-1 font-mono text-[10px]">
         {(['all', 'spec', 'plan'] as const).map((v, i) => (
           <button
@@ -193,13 +213,13 @@ function FilterStrip(): ReactElement {
           </button>
         ))}
       </div>
-      <div className="flex-1" />
+      <div className="flex-1 min-w-[8rem]" />
       <input
         placeholder="filter slug…"
         aria-label="filter slug"
-        className="font-mono text-[11px] bg-zinc-900/70 border border-zinc-800 rounded-full px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-44"
+        className="font-mono text-[11px] bg-zinc-900/70 border border-zinc-800 rounded-full px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-32 sm:w-44"
       />
-      <div className="flex items-center gap-1 font-mono text-[10px]">
+      <div className="hidden sm:flex items-center gap-1 font-mono text-[10px]">
         <button
           type="button"
           className="px-2 py-1 rounded-full border border-zinc-800 text-zinc-400 hover:border-zinc-700"
@@ -285,18 +305,22 @@ function CompactCard({
 }
 
 function TrendBar(): ReactElement {
+  // < lg: horizontal-scroll snap row so cards keep room above; each
+  // chart pane minimum 280px wide. lg+: 3-up flex with the prototype's
+  // 200px height. Chart SVG height shrinks slightly on narrower
+  // viewports to keep titles + legend readable.
   return (
-    <footer className="shrink-0 h-[200px] border-t border-zinc-800 flex">
-      <div className="flex-1 px-4 py-2.5 border-r border-zinc-800/60">
+    <footer className="shrink-0 border-t border-zinc-800 h-40 lg:h-[200px] flex overflow-x-auto snap-x snap-mandatory lg:snap-none">
+      <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 border-r border-zinc-800/60 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
           <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
             Tokens / day
           </div>
           <div className="font-mono text-[10px] text-zinc-300 tabular-nums">74.8M</div>
         </div>
-        <LineChart data={TOKEN_SERIES} h={140} />
-      </div>
-      <div className="flex-1 px-4 py-2.5 border-r border-zinc-800/60">
+        <LineChart data={TOKEN_SERIES} h={120} />
+      </section>
+      <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 border-r border-zinc-800/60 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
           <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
             Review outcomes
@@ -307,17 +331,17 @@ function TrendBar(): ReactElement {
             <LegendDot color="#b86a55" label="MI" />
           </div>
         </div>
-        <StackedBar data={REVIEW_SERIES} h={140} />
-      </div>
-      <div className="flex-1 px-4 py-2.5">
+        <StackedBar data={REVIEW_SERIES} h={120} />
+      </section>
+      <section className="snap-start shrink-0 w-full sm:w-1/2 lg:flex-1 lg:w-auto lg:min-w-0 px-3 sm:px-4 py-2.5 min-w-[280px]">
         <div className="flex items-center justify-between mb-1">
           <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
             Hooks · top 10
           </div>
           <div className="font-mono text-[10px] text-zinc-500">{ACTIVITY_FEED.length} / 24h</div>
         </div>
-        <HBar data={HOOK_TOP} h={140} />
-      </div>
+        <HBar data={HOOK_TOP} h={120} />
+      </section>
     </footer>
   )
 }

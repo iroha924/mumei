@@ -89,9 +89,13 @@ body {
 
 /* Rotating shimmer ring for new-event cards.
    Spinning conic-gradient under a border-only mask = a single highlight
-   that sweeps around the card edge. */
+   that sweeps around the card edge. The radius is set explicitly to
+   1rem (= Tailwind `rounded-2xl`) so the mask + overflow clip trace
+   the rounded outline. Earlier `border-radius: inherit` resolved to 0
+   because the wrapper div has no rounded class, leaving square
+   corners on the shimmer. */
 .mumei-shimmer {
-  border-radius: inherit;
+  border-radius: 1rem;
   padding: 1.5px;
   pointer-events: none;
   overflow: hidden;
@@ -127,7 +131,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 1rem;
   box-shadow: 0 0 0 1px rgba(135, 102, 128, 0.18) inset;
 }
 
