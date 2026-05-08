@@ -28,7 +28,7 @@ mumei_dependencies_active_dependents_of() {
   local target_id
   target_id="$(printf '%s' "$target" | grep -oE '^REQ-[0-9]+' || true)"
 
-  local feature_dir feature_key phase deps dep
+  local feature_dir feature_key phase dep
   for feature_dir in .mumei/specs/*/ .mumei/plans/*/; do
     [[ -d "$feature_dir" ]] || continue
     feature_key="$(basename "$feature_dir")"
@@ -42,8 +42,10 @@ mumei_dependencies_active_dependents_of() {
     [[ "$phase" == "done" ]] && continue
 
     if [[ -f "${feature_dir}tasks.md" ]]; then
-      deps="$(mumei_tasks_wave_depends_features "$feature_key" 2>/dev/null || true)"
-      for dep in $deps; do
+      local -a deps_arr
+      # Whitespace-split the helper's space-separated output into array.
+      read -r -a deps_arr <<<"$(mumei_tasks_wave_depends_features "$feature_key" 2>/dev/null || true)"
+      for dep in "${deps_arr[@]}"; do
         if [[ "$dep" == "$target" ]] || { [[ -n "$target_id" ]] && [[ "$dep" == "$target_id" ]]; }; then
           printf '%s\n' "$feature_key"
           break

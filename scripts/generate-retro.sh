@@ -57,7 +57,7 @@ if [[ -f "${feature_dir}/tasks.md" ]]; then
 fi
 
 # Spec-reviewer iter counts (per spec doc).
-_count_spec_reviews() {
+_mumei_count_spec_reviews() {
   local kind="$1"
   if [[ -d "${feature_dir}/spec-reviews" ]]; then
     find "${feature_dir}/spec-reviews" -maxdepth 1 -name "*-${kind}.json" 2>/dev/null | wc -l | tr -d ' '
@@ -65,9 +65,9 @@ _count_spec_reviews() {
     echo 0
   fi
 }
-req_iters="$(_count_spec_reviews requirements)"
-design_iters="$(_count_spec_reviews design)"
-tasks_iters="$(_count_spec_reviews tasks)"
+req_iters="$(_mumei_count_spec_reviews requirements)"
+design_iters="$(_mumei_count_spec_reviews design)"
+tasks_iters="$(_mumei_count_spec_reviews tasks)"
 
 # Phase 5 review iter pattern + spiral detection.
 review_iters=0
@@ -91,14 +91,15 @@ if [[ -d "${feature_dir}/reviews" ]]; then
   # tagged "introduced-during-fix" (reviewers may set this) OR by
   # detecting iter-over-iter HIGH-count regressions.
   prev_high=0
-  for f in $(find "${feature_dir}/reviews" -maxdepth 1 -name '*.json' \
-    ! -name '*-detectors.json' 2>/dev/null | sort); do
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
     cur_high="$(jq '[.findings_surfaced[]? | select(.severity == "HIGH" or .severity == "CRITICAL")] | length' "$f" 2>/dev/null || echo 0)"
     if ((cur_high > prev_high)) && ((prev_high > 0)); then
       spiral_count=$((spiral_count + 1))
     fi
     prev_high="$cur_high"
-  done
+  done < <(find "${feature_dir}/reviews" -maxdepth 1 -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null | sort)
 fi
 
 # Cost summary via aggregate-cost.sh JSON mode.

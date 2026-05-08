@@ -64,10 +64,10 @@ _mumei_scratch_match_keywords() {
   local goal_body="$1"
   # Keyword list is fixed by REQ-14.2 design; extending here also
   # requires updating tests/lib/vehicle-picker.bats.
-  local keywords="redesign refactor migration architecture rewrite overhaul"
+  local keywords=(redesign refactor migration architecture rewrite overhaul)
   local matched=()
   local kw
-  for kw in $keywords; do
+  for kw in "${keywords[@]}"; do
     if printf '%s' "$goal_body" | grep -qiE "\\b${kw}\\b" 2>/dev/null; then
       matched+=("$kw")
     fi
