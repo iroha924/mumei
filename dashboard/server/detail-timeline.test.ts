@@ -48,7 +48,7 @@ describe('buildTimeline (spec vehicle)', () => {
     expect(events).toContain('design.md drafted')
     expect(events).toContain('tasks.md drafted')
     expect(events).toContain('approved by user')
-    expect(events).toContain('phase: → implement')
+    expect(events).toContain('phase: (unknown) → implement')
     // generic "created" is gone
     expect(events).not.toContain('created')
   })
@@ -191,7 +191,10 @@ describe('buildTimeline (plan vehicle)', () => {
     })
     const events = r?.timeline.map((e) => e.event) ?? []
     expect(events).toContain('plan.md captured')
-    expect(events).toContain('3 tasks completed')
+    // Per-task events (REQ-18.4 / F-002 fix): one event per counter rollover.
+    expect(events).toContain('task 1 completed')
+    expect(events).toContain('task 2 completed')
+    expect(events).toContain('task 3 completed')
     expect(events).toContain('pending review')
     expect(events).not.toContain('created')
   })

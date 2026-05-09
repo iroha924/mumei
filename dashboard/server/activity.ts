@@ -51,14 +51,23 @@ export async function buildActivity(args: {
     collectArchives(projectRoot, cutoff),
   ])
 
+  // Per-kind quotas before the global slice (F-009). Hot hook activity
+  // (1 firing per second is normal) would otherwise saturate the limit
+  // and bury commits / reviews / phases that mattered. Quotas are sized
+  // so a typical 50-row window comfortably fits each kind's recent
+  // signal while still capping noisy hook traffic.
+  const cap = (events: MumeiActivityEvent[], n: number): MumeiActivityEvent[] => {
+    const sorted = [...events].sort((a, b) => b.ts.localeCompare(a.ts))
+    return sorted.slice(0, Math.max(0, n))
+  }
   const all: MumeiActivityEvent[] = [
-    ...commits,
-    ...reviews,
-    ...phases,
-    ...hooks,
-    ...subagents,
-    ...taskProgress,
-    ...archives,
+    ...cap(commits, 10),
+    ...cap(reviews, 10),
+    ...cap(phases, 10),
+    ...cap(hooks, 15),
+    ...cap(subagents, 15),
+    ...cap(taskProgress, 15),
+    ...cap(archives, 5),
   ]
   all.sort((a, b) => b.ts.localeCompare(a.ts))
   return all.slice(0, Math.max(0, limit))
@@ -212,6 +221,21 @@ async function collectStateFiles(projectRoot: string): Promise<string[]> {
   return out
 }
 
+// REQ-18.16: only the 8 mumei-distributed subagents are surfaced. Any
+// cost-log entry whose `agent` field is outside this allowlist is skipped
+// (e.g. user-defined / third-party subagents that happen to share the
+// SubagentStop hook).
+const VALID_AGENTS = new Set([
+  'spec-compliance-reviewer',
+  'security-reviewer',
+  'adversarial-reviewer',
+  'requirements-reviewer',
+  'design-reviewer',
+  'tasks-reviewer',
+  'issue-validator',
+  'memory-curator',
+])
+
 async function collectSubagents(
   projectRoot: string,
   cutoff: string,
@@ -222,7 +246,8 @@ async function collectSubagents(
     if (!slug) continue
     for await (const e of readJsonl<CostLogEntry>(file)) {
       if (!e.ts || e.ts < cutoff) continue
-      if (!e.agent || (e.phase !== 'before' && e.phase !== 'after')) continue
+      if (!e.agent || !VALID_AGENTS.has(e.agent)) continue
+      if (e.phase !== 'before' && e.phase !== 'after') continue
       const tokensTotal = (e.input_tokens ?? 0) + (e.output_tokens ?? 0)
       out.push({
         ts: e.ts,

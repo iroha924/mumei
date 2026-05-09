@@ -159,10 +159,11 @@ function handleRawEvent(
       const slug = raw.slug
       // state.json updates affect FeatureGrid (lastActivityMin / pulse) and
       // the activity feed (phase change). No trend data underneath state.json
-      // so `affects` is omitted. Separate debounce keys per kind so a busy
-      // session (state + review + hook-stats firing in the same 200ms window)
-      // does not starve any one event.
-      debouncer.schedule(`feature.update::${slug}`, debounceMs, () =>
+      // so `affects` is omitted. Debounce key includes the source so a
+      // back-to-back review+state burst on the same feature does not let
+      // the state callback supersede the review callback (which carries
+      // affects=['reviews']) — REQ-18 review F-008.
+      debouncer.schedule(`feature.update::${slug}::state`, debounceMs, () =>
         emit({ type: 'feature.update', slug }),
       )
       debouncer.schedule('activity.changed::state', debounceMs, () =>
@@ -180,8 +181,10 @@ function handleRawEvent(
       if (!raw.slug) return
       const slug = raw.slug
       // Reviews change a feature's lastVerdict in the FeatureGrid, append a row
-      // to the ActivityFeed, AND change the daily reviews trend bucket.
-      debouncer.schedule(`feature.update::${slug}`, debounceMs, () =>
+      // to the ActivityFeed, AND change the daily reviews trend bucket. Debounce
+      // key is per-source (review) so a concurrent state.json change cannot
+      // overwrite this callback's affects=['reviews'] payload (F-008).
+      debouncer.schedule(`feature.update::${slug}::review`, debounceMs, () =>
         emit({ type: 'feature.update', slug, affects: ['reviews'] }),
       )
       debouncer.schedule('activity.changed::review', debounceMs, () =>
@@ -207,8 +210,9 @@ function handleRawEvent(
       // tasks.md edits flip [ ] ↔ [x] and add new task lines, both of
       // which the waveplan tab reads from the feature detail payload.
       // Existing ['feature', slug, 'detail'] invalidation drives the
-      // refresh; no trend data is affected.
-      debouncer.schedule(`feature.update::${slug}`, debounceMs, () =>
+      // refresh; no trend data is affected. Per-source debounce key
+      // (F-008).
+      debouncer.schedule(`feature.update::${slug}::tasks`, debounceMs, () =>
         emit({ type: 'feature.update', slug }),
       )
       debouncer.schedule('activity.changed::tasks', debounceMs, () =>

@@ -98,11 +98,15 @@ async function resolveFeatureDir(
   }
 
   // Archive lookup: walk .mumei/archive/<YYYY-MM>/* for either an
-  // exact match or a `-<featureKey>` suffix match.
+  // exact match or a `-<featureKey>` suffix match. Months are iterated
+  // newest-first (REQ-18.15 SHALL "most-recent month first") via reverse
+  // lexicographic sort on the YYYY-MM dir names.
   const archiveRoot = path.join(projectRoot, '.mumei', 'archive')
   try {
     const fs = await import('node:fs/promises')
-    const months = await fs.readdir(archiveRoot, { withFileTypes: true })
+    const months = (await fs.readdir(archiveRoot, { withFileTypes: true })).sort((a, b) =>
+      b.name.localeCompare(a.name),
+    )
     for (const month of months) {
       if (!month.isDirectory()) continue
       const monthDir = path.join(archiveRoot, month.name)
@@ -380,16 +384,17 @@ async function buildSpecTimeline(args: {
   if (state?.approved_at) {
     out.push({ ts: state.approved_at, event: 'approved by user', ref: null })
   }
-  // Surface the latest known phase as a best-effort transition marker
-  // (state.json snapshots are not kept, so we cannot reconstruct the
-  // full from→to history; instead emit one marker per transition we
-  // can infer from current state + state.json mtime).
+  // Surface the latest known phase as a best-effort transition marker.
+  // state.json snapshots are not kept (gitignored, no audit-log entry),
+  // so we cannot reconstruct the previous phase; the `from` slot is
+  // rendered as the literal `(unknown)` to honour the AC's `<from> → <to>`
+  // shape (REQ-18.3) without claiming a phase we do not have evidence for.
   if (state?.phase && state.phase !== 'plan') {
     try {
       const s = await stat(path.join(featureDir, 'state.json'))
       out.push({
         ts: s.mtime.toISOString(),
-        event: `phase: → ${state.phase}`,
+        event: `phase: (unknown) → ${state.phase}`,
         ref: null,
       })
     } catch {
@@ -432,17 +437,22 @@ async function buildPlanTimeline(args: {
   await tryFileMtime(featureDir, 'plan.md', 'plan.md captured', out)
 
   const state = await readStateJson(featureDir)
-  // Plan vehicle stores per-task progress as a single rolled-up counter
-  // on state.json. Without an audit-log of counter rollovers, we surface
-  // a single summary event whose ts is state.json mtime.
+  // Plan vehicle stores per-task progress as a counter on state.json.
+  // Audit-log lacks per-rollover entries (Out of Scope), so all events
+  // share the same ts (state.json mtime) — REQ-18.4 expects per-counter
+  // events even in degraded form, so emit N individual `task <N> completed`
+  // events rather than one rolled-up summary.
   if (typeof state?.task_completed_count === 'number' && state.task_completed_count > 0) {
     try {
       const s = await stat(path.join(featureDir, 'state.json'))
-      out.push({
-        ts: s.mtime.toISOString(),
-        event: `${state.task_completed_count} task${state.task_completed_count === 1 ? '' : 's'} completed`,
-        ref: null,
-      })
+      const ts = s.mtime.toISOString()
+      for (let i = 1; i <= state.task_completed_count; i++) {
+        out.push({
+          ts,
+          event: `task ${i} completed`,
+          ref: null,
+        })
+      }
     } catch {
       // ignore
     }

@@ -1,5 +1,15 @@
 import type { ReactElement } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts'
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import {
   type ChartConfig,
   ChartContainer,
@@ -158,7 +168,10 @@ export function HBar({ data, h = 200 }: { data: HBarRow[]; h?: number }): ReactE
           tick={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fill: '#4a4234' }}
         />
         <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-        <Bar dataKey="n" radius={[0, 4, 4, 0]} fill={`var(--color-${data[0]?.decision ?? 'pass'})`}>
+        <Bar dataKey="n" radius={[0, 4, 4, 0]}>
+          {data.map((d) => (
+            <Cell key={d.id} fill={`var(--color-${d.decision})`} />
+          ))}
           <LabelList
             dataKey="n"
             position="right"

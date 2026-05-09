@@ -92,11 +92,13 @@ async function resolveTasksFile(projectRoot: string, featureKey: string): Promis
     // specs/ absent
   }
 
-  // archive walk
+  // archive walk — newest-first per REQ-18.15
   try {
-    const months = await fs.readdir(path.join(projectRoot, '.mumei', 'archive'), {
-      withFileTypes: true,
-    })
+    const months = (
+      await fs.readdir(path.join(projectRoot, '.mumei', 'archive'), {
+        withFileTypes: true,
+      })
+    ).sort((a, b) => b.name.localeCompare(a.name))
     for (const month of months) {
       if (!month.isDirectory()) continue
       const monthDir = path.join(projectRoot, '.mumei', 'archive', month.name)
