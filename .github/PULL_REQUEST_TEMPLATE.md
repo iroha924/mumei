@@ -1,8 +1,3 @@
-<!--
-Thanks for opening a PR! Please fill out the sections below. Items that don't
-apply can be marked N/A. The pre-merge checklist at the bottom is required.
--->
-
 ## Summary
 
 <!-- One sentence: what does this PR change? -->

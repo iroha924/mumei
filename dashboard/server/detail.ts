@@ -4,8 +4,14 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import type { MumeiFeatureDetailPayload as MumeiFeatureDetail } from '../src/types/feature-detail.ts'
 import { type CostLogEntry, readJsonl } from './lib/aggregator.ts'
-import { isValidFeatureKey } from './lib/feature-key.ts'
 import { buildWaveplan } from './lib/tasks-bridge.ts'
+
+// Allowlist for featureKey segments used in filesystem paths under
+// .mumei/{specs,plans,archive}/. Mirrors the TypeBox SlugParam pattern in
+// server/index.ts; duplicated inline at every entry point so CodeQL's
+// path-injection dataflow recognises the guard at each sink (helper
+// functions are not consistently followed across module boundaries).
+const FEATURE_KEY_RE = /^[A-Za-z0-9_-]{1,100}$/
 
 const exec = promisify(execFile)
 
@@ -20,7 +26,7 @@ export async function buildFeatureDetail(args: {
   featureKey: string
 }): Promise<MumeiFeatureDetail | null> {
   const { projectRoot, pluginRoot, featureKey } = args
-  if (!isValidFeatureKey(featureKey)) return null
+  if (!FEATURE_KEY_RE.test(featureKey)) return null
   const dir = await resolveFeatureDir(projectRoot, featureKey)
   if (!dir) return null
 
@@ -71,10 +77,14 @@ async function resolveFeatureDir(
   projectRoot: string,
   featureKey: string,
 ): Promise<{ absDir: string; subroot: 'specs' | 'plans' } | null> {
+  if (!FEATURE_KEY_RE.test(featureKey)) return null
+
   // Direct lookup: featureKey is the dir name (compound REQ-N-slug for
   // spec, bare slug for plan).
+  const mumeiRoot = path.resolve(projectRoot, '.mumei')
   for (const subroot of ['specs', 'plans'] as const) {
-    const absDir = path.join(projectRoot, '.mumei', subroot, featureKey)
+    const absDir = path.resolve(mumeiRoot, subroot, featureKey)
+    if (!absDir.startsWith(mumeiRoot + path.sep)) continue
     try {
       const s = await stat(absDir)
       if (s.isDirectory()) return { absDir, subroot }
@@ -86,7 +96,7 @@ async function resolveFeatureDir(
   // Suffix lookup: featureKey is the bare slug ("dashboard-live-data")
   // and we need to find a compound dir ending in `-<featureKey>`. Scan
   // .mumei/specs/ for the first match.
-  const specsRoot = path.join(projectRoot, '.mumei', 'specs')
+  const specsRoot = path.join(mumeiRoot, 'specs')
   try {
     const fs = await import('node:fs/promises')
     const entries = await fs.readdir(specsRoot, { withFileTypes: true })
@@ -103,7 +113,7 @@ async function resolveFeatureDir(
   // exact match or a `-<featureKey>` suffix match. Months are iterated
   // newest-first (REQ-18.15 SHALL "most-recent month first") via reverse
   // lexicographic sort on the YYYY-MM dir names.
-  const archiveRoot = path.join(projectRoot, '.mumei', 'archive')
+  const archiveRoot = path.join(mumeiRoot, 'archive')
   try {
     const fs = await import('node:fs/promises')
     const months = (await fs.readdir(archiveRoot, { withFileTypes: true })).sort((a, b) =>

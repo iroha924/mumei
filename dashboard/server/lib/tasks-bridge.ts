@@ -2,7 +2,13 @@ import { execFile } from 'node:child_process'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { isValidFeatureKey } from './feature-key.ts'
+
+// Allowlist for featureKey segments used in filesystem paths under
+// .mumei/{specs,plans,archive}/. Mirrors the TypeBox SlugParam pattern in
+// server/index.ts; duplicated inline at every entry point so CodeQL's
+// path-injection dataflow recognises the guard at each sink (helper
+// functions are not consistently followed across module boundaries).
+const FEATURE_KEY_RE = /^[A-Za-z0-9_-]{1,100}$/
 
 const exec = promisify(execFile)
 
@@ -64,23 +70,29 @@ const memo = new Map<string, MemoEntry>()
  * rows — acceptable degradation for read-only archive view.
  */
 async function resolveTasksFile(projectRoot: string, featureKey: string): Promise<string | null> {
-  const direct = path.join(projectRoot, '.mumei', 'specs', featureKey, 'tasks.md')
-  try {
-    await access(direct)
-    return direct
-  } catch {
-    // try other lookups
+  if (!FEATURE_KEY_RE.test(featureKey)) return null
+
+  const mumeiRoot = path.resolve(projectRoot, '.mumei')
+  const specsRoot = path.join(mumeiRoot, 'specs')
+  const direct = path.resolve(specsRoot, featureKey, 'tasks.md')
+  if (direct.startsWith(specsRoot + path.sep)) {
+    try {
+      await access(direct)
+      return direct
+    } catch {
+      // try other lookups
+    }
   }
 
   // bare slug → compound dir under specs/
   const fs = await import('node:fs/promises')
   try {
-    const specsEntries = await fs.readdir(path.join(projectRoot, '.mumei', 'specs'), {
+    const specsEntries = await fs.readdir(specsRoot, {
       withFileTypes: true,
     })
     for (const ent of specsEntries) {
       if (ent.isDirectory() && ent.name.endsWith(`-${featureKey}`)) {
-        const fp = path.join(projectRoot, '.mumei', 'specs', ent.name, 'tasks.md')
+        const fp = path.join(specsRoot, ent.name, 'tasks.md')
         try {
           await access(fp)
           return fp
@@ -94,15 +106,16 @@ async function resolveTasksFile(projectRoot: string, featureKey: string): Promis
   }
 
   // archive walk — newest-first per REQ-18.15
+  const archiveRoot = path.join(mumeiRoot, 'archive')
   try {
     const months = (
-      await fs.readdir(path.join(projectRoot, '.mumei', 'archive'), {
+      await fs.readdir(archiveRoot, {
         withFileTypes: true,
       })
     ).sort((a, b) => b.name.localeCompare(a.name))
     for (const month of months) {
       if (!month.isDirectory()) continue
-      const monthDir = path.join(projectRoot, '.mumei', 'archive', month.name)
+      const monthDir = path.join(archiveRoot, month.name)
       const slugs = await fs.readdir(monthDir, { withFileTypes: true })
       for (const slug of slugs) {
         if (!slug.isDirectory()) continue
@@ -136,7 +149,7 @@ export async function buildWaveplan(args: {
   bustCache?: boolean
 }): Promise<WaveMeta[]> {
   const { projectRoot, featureKey, pluginRoot, bustCache } = args
-  if (!isValidFeatureKey(featureKey)) return []
+  if (!FEATURE_KEY_RE.test(featureKey)) return []
   const memoKey = `${projectRoot}::${featureKey}`
   const cachedHit = memo.get(memoKey)
   if (!bustCache && cachedHit && Date.now() - cachedHit.ts < MEMO_TTL_MS) {
@@ -151,8 +164,11 @@ export async function buildWaveplan(args: {
     // as the memo hit check above — bare memo.has() would dedupe forever.
     const stale = !cachedHit || Date.now() - cachedHit.ts >= MEMO_TTL_MS
     if (stale) {
+      const plansRoot = path.resolve(projectRoot, '.mumei', 'plans')
+      const planDir = path.resolve(plansRoot, featureKey)
       try {
-        await access(path.join(projectRoot, '.mumei', 'plans', featureKey))
+        if (!planDir.startsWith(plansRoot + path.sep)) throw new Error('outside plans/')
+        await access(planDir)
         logAtLevel(
           'debug',
           `[tasks-bridge] plan-vehicle feature ${featureKey} has no tasks.md by design — returning empty waveplan\n`,
