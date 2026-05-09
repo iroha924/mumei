@@ -1,0 +1,96 @@
+name: code-scanning-issue
+
+# Auto-creates a tracking Issue whenever GitHub raises a code-scanning
+# alert (CodeQL or any other configured scanner). Mirrors the workflow
+# the user already has in place for Dependabot vulnerabilities — Security
+# tab notifications alone are easy to miss for a single-maintainer repo.
+#
+# Scope:
+#   - All severities (note / warning / error). If noise grows, narrow the
+#     `if:` guard on the create-issue step to `severity == 'error'` etc.
+#   - One Issue per alert number (dedup by `[code-scan #N]` title prefix).
+#   - Auto-close on alert resolution is intentionally NOT implemented:
+#     the Security tab already reflects fix/dismiss state, and Issue
+#     close is a deliberate human action.
+
+on:
+  code_scanning_alert:
+    types: [created, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  security-events: read
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: ensure security-alert label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          gh label create security-alert \
+            --repo "$REPO" \
+            --color "B60205" \
+            --description "Tracks an open GitHub code-scanning alert" \
+            --force
+
+      - name: create or skip tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ALERT_NUMBER: ${{ github.event.alert.number }}
+          ALERT_RULE: ${{ github.event.alert.rule.id }}
+          ALERT_SEVERITY: ${{ github.event.alert.rule.severity }}
+          ALERT_URL: ${{ github.event.alert.html_url }}
+          ALERT_PATH: ${{ github.event.alert.most_recent_instance.location.path }}
+          ALERT_LINE: ${{ github.event.alert.most_recent_instance.location.start_line }}
+          ALERT_MESSAGE: ${{ github.event.alert.most_recent_instance.message.text }}
+          ALERT_REF: ${{ github.event.alert.most_recent_instance.ref }}
+        run: |
+          set -eu
+
+          title="[code-scan #${ALERT_NUMBER}] ${ALERT_RULE} (${ALERT_SEVERITY}) at ${ALERT_PATH}:${ALERT_LINE}"
+
+          # Dedup: search by exact title prefix across open + closed.
+          # Reopened alerts find the prior closed Issue and skip recreate.
+          existing=$(gh issue list \
+            --repo "$REPO" \
+            --state all \
+            --search "in:title \"[code-scan #${ALERT_NUMBER}]\"" \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "$existing" ]; then
+            echo "Issue #${existing} already tracks alert #${ALERT_NUMBER}; skipping."
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          GitHub raised a code-scanning alert.
+
+          - **Rule**: \`${ALERT_RULE}\`
+          - **Severity**: \`${ALERT_SEVERITY}\`
+          - **Location**: \`${ALERT_PATH}:${ALERT_LINE}\`
+          - **Ref**: \`${ALERT_REF}\`
+          - **Alert URL**: ${ALERT_URL}
+
+          ### Message
+
+          > ${ALERT_MESSAGE}
+
+          ---
+
+          _Auto-created by \`.github/workflows/code-scanning-issue.yml\`. Close this issue manually once the alert is fixed or dismissed in the Security tab._
+          EOF
+          )
+
+          gh issue create \
+            --repo "$REPO" \
+            --title "$title" \
+            --body "$body" \
+            --label security-alert

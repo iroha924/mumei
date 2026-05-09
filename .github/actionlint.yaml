@@ -1,0 +1,13 @@
+# actionlint configuration.
+# https://github.com/rhysd/actionlint/blob/main/docs/config.md
+#
+# `code_scanning_alert` is a GitHub-documented webhook event
+# (https://docs.github.com/en/webhooks/webhook-events-and-payloads#code_scanning_alert)
+# but actionlint's knownEventNames lookup table is not yet up-to-date as
+# of v1.7.12, raising a false-positive "unknown Webhook event" error.
+# Suppress for the one workflow that needs it; remove this block once
+# actionlint ships an updated event list.
+paths:
+  .github/workflows/code-scanning-issue.yml:
+    ignore:
+      - 'unknown Webhook event "code_scanning_alert"'
