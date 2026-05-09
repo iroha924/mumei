@@ -502,8 +502,10 @@ function dedupTimeline(events: TimelineEvent[]): TimelineEvent[] {
     }
     const sameSecond = prev.ts.slice(0, 19) === ev.ts.slice(0, 19)
     if (sameSecond && prev.event === ev.event) continue
-    if (sameSecond && prev.ref === null && ev.ref !== null && /^phase: → /.test(prev.event)) {
-      // commit at same second supersedes a transition marker we inferred from mtime.
+    if (sameSecond && prev.ref === null && ev.ref !== null && /^phase: .* → /.test(prev.event)) {
+      // commit at same second supersedes a transition marker we inferred from
+      // mtime. Regex matches both `phase: → <to>` (legacy) and the
+      // `phase: (unknown) → <to>` form introduced by F-001.
       out[out.length - 1] = ev
       continue
     }

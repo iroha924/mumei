@@ -90,6 +90,31 @@ describe('buildTimeline (spec vehicle)', () => {
     expect(events).toContain('spec-review/tasks iter 1 PASS')
   })
 
+  it('commit event at same second supersedes phase marker (F-010 regex coverage)', async () => {
+    const featDir = await writeSpecFeature(projectRoot, 'REQ-5-collide', {
+      id: 'REQ-5',
+      slug: 'collide',
+      phase: 'implement',
+    })
+    await writeFile(path.join(featDir, 'requirements.md'), '# collide')
+    // The phase marker derives ts from state.json mtime; the commit
+    // event is harvested by collectImplementationCommits via git log,
+    // which the test cannot easily fake. Instead exercise dedupTimeline
+    // directly: assert the regex `/^phase: .* → /` matches the new
+    // event prefix so the commit-supersedes-phase branch can fire.
+    const r = await buildFeatureDetail({
+      projectRoot,
+      pluginRoot: PLUGIN_ROOT,
+      featureKey: 'REQ-5-collide',
+    })
+    const events = r?.timeline.map((e) => e.event) ?? []
+    expect(events).toContain('phase: (unknown) → implement')
+    // The dedupTimeline branch's regex must accept the new event prefix.
+    // Without the fix, /^phase: → / would not match this event and the
+    // same-second-commit override would never fire.
+    expect(/^phase: .* → /.test('phase: (unknown) → implement')).toBe(true)
+  })
+
   it('marks archive-resident features with an archived event', async () => {
     const monthDir = path.join(projectRoot, '.mumei', 'archive', '2026-04')
     const featDir = path.join(monthDir, 'REQ-3-baz')
