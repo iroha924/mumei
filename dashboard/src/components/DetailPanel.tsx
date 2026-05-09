@@ -138,8 +138,8 @@ function AcsTab({ detail }: { detail: MumeiFeatureDetailPayload }): ReactElement
               variant="outline"
               className={
                 ac.confirmed
-                  ? 'border-emerald-500/40 text-emerald-300'
-                  : 'border-amber-500/40 text-amber-300'
+                  ? 'border-emerald-500/70 bg-emerald-900/30 text-emerald-200'
+                  : 'border-amber-500/70 bg-amber-900/30 text-amber-200'
               }
             >
               {ac.confirmed ? 'CONFIRMED' : 'ASSUMPTION'}

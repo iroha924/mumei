@@ -20,6 +20,10 @@
       "type": "boolean",
       "description": "True when feature lives under .mumei/plans/<slug>/ (no requirements.md). Frontend renders 'no requirements (plan vehicle)' placeholder for the ACs tab."
     },
+    "archived": {
+      "type": "boolean",
+      "description": "True when the feature was found under .mumei/archive/<YYYY-MM>/<slug>/ instead of active specs/plans. Frontend may surface an 'archived' badge to signal that further realtime updates will not arrive (REQ-18.15)."
+    },
     "timeline": {
       "type": "array",
       "items": {

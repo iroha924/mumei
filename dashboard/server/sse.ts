@@ -108,14 +108,14 @@ export function registerSse(
 
     const c = { id: nextId++, reply }
     clients.add(c)
-    app.log.info({ clientId: c.id, total: clients.size }, 'sse client connected')
+    app.log.debug({ clientId: c.id, total: clients.size }, 'sse client connected')
 
     // Initial open ping so EventSource transitions to OPEN immediately.
     reply.raw.write(`: open ${new Date().toISOString()}\n\n`)
 
     req.raw.on('close', () => {
       clients.delete(c)
-      app.log.info({ clientId: c.id, total: clients.size }, 'sse client disconnected')
+      app.log.debug({ clientId: c.id, total: clients.size }, 'sse client disconnected')
     })
   })
 

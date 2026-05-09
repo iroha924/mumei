@@ -13,6 +13,10 @@ export interface MumeiFeatureDetailPayload {
    * True when feature lives under .mumei/plans/<slug>/ (no requirements.md). Frontend renders 'no requirements (plan vehicle)' placeholder for the ACs tab.
    */
   planVehicle: boolean;
+  /**
+   * True when the feature was found under .mumei/archive/<YYYY-MM>/<slug>/ instead of active specs/plans. Frontend may surface an 'archived' badge to signal that further realtime updates will not arrive (REQ-18.15).
+   */
+  archived?: boolean;
   timeline: {
     ts: string;
     /**

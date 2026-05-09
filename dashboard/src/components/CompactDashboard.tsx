@@ -415,6 +415,19 @@ function CompactCard({
   onSelect: (slug: string) => void
 }): ReactElement {
   const progressPct = f.totalWaves > 0 ? Math.round((f.waveProgress / f.totalWaves) * 100) : 0
+  // phase=review/done are visually distinct from phase=implement: amber bar +
+  // 'review' overlay for review, emerald bar + 'done' overlay for done. Phase
+  // implement (incl. 100% progress) keeps the existing violet/blue treatment.
+  const barColorClass =
+    f.phase === 'review'
+      ? 'bg-amber-500/80'
+      : f.phase === 'done'
+        ? 'bg-emerald-500/80'
+        : f.totalWaves > 0
+          ? 'bg-violet-500/80'
+          : 'bg-zinc-700/40'
+  const overlayLabel = f.phase === 'review' ? 'review' : f.phase === 'done' ? 'done' : null
+  const showArchiveHint = f.phase === 'done'
   return (
     <PulseRing active={pulse}>
       <Card
@@ -451,23 +464,35 @@ function CompactCard({
           />
         </div>
         <div className="px-3 h-[24px] flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+          <div className="relative flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
             <div
-              className={cn(
-                'h-full rounded-full',
-                f.totalWaves > 0 ? 'bg-violet-500/80' : 'bg-zinc-700/40',
-              )}
+              className={cn('h-full rounded-full', barColorClass)}
               style={{ width: `${progressPct}%` }}
             />
+            {overlayLabel && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 flex items-center justify-center font-mono text-[10px] uppercase tracking-wider text-zinc-100 mix-blend-luminosity pointer-events-none"
+              >
+                {overlayLabel}
+              </span>
+            )}
           </div>
-          <span className="font-mono text-[15px] tabular-nums shrink-0 w-7 text-right">
-            {f.totalWaves > 0 ? (
+          <span className="font-mono text-[15px] tabular-nums shrink-0 w-12 text-right">
+            {overlayLabel ? (
+              <span className="text-zinc-300">{overlayLabel}</span>
+            ) : f.totalWaves > 0 ? (
               <span className="text-zinc-300">{progressPct}%</span>
             ) : (
               <span className="text-zinc-600">—</span>
             )}
           </span>
         </div>
+        {showArchiveHint && (
+          <div className="px-3 -mt-1 mb-1 font-mono text-[13px] text-emerald-400/80">
+            Run <span className="text-emerald-300">/mumei:archive {f.slug}</span>
+          </div>
+        )}
         <div className="px-3 h-[26px] flex items-center">
           <span className="font-mono text-[16px] text-zinc-400 truncate">
             {f.phase}

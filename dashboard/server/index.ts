@@ -41,7 +41,7 @@ const PROJECT_ROOT = process.env.MUMEI_DASHBOARD_PROJECT_ROOT
   : resolveProjectRoot()
 const MUMEI_DIR = path.join(PROJECT_ROOT, '.mumei')
 const PORT = Number(process.env.MUMEI_DASHBOARD_PORT ?? '3001')
-const LOG_LEVEL = process.env.MUMEI_DASHBOARD_LOG_LEVEL ?? 'info'
+const LOG_LEVEL = process.env.MUMEI_DASHBOARD_LOG_LEVEL ?? 'warn'
 // Default allow-list covers the two same-origin URLs the bundled SPA can
 // emit (`http://localhost:<PORT>` / `http://127.0.0.1:<PORT>`) plus the
 // Vite dev server (5173) used during monorepo development.

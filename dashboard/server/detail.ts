@@ -40,9 +40,11 @@ export async function buildFeatureDetail(args: {
     reviews,
   })
 
+  const archived = dir.absDir.includes(`${path.sep}archive${path.sep}`)
   return {
     slug,
     planVehicle,
+    archived,
     timeline,
     acs,
     waveplan: waveplan.map((w) => ({

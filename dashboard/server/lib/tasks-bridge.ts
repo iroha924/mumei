@@ -7,6 +7,24 @@ const exec = promisify(execFile)
 
 const MEMO_TTL_MS = 5_000
 
+// pino-equivalent level gate without threading the Fastify logger here.
+// Default level is 'warn' (matches dashboard/server/index.ts default).
+const LOG_LEVEL_RANK: Record<string, number> = {
+  trace: 10,
+  debug: 20,
+  info: 30,
+  warn: 40,
+  error: 50,
+  fatal: 60,
+}
+function shouldLog(level: 'debug' | 'info' | 'warn' | 'error'): boolean {
+  const configured = process.env.MUMEI_DASHBOARD_LOG_LEVEL ?? 'warn'
+  return (LOG_LEVEL_RANK[level] ?? 0) >= (LOG_LEVEL_RANK[configured] ?? 40)
+}
+function logAtLevel(level: 'debug' | 'info' | 'warn' | 'error', msg: string): void {
+  if (shouldLog(level)) process.stderr.write(msg)
+}
+
 export interface TaskMeta {
   id: string // "1.1"
   done: boolean
@@ -131,12 +149,14 @@ export async function buildWaveplan(args: {
     if (stale) {
       try {
         await access(path.join(projectRoot, '.mumei', 'plans', featureKey))
-        process.stderr.write(
+        logAtLevel(
+          'debug',
           `[tasks-bridge] plan-vehicle feature ${featureKey} has no tasks.md by design — returning empty waveplan\n`,
         )
       } catch {
         // Not a plan-vehicle feature either — featureKey unknown.
-        process.stderr.write(
+        logAtLevel(
+          'debug',
           `[tasks-bridge] no tasks.md found for ${featureKey} (specs and plans both absent) — returning empty waveplan\n`,
         )
       }
@@ -153,9 +173,7 @@ export async function buildWaveplan(args: {
     // log. Bare process.stderr write avoids threading the Fastify
     // logger into this lib module.
     const message = err instanceof Error ? err.message : String(err)
-    process.stderr.write(
-      `[tasks-bridge] parseTasksMdViaBash failed for ${featureKey}: ${message}\n`,
-    )
+    logAtLevel('warn', `[tasks-bridge] parseTasksMdViaBash failed for ${featureKey}: ${message}\n`)
     waveplan = []
   }
   memo.set(memoKey, { ts: Date.now(), payload: waveplan })
