@@ -65,15 +65,21 @@ fi
 # JSON output for dashboard consumption. Emits per-agent / per-iter
 # breakdown plus totals plus cache hit ratio. One JSON object on stdout.
 #
-# `unique_by([.agent, .ts])` collapses (agent, ts) duplicates to one
-# row — protects against the small overlap between the SubagentStop
-# hook (REQ-16) and any caller that still calls
-# mumei_cost_log_after manually. ts has 1-second precision so identical
-# (agent, ts) pairs are within the same second by construction.
+# `_coalesce_dedup` collapses (agent, ts) duplicates by MERGING them
+# (object-multiply `*` keeps non-null fields from any record). This
+# protects against the small overlap between the SubagentStop hook
+# (REQ-16, writes wave/iteration as null) and the optional orchestrator
+# wrap mumei_cost_log_after (writes them as numbers). A naive first-
+# wins dedup would silently drop the orchestrator's metadata; the
+# merge preserves whichever record carries values.
 if [[ "$json_mode" == "1" ]]; then
   jq -s --arg feature "${feature:-unknown}" '
+    def _coalesce_dedup:
+      group_by([.agent, .ts])
+      | map(reduce .[] as $r ({}; . * ($r | with_entries(select(.value != null)))));
+
     [.[] | select(.phase == "after")]
-    | unique_by([.agent, .ts]) as $rows
+    | _coalesce_dedup as $rows
     | {
         feature: $feature,
         records: ($rows | length),
@@ -118,8 +124,12 @@ _mumei_pivot() {
   {
     printf 'bucket\tinput\toutput\tcache_read\tcache_create\tcount\n'
     jq -sr --arg k "$key" '
+      def _coalesce_dedup:
+        group_by([.agent, .ts])
+        | map(reduce .[] as $r ({}; . * ($r | with_entries(select(.value != null)))));
+
       [.[] | select(.phase == "after")]
-      | unique_by([.agent, .ts])
+      | _coalesce_dedup
       | group_by(.[$k] // "<null>")
       | map({
           bucket: (.[0][$k] // "<null>"),
@@ -152,7 +162,11 @@ _mumei_pivot "iteration"
 _mumei_pivot "wave"
 
 # Final summary line.
-totals="$(jq -s '[.[] | select(.phase == "after")] | unique_by([.agent, .ts]) | {
+totals="$(jq -s '
+  def _coalesce_dedup:
+    group_by([.agent, .ts])
+    | map(reduce .[] as $r ({}; . * ($r | with_entries(select(.value != null)))));
+  [.[] | select(.phase == "after")] | _coalesce_dedup | {
   count: length,
   input: (map(.input_tokens // 0) | add),
   output: (map(.output_tokens // 0) | add),

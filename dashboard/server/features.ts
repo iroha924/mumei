@@ -240,26 +240,38 @@ async function loadCost(args: {
   projectWideFile: string
   featureKey: string
 }): Promise<{ tokens: number; cacheHit: number }> {
-  let totalInput = 0
-  let totalOutput = 0
-  let totalCacheRead = 0
-  // Dedup (agent, ts) across both source files so the small overlap
-  // between the SubagentStop hook (REQ-16) and any caller that still
-  // invokes mumei_cost_log_after manually does not double-count. ts
-  // has 1-second precision in the schema, so identical pairs are
-  // within the same second by construction.
-  const seen = new Set<string>()
+  // Dedup (agent, ts) by COALESCING records, not by first-wins. The
+  // SubagentStop hook (REQ-16) writes wave/iteration as null while the
+  // optional orchestrator wrap mumei_cost_log_after writes them as
+  // numbers; both records share the same agent + 1-second-precision
+  // ts, so a Set-based first-wins keep would silently drop whichever
+  // write path arrived later. Aggregate by Map<key, summedRecord>
+  // taking the MAX of each token field across collisions — this is
+  // correct because both paths see the same subagent invocation and
+  // record identical token counts (the merge picks the one populated
+  // record when only one path writes, and is idempotent when both do).
+  type Acc = { input: number; output: number; cacheRead: number }
+  const merged = new Map<string, Acc>()
   for (const file of [args.perFeatureFile, args.projectWideFile]) {
     for await (const e of readJsonl<CostLogEntry>(file)) {
       if (e.phase !== 'after') continue
       if (file === args.projectWideFile && e.feature !== args.featureKey) continue
       const key = `${e.agent ?? ''}\t${e.ts ?? ''}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      totalInput += e.input_tokens ?? 0
-      totalOutput += e.output_tokens ?? 0
-      totalCacheRead += e.cache_read_input_tokens ?? 0
+      const prev = merged.get(key) ?? { input: 0, output: 0, cacheRead: 0 }
+      merged.set(key, {
+        input: Math.max(prev.input, e.input_tokens ?? 0),
+        output: Math.max(prev.output, e.output_tokens ?? 0),
+        cacheRead: Math.max(prev.cacheRead, e.cache_read_input_tokens ?? 0),
+      })
     }
+  }
+  let totalInput = 0
+  let totalOutput = 0
+  let totalCacheRead = 0
+  for (const acc of merged.values()) {
+    totalInput += acc.input
+    totalOutput += acc.output
+    totalCacheRead += acc.cacheRead
   }
   const denom = totalInput + totalCacheRead
   return {

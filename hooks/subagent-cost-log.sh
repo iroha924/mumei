@@ -16,6 +16,20 @@
 # 1:1 attribution key — no heuristics needed when subagents run in
 # parallel.
 #
+# REQ-16 iter 2 fixes:
+#   F-002 — feature pinned at launch via .mumei/in-flight-agents/<agent_id>
+#           sidecar (written by subagent-cost-log-start.sh on SubagentStart);
+#           fallback to .mumei/current only when sidecar absent.
+#   F-005 — no mkdir -p before append; if the feature dir vanished
+#           between resolution and write (archive race), exit 0 with
+#           stderr 'feature dir disappeared' instead of resurrecting it.
+#   F-006 — if usage totals are zero (interrupted subagent with no
+#           assistant turns), skip the record entirely; aligns with
+#           cost-backfill.sh's behaviour for empty subagent jsonls.
+#   F-007 — every failure / skip path records a hook-stats entry so
+#           silent rot is observable via .mumei/.hook-stats.jsonl and
+#           the dashboard hook-stats panel.
+#
 # Failure handling (REQ-16.4): all non-fatal errors emit a single line
 # to stderr and exit 0. No placeholder records are written; an absent
 # record is more honest than a record with empty usage.
@@ -29,6 +43,21 @@ if [[ "${MUMEI_BYPASS:-0}" == "1" ]]; then
   exit 0
 fi
 
+# shellcheck disable=SC1091
+if ! declare -F mumei_hook_stats_record >/dev/null 2>&1; then
+  HOOK_STATS_LIB="$(dirname "${BASH_SOURCE[0]}")/_lib/hook-stats.sh"
+  if [[ -f "$HOOK_STATS_LIB" ]]; then
+    # shellcheck disable=SC1090
+    source "$HOOK_STATS_LIB"
+  fi
+fi
+_mumei_clog_stat() {
+  local decision="$1" reason="$2"
+  if declare -F mumei_hook_stats_record >/dev/null 2>&1; then
+    mumei_hook_stats_record "cost-log" "$decision" "SubagentStop" "$reason" 2>/dev/null || true
+  fi
+}
+
 INPUT="$(cat 2>/dev/null || true)"
 [[ -z "$INPUT" ]] && exit 0
 
@@ -41,15 +70,27 @@ TRANSCRIPT_PATH="$(jq -r '.transcript_path // empty' <<<"$INPUT" 2>/dev/null || 
 # (e.g. "spec-compliance-reviewer").
 AGENT_SHORT="${AGENT_TYPE#mumei:}"
 
-# Resolve active feature → cost-log target path. spec vehicle lands
-# under .mumei/specs/, plan vehicle under .mumei/plans/.
+# Resolve active feature. F-002: prefer the in-flight sidecar
+# (written at SubagentStart with the launch-time feature) over
+# .mumei/current to survive feature switches between launch and stop.
 ACTIVE_FEATURE=""
-if [[ -f .mumei/current ]]; then
+SIDECAR=""
+if [[ -n "$AGENT_ID" ]]; then
+  SIDECAR=".mumei/in-flight-agents/${AGENT_ID}"
+  if [[ -f "$SIDECAR" ]]; then
+    ACTIVE_FEATURE="$(tr -d '[:space:]' <"$SIDECAR" 2>/dev/null || true)"
+  fi
+fi
+if [[ -z "$ACTIVE_FEATURE" ]] && [[ -f .mumei/current ]]; then
   ACTIVE_FEATURE="$(tr -d '[:space:]' <.mumei/current 2>/dev/null || true)"
 fi
 
+# Always best-effort sidecar cleanup at script end (defer via trap).
+trap '[[ -n "${SIDECAR:-}" ]] && rm -f "$SIDECAR" 2>/dev/null || true' EXIT
+
 if [[ -z "$ACTIVE_FEATURE" ]]; then
   printf '[mumei] cost-log: no active feature, skipping\n' >&2
+  _mumei_clog_stat "noop" "no active feature"
   exit 0
 fi
 
@@ -60,6 +101,7 @@ elif [[ -d ".mumei/plans/${ACTIVE_FEATURE}" ]]; then
   COST_LOG=".mumei/plans/${ACTIVE_FEATURE}/cost-log.jsonl"
 else
   printf '[mumei] cost-log: no active feature, skipping\n' >&2
+  _mumei_clog_stat "noop" "no active feature"
   exit 0
 fi
 
@@ -68,6 +110,7 @@ fi
 # <session-uuid>/subagents/agent-<agent_id>.jsonl.
 if [[ -z "$AGENT_ID" || -z "$TRANSCRIPT_PATH" ]]; then
   printf '[mumei] cost-log: extraction failed for agent=%s: missing agent_id or transcript_path\n' "${AGENT_SHORT:-?}" >&2
+  _mumei_clog_stat "noop" "missing agent_id or transcript_path"
   exit 0
 fi
 
@@ -75,6 +118,7 @@ SUB_JSONL="${TRANSCRIPT_PATH%.jsonl}/subagents/agent-${AGENT_ID}.jsonl"
 if [[ ! -r "$SUB_JSONL" ]]; then
   printf '[mumei] cost-log: extraction failed for agent=%s: subagent jsonl not readable (%s)\n' \
     "${AGENT_SHORT:-?}" "$SUB_JSONL" >&2
+  _mumei_clog_stat "noop" "subagent jsonl not readable"
   exit 0
 fi
 
@@ -95,6 +139,22 @@ USAGE_JSON="$(
 
 if [[ -z "$USAGE_JSON" ]] || ! jq -e 'type == "object"' <<<"$USAGE_JSON" >/dev/null 2>&1; then
   printf '[mumei] cost-log: extraction failed for agent=%s: usage parse failed\n' "${AGENT_SHORT:-?}" >&2
+  _mumei_clog_stat "noop" "usage parse failed"
+  exit 0
+fi
+
+# F-006: skip when totals are zero (interrupted subagent with no
+# assistant turns). cost-backfill.sh already does this; keep parity so
+# the same subagent run is treated identically by both code paths.
+TOTALS="$(jq -r '
+  (.input_tokens // 0)
+  + (.output_tokens // 0)
+  + (.cache_read_input_tokens // 0)
+  + (.cache_creation_input_tokens // 0)
+' <<<"$USAGE_JSON" 2>/dev/null || echo 0)"
+if [[ "$TOTALS" -eq 0 ]]; then
+  printf '[mumei] cost-log: skipped (zero usage) for agent=%s\n' "${AGENT_SHORT:-?}" >&2
+  _mumei_clog_stat "noop" "zero usage"
   exit 0
 fi
 
@@ -119,13 +179,25 @@ RECORD="$(
 
 if [[ -z "$RECORD" ]]; then
   printf '[mumei] cost-log: extraction failed for agent=%s: record build failed\n' "${AGENT_SHORT:-?}" >&2
+  _mumei_clog_stat "noop" "record build failed"
   exit 0
 fi
 
-mkdir -p "$(dirname "$COST_LOG")" 2>/dev/null || true
-printf '%s\n' "$RECORD" >>"$COST_LOG" 2>/dev/null || {
-  printf '[mumei] cost-log: append failed: %s\n' "$COST_LOG" >&2
+# F-005: do NOT mkdir -p the parent. The dir-existence check above
+# already proved the feature dir is current; if it disappeared (archive
+# race in another terminal session), exit cleanly without resurrecting
+# the dir. dirname of COST_LOG is the same dir we already verified.
+if [[ ! -d "$(dirname "$COST_LOG")" ]]; then
+  printf '[mumei] cost-log: feature dir disappeared between resolution and append, skipping\n' >&2
+  _mumei_clog_stat "noop" "feature dir disappeared"
   exit 0
-}
+fi
 
+if ! printf '%s\n' "$RECORD" >>"$COST_LOG" 2>/dev/null; then
+  printf '[mumei] cost-log: append failed: %s\n' "$COST_LOG" >&2
+  _mumei_clog_stat "noop" "append failed"
+  exit 0
+fi
+
+_mumei_clog_stat "noop" "ok"
 exit 0

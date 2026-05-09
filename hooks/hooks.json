@@ -227,6 +227,19 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "matcher": "^(adversarial-reviewer|design-reviewer|requirements-reviewer|security-reviewer|spec-compliance-reviewer|tasks-reviewer|issue-validator|memory-curator)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-cost-log-start.sh\"",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "matcher": "^(adversarial-reviewer|design-reviewer|requirements-reviewer|security-reviewer|spec-compliance-reviewer|tasks-reviewer|issue-validator|memory-curator)$",

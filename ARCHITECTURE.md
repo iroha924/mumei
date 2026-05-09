@@ -71,6 +71,7 @@ mumei/
 │   ├── config-change-audit.sh  # ConfigChange: audit + invalid JSON exit 2 (REQ-13.8)
 │   ├── session-end-audit.sh  # SessionEnd: session metadata audit log (REQ-13.9)
 │   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log (REQ-13.10)
+│   ├── subagent-cost-log-start.sh  # SubagentStart: pin active feature to .mumei/in-flight-agents/<agent_id> (REQ-16 iter 2 / F-002)
 │   └── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction (REQ-16)
 ├── scripts/
 │   ├── lint-tasks.sh       # X2 (advisory: tasks.md format)

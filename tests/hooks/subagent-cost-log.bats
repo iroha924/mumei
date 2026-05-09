@@ -162,3 +162,47 @@ _run_hook() {
     }
   done
 }
+
+@test "REQ-16 iter2 F-002: in-flight sidecar wins over .mumei/current" {
+  # Two features exist; .mumei/current points to REQ-2-bar, but the
+  # sidecar pinned the agent to REQ-1-foo at launch. The hook must
+  # write to REQ-1-foo (the launch-time feature), not REQ-2-bar.
+  mkdir -p ".mumei/specs/REQ-1-foo" ".mumei/specs/REQ-2-bar"
+  printf 'REQ-2-bar\n' >".mumei/current"
+  mkdir -p ".mumei/in-flight-agents"
+  printf 'REQ-1-foo\n' >".mumei/in-flight-agents/race-id"
+  _make_subagent_jsonl race-id 7 13 0 0 >/dev/null
+  event="$(_event_json race-id mumei:adversarial-reviewer)"
+
+  _run_hook "$event"
+  [ "$status" -eq 0 ]
+  [ -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
+  [ ! -f ".mumei/specs/REQ-2-bar/cost-log.jsonl" ]
+  # Sidecar must be cleaned up after consumption.
+  [ ! -f ".mumei/in-flight-agents/race-id" ]
+}
+
+@test "REQ-16 iter2 F-005: vanished feature dir → exit 0, no resurrect" {
+  # No specs/ or plans/ dir → REQ-16.2 path → exit 0, no recreate.
+  # The F-005 fix is that mkdir -p was removed; assert the hook never
+  # auto-creates the feature dir.
+  mkdir -p .mumei
+  printf 'REQ-vanish\n' >".mumei/current"
+  _run_hook "$(_event_json gone mumei:tasks-reviewer)"
+  [ "$status" -eq 0 ]
+  [ ! -d ".mumei/specs/REQ-vanish" ]
+  [ ! -d ".mumei/plans/REQ-vanish" ]
+}
+
+@test "REQ-16 iter2 F-006: zero-token subagent → no record written" {
+  mkdir -p ".mumei/specs/REQ-1-foo"
+  printf 'REQ-1-foo\n' >".mumei/current"
+  # All-zeros usage record — interrupted subagent.
+  _make_subagent_jsonl zero-id 0 0 0 0 >/dev/null
+  event="$(_event_json zero-id mumei:memory-curator)"
+
+  _run_hook "$event"
+  [ "$status" -eq 0 ]
+  [[ "$stderr" == *"skipped (zero usage)"* ]]
+  [ ! -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
+}

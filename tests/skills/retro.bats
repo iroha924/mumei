@@ -10,12 +10,15 @@ bats_require_minimum_version 1.5.0
 load '../test_helper'
 
 # Override HOME so cost-backfill.sh sees a synthetic ~/.claude/projects/
-# instead of the developer's actual home. Each test gets its own
-# tmpdir-as-HOME so traces from one test never leak into another.
+# instead of the developer's actual home. F-001 fix scopes the walk to
+# the encoded cwd (`pwd | sed 's|/|-|g'`); the fixture project dir name
+# must match.
 _setup_fake_home() {
   FAKE_HOME="${MUMEI_TEST_TMPDIR}/home"
-  mkdir -p "${FAKE_HOME}/.claude/projects/test-project"
+  ENCODED_CWD="$(pwd | sed 's|/|-|g')"
+  mkdir -p "${FAKE_HOME}/.claude/projects/${ENCODED_CWD}"
   export HOME="$FAKE_HOME"
+  export ENCODED_CWD
 }
 
 _make_feature() {
@@ -35,7 +38,7 @@ _make_feature() {
 # deterministic path. agent_type sets the .meta.json contents.
 _make_subagent() {
   local agent_id="$1" agent_type="$2" mtime_epoch="$3"
-  local subdir="${FAKE_HOME}/.claude/projects/test-project/sess1/subagents"
+  local subdir="${FAKE_HOME}/.claude/projects/${ENCODED_CWD}/sess1/subagents"
   mkdir -p "$subdir"
   cp "${CLAUDE_PLUGIN_ROOT}/tests/fixtures/session-log-with-agents.jsonl" \
     "${subdir}/agent-${agent_id}.jsonl"

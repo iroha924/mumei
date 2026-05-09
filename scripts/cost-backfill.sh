@@ -40,19 +40,36 @@ fi
 created_at="$(jq -r '.created_at // ""' "$state_path" 2>/dev/null)"
 updated_at="$(jq -r '.updated_at // ""' "$state_path" 2>/dev/null)"
 
-# Locate the project's session log root. cost-backfill walks every
-# project under ~/.claude/projects/ because session logs do not record
-# which feature was active. We filter by mtime window below.
+# F-003 fix: refuse to backfill when state.json lacks created_at. The
+# previous behaviour (epoch_from=0) collapsed the window to all-of-
+# history and silently attributed every mumei subagent run on the
+# machine to this feature. An operator who needs historical attribution
+# without created_at must hand-supply MUMEI_BACKFILL_FROM=<ISO> /
+# MUMEI_BACKFILL_TO=<ISO> env vars (escape hatch).
+if [[ -z "$created_at" ]] && [[ -z "${MUMEI_BACKFILL_FROM:-}" ]]; then
+  printf '[mumei] cost-backfill: partial backfill only: state.json missing created_at, cannot bound window (set MUMEI_BACKFILL_FROM=<ISO> to override)\n' >&2
+  exit 0
+fi
+[[ -n "${MUMEI_BACKFILL_FROM:-}" ]] && created_at="$MUMEI_BACKFILL_FROM"
+[[ -n "${MUMEI_BACKFILL_TO:-}" ]] && updated_at="$MUMEI_BACKFILL_TO"
+
+# F-001 fix: scope the walk to the cwd's encoded project dir instead
+# of ~/.claude/projects/* (which catches every feature ever worked on
+# across every repo). Claude Code encodes the cwd by replacing each `/`
+# with `-`. Scan only the current project's session subagents.
 projects_root="${HOME}/.claude/projects"
 if [[ ! -d "$projects_root" ]]; then
   printf '[mumei] cost-backfill: partial backfill only: %s missing\n' "$projects_root" >&2
   exit 0
 fi
+project_encoded="$(pwd | sed 's|/|-|g')"
+project_root="${projects_root}/${project_encoded}"
+if [[ ! -d "$project_root" ]]; then
+  printf '[mumei] cost-backfill: partial backfill only: project session dir not found (%s) — backfill scoped to current project to prevent cross-project contamination\n' "$project_root" >&2
+  exit 0
+fi
 
-# Convert ISO timestamps to epoch seconds for the mtime filter. We
-# accept both `created_at` and `updated_at` being unset (then the
-# window collapses to "any time" and we backfill every mumei subagent
-# we find — risky but better than nothing).
+# Convert ISO timestamps to epoch seconds for the mtime filter.
 _to_epoch() {
   local iso="$1"
   [[ -z "$iso" ]] && {
@@ -72,10 +89,10 @@ epoch_from="$(_to_epoch "$created_at")"
 epoch_to="$(_to_epoch "$updated_at")"
 [[ "$epoch_to" -eq 0 ]] && epoch_to=$(date +%s)
 
-# Find candidate subagent jsonl files (paired meta.json must exist).
-mkdir -p "$(dirname "$cost_log")" 2>/dev/null || true
 appended=0
 candidates=0
+mtime_min=0
+mtime_max=0
 
 # `find -print0 / read -d ''` keeps the loop safe on paths with spaces.
 while IFS= read -r -d '' meta_path; do
@@ -98,6 +115,10 @@ while IFS= read -r -d '' meta_path; do
   else
     continue
   fi
+  # F-008: track scanned mtime range so the failure stderr can hint at
+  # backup-restore mtime resets when no candidates match the window.
+  if [[ "$mtime_min" -eq 0 || "$mtime" -lt "$mtime_min" ]]; then mtime_min="$mtime"; fi
+  if [[ "$mtime" -gt "$mtime_max" ]]; then mtime_max="$mtime"; fi
   if [[ "$mtime" -lt "$epoch_from" || "$mtime" -gt "$epoch_to" ]]; then
     continue
   fi
@@ -147,16 +168,33 @@ while IFS= read -r -d '' meta_path; do
   )"
   [[ -z "$record" ]] && continue
 
+  # F-005-aligned: do not mkdir -p the parent. The cost_log dir was
+  # validated at script entry (feature_dir existed); if it disappeared
+  # mid-scan, skip the append rather than resurrect.
+  [[ -d "$(dirname "$cost_log")" ]] || continue
   printf '%s\n' "$record" >>"$cost_log" 2>/dev/null || continue
   appended=$((appended + 1))
-done < <(find "$projects_root" -type f -name '*.meta.json' -path '*/subagents/*' -print0 2>/dev/null)
+done < <(find "$project_root" -type f -name '*.meta.json' -path '*/subagents/*' -print0 2>/dev/null)
 
 if [[ "$appended" -eq 0 ]]; then
   if [[ "$candidates" -eq 0 ]]; then
-    printf '[mumei] cost-backfill: partial backfill only: no subagent meta.json found under %s\n' "$projects_root" >&2
+    printf '[mumei] cost-backfill: partial backfill only: no subagent meta.json found under %s\n' "$project_root" >&2
   else
     printf '[mumei] cost-backfill: partial backfill only: scanned %d meta.json, none matched mumei:* in window %s..%s\n' \
       "$candidates" "${created_at:-0}" "${updated_at:-now}" >&2
+    # F-008: surface mtime mismatch so backup-restore mtime resets
+    # become diagnosable. epoch_from/epoch_to are seconds; format only
+    # when both have valid values.
+    if [[ "$mtime_min" -gt 0 ]] && [[ "$mtime_max" -gt 0 ]]; then
+      mt_min_iso="$(date -u -r "$mtime_min" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null ||
+        date -u -d "@$mtime_min" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null ||
+        echo "$mtime_min")"
+      mt_max_iso="$(date -u -r "$mtime_max" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null ||
+        date -u -d "@$mtime_max" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null ||
+        echo "$mtime_max")"
+      printf '[mumei] cost-backfill: scanned jsonl mtime range %s..%s vs requested window %s..%s — if mismatch is uniform, a backup restore may have reset mtimes (use cp -p / tar -p / rsync --times to preserve)\n' \
+        "$mt_min_iso" "$mt_max_iso" "${created_at:-?}" "${updated_at:-now}" >&2
+    fi
   fi
   exit 0
 fi
