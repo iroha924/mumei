@@ -72,7 +72,8 @@ mumei/
 │   ├── session-end-audit.sh  # SessionEnd: session metadata audit log (REQ-13.9)
 │   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log (REQ-13.10)
 │   ├── subagent-cost-log-start.sh  # SubagentStart: pin active feature to .mumei/in-flight-agents/<agent_id> (REQ-16 iter 2 / F-002)
-│   └── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction (REQ-16)
+│   ├── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction (REQ-16)
+│   └── stop-cost-backfill.sh  # Stop (async): safety-net cost-backfill for SubagentStop hooks that lost the jsonl-flush race
 ├── scripts/
 │   ├── lint-tasks.sh       # X2 (advisory: tasks.md format)
 │   └── cost-backfill.sh    # /mumei:retro: rebuild cost-log.jsonl from session logs (REQ-16)
