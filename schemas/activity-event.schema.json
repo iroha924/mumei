@@ -9,7 +9,7 @@
     "ts": { "type": "string", "format": "date-time" },
     "kind": {
       "type": "string",
-      "enum": ["commit", "review", "phase", "hook"]
+      "enum": ["commit", "review", "phase", "hook", "subagent", "task_progress", "archive"]
     }
   },
   "oneOf": [
@@ -52,7 +52,11 @@
         "ts": { "type": "string", "format": "date-time" },
         "kind": { "const": "phase" },
         "slug": { "type": "string" },
-        "from": { "type": "string", "enum": ["plan", "implement", "review", "done"] },
+        "from": {
+          "type": ["string", "null"],
+          "enum": ["plan", "implement", "review", "done", null],
+          "description": "Previous phase. null when transition history is unavailable (no audit-log entry); UI renders as '→ <to>' in that case."
+        },
         "to": { "type": "string", "enum": ["plan", "implement", "review", "done"] }
       }
     },
@@ -68,6 +72,43 @@
           "type": "string",
           "enum": ["allow", "deny", "warn", "block", "noop"]
         }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ts", "kind", "slug", "agent", "phase", "tokens_total"],
+      "properties": {
+        "ts": { "type": "string", "format": "date-time" },
+        "kind": { "const": "subagent" },
+        "slug": { "type": "string", "description": "Owning feature key (REQ-N-slug for spec, bare slug for plan)." },
+        "agent": { "type": "string", "description": "Subagent name (e.g. spec-compliance-reviewer)." },
+        "phase": { "type": "string", "enum": ["before", "after"], "description": "Cost-log phase marker; before / after for delta computation." },
+        "tokens_total": { "type": "integer", "minimum": 0, "description": "input_tokens + output_tokens at this entry." }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ts", "kind", "slug", "vehicle", "task_id"],
+      "properties": {
+        "ts": { "type": "string", "format": "date-time" },
+        "kind": { "const": "task_progress" },
+        "slug": { "type": "string" },
+        "vehicle": { "type": "string", "enum": ["spec", "plan"] },
+        "wave": { "type": ["integer", "null"], "minimum": 1, "description": "Wave number for spec vehicle; null for plan vehicle." },
+        "task_id": { "type": "string", "description": "Spec: <wave>.<task> like '1.2'. Plan: post-increment task counter as a string." }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ts", "kind", "slug", "to"],
+      "properties": {
+        "ts": { "type": "string", "format": "date-time" },
+        "kind": { "const": "archive" },
+        "slug": { "type": "string" },
+        "to": { "type": "string", "description": "Archive destination path (.mumei/archive/<YYYY-MM>/<slug>)." }
       }
     }
   ]

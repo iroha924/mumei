@@ -83,5 +83,108 @@ describe('buildActivity', () => {
     const phaseEvent = r.find((e) => e.kind === 'phase')
     expect(phaseEvent).toBeDefined()
     expect(phaseEvent && phaseEvent.kind === 'phase' && phaseEvent.to).toBe('implement')
+    // Without a transition log, `from` is null (REQ-18.19 degraded mode).
+    expect(phaseEvent && phaseEvent.kind === 'phase' && phaseEvent.from).toBeNull()
+  })
+
+  it('emits subagent events from cost-log.jsonl', async () => {
+    const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-2-bar')
+    await mkdir(featDir, { recursive: true })
+    const farFutureNow = new Date(Date.now() + 60_000)
+    const recentTs = new Date(farFutureNow.getTime() - 30 * 60_000).toISOString()
+    await writeFile(
+      path.join(featDir, 'cost-log.jsonl'),
+      [
+        JSON.stringify({
+          ts: recentTs,
+          feature: 'REQ-2-bar',
+          phase: 'after',
+          agent: 'spec-compliance-reviewer',
+          input_tokens: 1000,
+          output_tokens: 500,
+        }),
+      ].join('\n'),
+    )
+    const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
+    const sub = r.find((e) => e.kind === 'subagent')
+    expect(sub).toBeDefined()
+    if (sub && sub.kind === 'subagent') {
+      expect(sub.agent).toBe('spec-compliance-reviewer')
+      expect(sub.slug).toBe('REQ-2-bar')
+      expect(sub.tokens_total).toBe(1500)
+    }
+  })
+
+  it('emits archive events for archived feature dirs', async () => {
+    const slugDir = path.join(projectRoot, '.mumei', 'archive', '2026-04', 'REQ-9-baz')
+    await mkdir(slugDir, { recursive: true })
+    await writeFile(path.join(slugDir, 'state.json'), JSON.stringify({ id: 'REQ-9', slug: 'baz' }))
+    const farFutureNow = new Date(Date.now() + 60_000)
+    const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
+    const arc = r.find((e) => e.kind === 'archive')
+    expect(arc).toBeDefined()
+    if (arc && arc.kind === 'archive') {
+      expect(arc.slug).toBe('REQ-9-baz')
+      expect(arc.to).toContain('archive')
+    }
+  })
+
+  it('emits task_progress events for spec vehicle [x] tasks', async () => {
+    const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-3-qux')
+    await mkdir(featDir, { recursive: true })
+    await writeFile(
+      path.join(featDir, 'state.json'),
+      JSON.stringify({ id: 'REQ-3', slug: 'qux', phase: 'implement' }),
+    )
+    await writeFile(
+      path.join(featDir, 'tasks.md'),
+      [
+        '# qux Implementation Plan',
+        '',
+        '## Wave 1: setup',
+        '**Goal**: x',
+        '**Verify**: y',
+        '',
+        '- [x] 1.1 first task',
+        '  - _Files: a.ts_',
+        '  - _Depends: -_',
+        '  - _Requirements: REQ-3.1_',
+        '- [x] 1.2 second task',
+        '  - _Files: b.ts_',
+        '  - _Depends: 1.1_',
+        '  - _Requirements: REQ-3.2_',
+        '- [ ] 1.3 third (not done)',
+        '  - _Files: c.ts_',
+        '  - _Depends: -_',
+        '  - _Requirements: REQ-3.3_',
+      ].join('\n'),
+    )
+    const farFutureNow = new Date(Date.now() + 60_000)
+    const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
+    const tasks = r.filter((e) => e.kind === 'task_progress')
+    expect(tasks).toHaveLength(2)
+    const ids = tasks
+      .map((e) => (e.kind === 'task_progress' ? e.task_id : null))
+      .filter(Boolean)
+      .sort()
+    expect(ids).toEqual(['1.1', '1.2'])
+  })
+
+  it('emits task_progress event for plan vehicle task_completed_count', async () => {
+    const featDir = path.join(projectRoot, '.mumei', 'plans', 'fix-bug')
+    await mkdir(featDir, { recursive: true })
+    await writeFile(
+      path.join(featDir, 'state.json'),
+      JSON.stringify({ slug: 'fix-bug', phase: 'implement', task_completed_count: 4 }),
+    )
+    const farFutureNow = new Date(Date.now() + 60_000)
+    const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
+    const planTask = r.find((e) => e.kind === 'task_progress')
+    expect(planTask).toBeDefined()
+    if (planTask && planTask.kind === 'task_progress') {
+      expect(planTask.vehicle).toBe('plan')
+      expect(planTask.wave).toBeNull()
+      expect(planTask.task_id).toBe('4')
+    }
   })
 })

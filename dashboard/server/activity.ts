@@ -3,17 +3,35 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import type { MumeiActivityEvent } from '../src/types/activity-event.ts'
-import { type HookStatsEntry, readJsonl } from './lib/aggregator.ts'
+import { type CostLogEntry, type HookStatsEntry, readJsonl } from './lib/aggregator.ts'
 
 const exec = promisify(execFile)
 
 const WINDOW_MS = 24 * 3600_000
 
 /**
+ * Audit-log assumptions (fact-checked 2026-05-09 against `.mumei/audit-log/`):
+ * the existing audit-log entries are limited to `instructions-loaded.jsonl`,
+ * `sessions.jsonl`, and `tool-failures.jsonl` — there is NO `task_complete`
+ * or `phase_transition` entry kind today, and adding one is out of scope
+ * (decisions.md / REQ-18 Out of Scope: "新規 audit-log entry kind の追加").
+ *
+ * Consequence: the spec-vehicle `task_progress` collector below cannot
+ * reconstruct per-checkbox flip timestamps. It surfaces one rolled-up
+ * event per [x] task in the current tasks.md using tasks.md mtime as ts
+ * (best-effort). The plan-vehicle path uses state.json mtime + the
+ * task_completed_count field, also a single rolled-up event per feature.
+ *
+ * Phase events similarly cannot present real `from → to` history without
+ * a phase_transition log; the collector emits `from: null` to signal
+ * "transition history unavailable" instead of pretending from===to.
+ */
+
+/**
  * Build the ActivityFeed payload for `/api/activity?limit=N`. Merges
- * git log + reviews/*.json + state.json mtime + .hook-stats.jsonl
- * across active and archive feature dirs, capped to events within the
- * last 24h, time-desc ordered.
+ * git log + reviews/*.json + state.json mtime + cost-log.jsonl +
+ * .hook-stats.jsonl + tasks.md + archive dirs across active and archive
+ * feature dirs, capped to events within the last 24h, time-desc ordered.
  */
 export async function buildActivity(args: {
   projectRoot: string
@@ -23,14 +41,25 @@ export async function buildActivity(args: {
   const { projectRoot, limit, now = new Date() } = args
   const cutoff = new Date(now.getTime() - WINDOW_MS).toISOString()
 
-  const [commits, reviews, phases, hooks] = await Promise.all([
+  const [commits, reviews, phases, hooks, subagents, taskProgress, archives] = await Promise.all([
     collectCommits(projectRoot, cutoff),
     collectReviews(projectRoot, cutoff),
     collectPhaseChanges(projectRoot, cutoff),
     collectHooks(projectRoot, cutoff),
+    collectSubagents(projectRoot, cutoff),
+    collectTaskProgress(projectRoot, cutoff),
+    collectArchives(projectRoot, cutoff),
   ])
 
-  const all: MumeiActivityEvent[] = [...commits, ...reviews, ...phases, ...hooks]
+  const all: MumeiActivityEvent[] = [
+    ...commits,
+    ...reviews,
+    ...phases,
+    ...hooks,
+    ...subagents,
+    ...taskProgress,
+    ...archives,
+  ]
   all.sort((a, b) => b.ts.localeCompare(a.ts))
   return all.slice(0, Math.max(0, limit))
 }
@@ -125,7 +154,11 @@ async function collectPhaseChanges(
         ts,
         kind: 'phase',
         slug,
-        from: phase, // Without an explicit transition log we record the current phase as both endpoints.
+        // Audit-log does not record phase transitions today (Out of Scope:
+        // 新規 audit-log entry kind の追加). Without history we cannot
+        // recover the previous phase, so emit from=null and let the UI
+        // render '→ <to>' instead of pretending from === to.
+        from: null,
         to: phase,
       })
     } catch {
@@ -177,6 +210,168 @@ async function collectStateFiles(projectRoot: string): Promise<string[]> {
     }
   }
   return out
+}
+
+async function collectSubagents(
+  projectRoot: string,
+  cutoff: string,
+): Promise<MumeiActivityEvent[]> {
+  const out: MumeiActivityEvent[] = []
+  for (const file of await collectCostLogFiles(projectRoot)) {
+    const slug = featureKeyForCostLog(file, projectRoot)
+    if (!slug) continue
+    for await (const e of readJsonl<CostLogEntry>(file)) {
+      if (!e.ts || e.ts < cutoff) continue
+      if (!e.agent || (e.phase !== 'before' && e.phase !== 'after')) continue
+      const tokensTotal = (e.input_tokens ?? 0) + (e.output_tokens ?? 0)
+      out.push({
+        ts: e.ts,
+        kind: 'subagent',
+        slug,
+        agent: e.agent,
+        phase: e.phase,
+        tokens_total: tokensTotal,
+      })
+    }
+  }
+  return out
+}
+
+async function collectTaskProgress(
+  projectRoot: string,
+  cutoff: string,
+): Promise<MumeiActivityEvent[]> {
+  const out: MumeiActivityEvent[] = []
+  // Spec vehicle: parse current tasks.md, emit one event per [x] task
+  // using the task line's source file mtime. This is best-effort because
+  // audit-log does not record per-checkbox flips today.
+  for (const stateFile of await collectStateFiles(projectRoot)) {
+    const featureDir = path.dirname(stateFile)
+    const slug = path.basename(featureDir)
+    const isPlan = featureDir.includes(`${path.sep}plans${path.sep}`)
+    if (isPlan) {
+      try {
+        const body = await readFile(stateFile, 'utf8')
+        const parsed = JSON.parse(body) as { task_completed_count?: number }
+        const count = parsed.task_completed_count
+        if (typeof count !== 'number' || count <= 0) continue
+        const s = await stat(stateFile)
+        const ts = s.mtime.toISOString()
+        if (ts < cutoff) continue
+        out.push({
+          ts,
+          kind: 'task_progress',
+          slug,
+          vehicle: 'plan',
+          wave: null,
+          task_id: String(count),
+        })
+      } catch {
+        // skip bad state.json
+      }
+      continue
+    }
+    const tasksFile = path.join(featureDir, 'tasks.md')
+    let tasksBody: string
+    try {
+      tasksBody = await readFile(tasksFile, 'utf8')
+    } catch {
+      continue
+    }
+    let s: Awaited<ReturnType<typeof stat>>
+    try {
+      s = await stat(tasksFile)
+    } catch {
+      continue
+    }
+    const ts = s.mtime.toISOString()
+    if (ts < cutoff) continue
+    let currentWave: number | null = null
+    for (const raw of tasksBody.split('\n')) {
+      const waveMatch = /^##\s+Wave\s+(\d+):/i.exec(raw)
+      if (waveMatch?.[1]) {
+        currentWave = Number.parseInt(waveMatch[1], 10)
+        continue
+      }
+      const taskMatch = /^- \[x\]\s+(\d+\.\d+)\b/.exec(raw)
+      if (taskMatch?.[1] && currentWave !== null) {
+        out.push({
+          ts,
+          kind: 'task_progress',
+          slug,
+          vehicle: 'spec',
+          wave: currentWave,
+          task_id: taskMatch[1],
+        })
+      }
+    }
+  }
+  return out
+}
+
+async function collectArchives(projectRoot: string, cutoff: string): Promise<MumeiActivityEvent[]> {
+  const archiveRoot = path.join(projectRoot, '.mumei', 'archive')
+  const out: MumeiActivityEvent[] = []
+  for (const month of await safeReaddir(archiveRoot)) {
+    if (!month.isDirectory()) continue
+    const monthDir = path.join(archiveRoot, month.name)
+    for (const slugEnt of await safeReaddir(monthDir)) {
+      if (!slugEnt.isDirectory()) continue
+      const slugDir = path.join(monthDir, slugEnt.name)
+      try {
+        const s = await stat(slugDir)
+        const ts = s.mtime.toISOString()
+        if (ts < cutoff) continue
+        out.push({
+          ts,
+          kind: 'archive',
+          slug: slugEnt.name,
+          to: path.relative(projectRoot, slugDir),
+        })
+      } catch {
+        // skip
+      }
+    }
+  }
+  return out
+}
+
+async function collectCostLogFiles(projectRoot: string): Promise<string[]> {
+  const mumeiDir = path.join(projectRoot, '.mumei')
+  const out: string[] = []
+  for (const sub of ['specs', 'plans']) {
+    const dir = path.join(mumeiDir, sub)
+    for (const ent of await safeReaddir(dir)) {
+      if (ent.isDirectory()) {
+        out.push(path.join(dir, ent.name, 'cost-log.jsonl'))
+      }
+    }
+  }
+  for (const month of await safeReaddir(path.join(mumeiDir, 'archive'))) {
+    if (!month.isDirectory()) continue
+    const monthDir = path.join(mumeiDir, 'archive', month.name)
+    for (const slug of await safeReaddir(monthDir)) {
+      if (slug.isDirectory()) {
+        out.push(path.join(monthDir, slug.name, 'cost-log.jsonl'))
+      }
+    }
+  }
+  return out
+}
+
+function featureKeyForCostLog(file: string, projectRoot: string): string | null {
+  const rel = path.relative(path.join(projectRoot, '.mumei'), file)
+  const segments = rel.split(path.sep)
+  // specs/<slug>/cost-log.jsonl
+  // plans/<slug>/cost-log.jsonl
+  // archive/<YYYY-MM>/<slug>/cost-log.jsonl
+  if (segments.length === 3 && (segments[0] === 'specs' || segments[0] === 'plans')) {
+    return segments[1] ?? null
+  }
+  if (segments.length === 4 && segments[0] === 'archive') {
+    return segments[2] ?? null
+  }
+  return null
 }
 
 async function safeReaddir(

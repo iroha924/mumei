@@ -45,9 +45,15 @@ function activityKey(e: MumeiActivityEvent): string {
     case 'review':
       return `review::${e.ts}::${e.slug}::${e.iter}`
     case 'phase':
-      return `phase::${e.ts}::${e.slug}::${e.from}->${e.to}`
+      return `phase::${e.ts}::${e.slug}::${e.from ?? 'null'}->${e.to}`
     case 'hook':
       return `hook::${e.ts}::${e.hook_id}::${e.decision}`
+    case 'subagent':
+      return `subagent::${e.ts}::${e.slug}::${e.agent}::${e.phase}`
+    case 'task_progress':
+      return `task::${e.ts}::${e.slug}::${e.task_id}`
+    case 'archive':
+      return `archive::${e.ts}::${e.slug}`
   }
 }
 
@@ -102,24 +108,28 @@ function ActivityRow({ event }: { event: MumeiActivityEvent }): ReactElement {
           }
         />
       )
-    case 'phase':
+    case 'phase': {
+      const summary = event.from
+        ? `${event.slug}: ${event.from} → ${event.to}`
+        : `${event.slug}: → ${event.to}`
       return (
         <HoverRow
           ts={ts}
           kindColor="text-sky-300"
           kind="phase"
-          summary={`${event.slug}: ${event.from} → ${event.to}`}
+          summary={summary}
           detail={
             <>
               <DetailHeader badgeColor="border-sky-500/40 text-sky-300" kind="phase" ts={ts} />
               <p className="text-sm text-zinc-200 font-mono">{event.slug}</p>
               <p className="text-xs text-zinc-500">
-                {event.from} <span className="text-zinc-300">→</span> {event.to}
+                {event.from ?? '?'} <span className="text-zinc-300">→</span> {event.to}
               </p>
             </>
           }
         />
       )
+    }
     case 'hook':
       return (
         <HoverRow
@@ -135,6 +145,68 @@ function ActivityRow({ event }: { event: MumeiActivityEvent }): ReactElement {
               <p className="text-xs text-zinc-500">
                 decision <span className="text-zinc-200">{event.decision}</span>
               </p>
+            </>
+          }
+        />
+      )
+    case 'subagent': {
+      const tokensFmt = event.tokens_total > 0 ? `${event.tokens_total.toLocaleString()} tk` : ''
+      return (
+        <HoverRow
+          ts={ts}
+          kindColor="text-rose-300"
+          kind="subagent"
+          summary={`${event.slug} · ${event.agent}`}
+          trailing={tokensFmt || event.phase}
+          detail={
+            <>
+              <DetailHeader badgeColor="border-rose-500/40 text-rose-300" kind="subagent" ts={ts} />
+              <p className="text-sm text-zinc-200 font-mono">{event.agent}</p>
+              <p className="text-xs text-zinc-500">
+                {event.slug} · phase <span className="text-zinc-200">{event.phase}</span>
+                {tokensFmt && <> · {tokensFmt}</>}
+              </p>
+            </>
+          }
+        />
+      )
+    }
+    case 'task_progress': {
+      const wave = event.wave !== null ? `Wave ${event.wave} ` : ''
+      return (
+        <HoverRow
+          ts={ts}
+          kindColor="text-emerald-300"
+          kind="task"
+          summary={`${event.slug} · ${wave}task ${event.task_id} done`}
+          detail={
+            <>
+              <DetailHeader
+                badgeColor="border-emerald-500/40 text-emerald-300"
+                kind="task"
+                ts={ts}
+              />
+              <p className="text-sm text-zinc-200 font-mono">{event.slug}</p>
+              <p className="text-xs text-zinc-500">
+                {event.vehicle} vehicle · {wave}task {event.task_id}
+              </p>
+            </>
+          }
+        />
+      )
+    }
+    case 'archive':
+      return (
+        <HoverRow
+          ts={ts}
+          kindColor="text-zinc-300"
+          kind="archive"
+          summary={`${event.slug} → ${event.to}`}
+          detail={
+            <>
+              <DetailHeader badgeColor="border-zinc-500/40 text-zinc-300" kind="archive" ts={ts} />
+              <p className="text-sm text-zinc-200 font-mono">{event.slug}</p>
+              <p className="text-xs text-zinc-500 break-all">{event.to}</p>
             </>
           }
         />
