@@ -376,3 +376,152 @@ setup() {
   rec="$(cat .mumei/.curator-log.jsonl)"
   [ "$(jq -r '.candidate' <<<"$rec")" = "{}" ]
 }
+
+# ─── REQ-17.9 / REQ-17.10 / REQ-17.11 — LRU eviction ───────────
+
+# Helper to seed a MEMORY.md with N entries, each carrying a known id and
+# a body line. Entries are separated by a blank line, matching ADD's format.
+_seed_memory() {
+  local mfile="$1" n="$2" body_size="${3:-50}"
+  : >"$mfile"
+  local i body
+  for i in $(seq 1 "$n"); do
+    body="$(printf 'entry-body-%04d-%s' "$i" "$(printf '%*s' "$body_size" '' | tr ' ' 'x')")"
+    if ((i > 1)); then
+      printf '\n' >>"$mfile"
+    fi
+    printf '<!-- id: id-%04d -->\n%s\n' "$i" "$body" >>"$mfile"
+  done
+}
+
+# Curator JSON: ADD with given final_text and full rubric (15+).
+_curator_add_json() {
+  local final_text="$1"
+  jq -nc --arg ft "$final_text" '{
+    operation: "ADD", score_total: 15,
+    score_breakdown: {generality:3, recurrence:3, longevity:3, coverage_gap:2, actionability:2, density:1, confidence:1},
+    final_text: $ft, merge_target_id: null, reason: "test"
+  }'
+}
+
+@test "LRU: ADD into 30-entry file evicts oldest entry (REQ-17.9 entry cap)" {
+  local dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$dir"
+  _seed_memory "${dir}/MEMORY.md" 30 30
+
+  local before_count after_count
+  before_count="$(grep -c '^<!-- id: ' "${dir}/MEMORY.md")"
+  [ "$before_count" = "30" ]
+
+  _curator_add_json "new entry body 31" |
+    mumei_memory_apply_operation "$dir" '{}'
+
+  after_count="$(grep -c '^<!-- id: ' "${dir}/MEMORY.md")"
+  [ "$after_count" = "30" ]
+  # Oldest (id-0001) is gone; newest "new-entry-body-31" is present.
+  ! grep -q 'id-0001' "${dir}/MEMORY.md"
+  grep -q 'id-0002' "${dir}/MEMORY.md"
+  grep -q 'new entry body 31' "${dir}/MEMORY.md"
+}
+
+@test "LRU: ADD log line names the evicted id and reviewer (REQ-17.10)" {
+  local dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/test-reviewer"
+  mkdir -p "$dir"
+  _seed_memory "${dir}/MEMORY.md" 30 30
+
+  run bash -c "
+    source '$CLAUDE_PLUGIN_ROOT/hooks/_lib/memory.sh'
+    $(declare -f _curator_add_json)
+    _curator_add_json 'new entry triggering eviction' \
+      | mumei_memory_apply_operation '$dir' '{}'
+  "
+  [ "$status" -eq 0 ]
+  # mumei_log_info goes to stderr — assert the evicted id and reviewer name appear.
+  [[ "$output" == *"memory cap reached for test-reviewer"* ]]
+  [[ "$output" == *"evicted entry: id-0001"* ]]
+}
+
+@test "LRU: ADD into byte-cap-exceeding file evicts multiple entries (REQ-17.9 byte cap)" {
+  local dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$dir"
+  # 10 entries × ~900 bytes each = ~9 KB seed (already over 8 KB cap).
+  # ADDing a new ~500-byte entry triggers eviction until under 8 KB.
+  _seed_memory "${dir}/MEMORY.md" 10 850
+
+  _curator_add_json "$(printf 'new-entry-%500s' '')" |
+    mumei_memory_apply_operation "$dir" '{}'
+
+  # Final byte count must be under cap (8192).
+  local bytes
+  bytes="$(wc -c <"${dir}/MEMORY.md" | tr -d ' ')"
+  ((bytes <= 8192))
+  # New entry must still be present.
+  grep -q 'new-entry-' "${dir}/MEMORY.md"
+}
+
+@test "LRU: ADD below cap does not evict (no spurious log)" {
+  local dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$dir"
+  _seed_memory "${dir}/MEMORY.md" 5 50
+
+  run bash -c "
+    source '$CLAUDE_PLUGIN_ROOT/hooks/_lib/memory.sh'
+    $(declare -f _curator_add_json)
+    _curator_add_json 'new entry below cap' \
+      | mumei_memory_apply_operation '$dir' '{}'
+  "
+  [ "$status" -eq 0 ]
+  ! [[ "$output" == *"evicted entry"* ]]
+  # Both old entries and new one are still present.
+  local count
+  count="$(grep -c '^<!-- id: ' "${dir}/MEMORY.md")"
+  [ "$count" = "6" ]
+}
+
+@test "LRU: concurrent ADDs serialized via mkdir-lock keep cap (REQ-17.11)" {
+  local dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$dir"
+  _seed_memory "${dir}/MEMORY.md" 29 30 # one slot under cap
+
+  # Launch 3 ADD invocations in parallel — only 1 should proceed at a time.
+  # Final state must be exactly cap (30 entries) with all 3 new entries present.
+  for i in 1 2 3; do
+    bash -c "
+      source '$CLAUDE_PLUGIN_ROOT/hooks/_lib/memory.sh'
+      $(declare -f _curator_add_json)
+      _curator_add_json 'parallel-add-${i}' \
+        | mumei_memory_apply_operation '$dir' '{}'
+    " &
+  done
+  wait
+
+  local count duplicate_count
+  count="$(grep -c '^<!-- id: ' "${dir}/MEMORY.md")"
+  [ "$count" = "30" ]
+  # All 3 new entries are present (no lost updates from race).
+  grep -q 'parallel-add-1' "${dir}/MEMORY.md"
+  grep -q 'parallel-add-2' "${dir}/MEMORY.md"
+  grep -q 'parallel-add-3' "${dir}/MEMORY.md"
+  # No duplicate id headers (race would produce same entry twice).
+  duplicate_count="$(grep '^<!-- id: ' "${dir}/MEMORY.md" | sort | uniq -d | wc -l | tr -d ' ')"
+  [ "$duplicate_count" = "0" ]
+}
+
+@test "LRU: eviction guard prevents infinite loop on file with no id headers" {
+  local dir="${MUMEI_TEST_TMPDIR}/.claude/agent-memory/r"
+  mkdir -p "$dir"
+  # 9000 bytes of body but zero id headers — eviction cannot find anything to drop.
+  printf '%*s' 9000 '' >"${dir}/MEMORY.md"
+
+  # ADD should still succeed (the new entry brings an id header but the
+  # pre-existing 9 KB stays, so eviction loop cannot reduce; the guard
+  # logs a warn and returns. The new ADD content is preserved.
+  run bash -c "
+    source '$CLAUDE_PLUGIN_ROOT/hooks/_lib/memory.sh'
+    $(declare -f _curator_add_json)
+    _curator_add_json 'new entry' \
+      | mumei_memory_apply_operation '$dir' '{}'
+  "
+  [ "$status" -eq 0 ]
+  grep -q 'new entry' "${dir}/MEMORY.md"
+}

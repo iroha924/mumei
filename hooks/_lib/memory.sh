@@ -15,6 +15,13 @@ fi
 # Update all three together if requirements change.
 readonly MUMEI_MEMORY_THRESHOLD=15
 readonly MUMEI_MEMORY_FINAL_TEXT_MAX_BYTES=1024
+# REQ-17.9 cap: 30 entries OR 8 KB whichever is reached first. LRU eviction
+# fires inside mumei_memory_apply_operation's ADD branch when appending the
+# new entry would exceed either cap. The cap is 1/3 of Anthropic's 25 KB
+# subagent auto-inject limit — leaves margin for memory-curator's own runtime
+# context plus the existing reviewer system prompt.
+readonly MUMEI_MEMORY_MAX_ENTRIES=30
+readonly MUMEI_MEMORY_MAX_BYTES=8192
 MUMEI_MEMORY_AXES=(generality recurrence longevity coverage_gap actionability density confidence)
 readonly MUMEI_MEMORY_AXES
 
@@ -191,6 +198,11 @@ mumei_memory_apply_operation() {
     }
     tmp=""
     mumei_log_info "memory ADD id=${id} reviewer=$(basename "$dir") bytes=$(printf '%s' "$final_text" | wc -c | tr -d ' ')"
+    # REQ-17.9 / REQ-17.10 — LRU eviction. Run AFTER the ADD has been
+    # persisted so the new entry is part of the file; eviction then drops
+    # the oldest entries (file-position order) until both caps are met.
+    # Same mkdir-lock holds for this loop, so concurrent ADDs cannot race.
+    _mumei_memory_apply_lru_eviction "$mfile" "$(basename "$dir")"
   else
     # UPDATE
     target="$(printf '%s' "$input" | jq -r '.merge_target_id')"
@@ -239,6 +251,92 @@ mumei_memory_apply_operation() {
   fi
   _mumei_memory_curator_log_append "$dir" "$input" true "$candidate"
   return 0
+}
+
+# Evict the oldest entry (top-of-file = first ADD'd) from a MEMORY.md file.
+# Args:
+#   $1: path to MEMORY.md
+#   $2: reviewer name (for log message)
+# Echoes nothing on stdout; writes a single mumei_log_info line on stderr
+# reporting the evicted id. Returns 0 on success, 1 if no entries to evict
+# (file empty or no <!-- id: ... --> header).
+_mumei_memory_evict_oldest() {
+  local mfile="$1" reviewer="$2"
+  [[ -f "$mfile" ]] || return 1
+
+  # First id header is the oldest entry (entries are appended in ADD order).
+  local oldest_id entry_count
+  oldest_id="$(awk '/^<!-- id: / { match($0, /id: [^ ]+/); print substr($0, RSTART+4, RLENGTH-4); exit }' "$mfile")"
+  if [[ -z "$oldest_id" ]]; then
+    return 1
+  fi
+  # Refuse when only 1 entry remains. Otherwise the just-ADDead entry would
+  # be evicted by its own LRU pass on a corrupted file (pre-existing bytes
+  # over cap with no id headers). The just-ADDead entry is the one we want
+  # to preserve; the loop guard in the caller will then warn and stop.
+  entry_count="$(grep -c '^<!-- id: ' "$mfile" 2>/dev/null || echo 0)"
+  if ((entry_count <= 1)); then
+    return 1
+  fi
+
+  local tmp
+  tmp="$(mktemp "${mfile}.XXXXXX")" || return 1
+  # Skip from the first '<!-- id: ' line (inclusive) through to just before
+  # the second '<!-- id: ' line. Trailing blank line (separator inserted by
+  # ADD between entries) is also dropped to avoid leading whitespace in the
+  # surviving file.
+  awk '
+    BEGIN { skipping = 0; id_count = 0 }
+    /^<!-- id: / {
+      id_count++
+      if (id_count == 1) { skipping = 1; next }
+      if (id_count == 2) { skipping = 0; printed_after = 0 }
+    }
+    {
+      if (skipping) next
+      # Drop the leading blank line that ADD inserts as a separator
+      # between entries — it is stale once the prior entry is gone.
+      if (!printed_after && $0 == "") next
+      printed_after = 1
+      print
+    }
+  ' "$mfile" >"$tmp" || {
+    rm -f "$tmp"
+    return 1
+  }
+  mv "$tmp" "$mfile" || {
+    rm -f "$tmp"
+    return 1
+  }
+  mumei_log_info "memory cap reached for ${reviewer}; evicted entry: ${oldest_id}"
+  return 0
+}
+
+# Apply LRU eviction loop: while the file exceeds either cap, evict the
+# oldest entry. Caller is responsible for holding the mkdir-lock.
+# Args: $1 path, $2 reviewer name
+_mumei_memory_apply_lru_eviction() {
+  local mfile="$1" reviewer="$2"
+  [[ -f "$mfile" ]] || return 0
+  local entries bytes guard
+  guard=0
+  while :; do
+    entries="$(grep -c '^<!-- id: ' "$mfile" 2>/dev/null || echo 0)"
+    bytes="$(wc -c <"$mfile" 2>/dev/null | tr -d ' ' || echo 0)"
+    if ((entries <= MUMEI_MEMORY_MAX_ENTRIES)) && ((bytes <= MUMEI_MEMORY_MAX_BYTES)); then
+      return 0
+    fi
+    # Hard guard against infinite loop (entry-count mismatch, file corruption).
+    guard=$((guard + 1))
+    if ((guard > MUMEI_MEMORY_MAX_ENTRIES + 5)); then
+      mumei_log_warn "memory eviction loop exceeded ${guard} iterations for ${reviewer}; aborting"
+      return 1
+    fi
+    if ! _mumei_memory_evict_oldest "$mfile" "$reviewer"; then
+      mumei_log_warn "memory eviction failed for ${reviewer} (no entries to evict but caps still exceeded)"
+      return 1
+    fi
+  done
 }
 
 # Append one record per curator decision to .mumei/.curator-log.jsonl
