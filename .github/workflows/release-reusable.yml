@@ -89,9 +89,11 @@ jobs:
 
           # Match by prefix so future codeql matrix expansions (e.g.
           # adding `actions` or `python`) are auto-included in the gate.
-          # `analyze (` covers every CodeQL language, `scorecard analysis`
-          # is the literal Scorecards run name.
-          for check_prefix in "analyze (" "scorecard analysis"; do
+          # `codeql (` covers every CodeQL language (post-CI-consolidation
+          # job names live under ci.yml as `codeql (actions)` /
+          # `codeql (javascript-typescript)`). `scorecard analysis` is
+          # the literal Scorecards run name.
+          for check_prefix in "codeql (" "scorecard analysis"; do
             err="$(mktemp)"
             payload="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${tag_sha}/check-runs" \
               --paginate --jq ".check_runs[] | select(.name | startswith(\"${check_prefix}\")) | {name, status, conclusion}" 2>"$err")"
