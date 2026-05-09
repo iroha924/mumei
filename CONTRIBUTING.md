@@ -217,12 +217,12 @@ provision the PAT:
    **`hir4ta/mumei` → Settings → Secrets and variables → Actions** as
    a new repository secret named `RELEASE_PLEASE_TOKEN`.
 
-Without the PAT the workflow falls back to `GITHUB_TOKEN`; release-please
-still creates the release PR (this requires
-"Allow GitHub Actions to create and approve pull requests" enabled
-under **Settings → Actions → General → Workflow permissions**), but the
-required status checks will not run on it, so the PR cannot be merged
-under the current branch protection.
+The PAT is required: without `RELEASE_PLEASE_TOKEN`, the workflow
+fails because the action has no credentials to push the release branch
+and create the release PR. Falling back to `GITHUB_TOKEN` would let
+the action create the PR, but GitHub then suppresses workflow runs on
+that PR (re-entrancy guard), so it would never satisfy the required
+status checks under branch protection.
 
 ## Maintainer-only — bumping pinned external binaries
 
