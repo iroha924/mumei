@@ -166,3 +166,18 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+
+  # Dashboard biome lint at pre-push — mirrors dashboard-ci.yml's lint
+  # step. `--error-on-warnings` upgrades any warning to a non-zero exit,
+  # so dashboard/ keeps a strict zero-warning posture both locally and
+  # in CI. Scoped to dashboard/ so non-dashboard commits don't pay the
+  # cost.
+  - repo: local
+    hooks:
+      - id: dashboard-biome
+        name: dashboard biome (--error-on-warnings)
+        entry: bash -c 'cd dashboard && npm run lint'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^dashboard/

@@ -37,6 +37,10 @@ jobs:
         working-directory: dashboard
         run: npm run typecheck
 
+      - name: lint (biome --error-on-warnings)
+        working-directory: dashboard
+        run: npm run lint
+
       - name: generate-types (verify schema sync)
         working-directory: dashboard
         run: |

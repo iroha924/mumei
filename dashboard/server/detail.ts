@@ -360,7 +360,7 @@ async function collectImplementationCommits(
     const [ts, sha, ...rest] = line.split('\t')
     if (!ts || !sha) continue
     const subj = rest.join('\t')
-    if (!slugRe.test(subj) && !(idRe && idRe.test(subj))) continue
+    if (!slugRe.test(subj) && !idRe?.test(subj)) continue
     const wm = /Wave\s+(\d+)/i.exec(subj)
     const event = wm ? `Wave ${wm[1]} commit: ${subj}` : `commit: ${subj}`
     out.push({ ts, event, ref: sha })

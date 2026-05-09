@@ -37,7 +37,7 @@
     "generate-types": "tsx scripts/generate-types.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "biome check .",
+    "lint": "biome check --error-on-warnings .",
     "lint:fix": "biome check --write ."
   },
   "dependencies": {},
