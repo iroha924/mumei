@@ -5,7 +5,7 @@
  */
 
 /**
- * Per-feature roll-up returned by GET /api/features. Computed by dashboard/server/features.ts from .mumei/specs/<f>/state.json + .mumei/plans/<f>/state.json + cost-log.jsonl + git log + tasks.md. Producer: dashboard backend. Consumer: dashboard frontend (CompactDashboard, DetailPanel header). Backward-compatibility: existing fields MUST NOT be renamed or removed (REQ-15.21); add-only.
+ * Per-feature roll-up returned by GET /api/features. Computed by dashboard/server/features.ts from .mumei/specs/<f>/state.json + .mumei/plans/<f>/state.json + cost-log.jsonl + git log + tasks.md. Producer: dashboard backend. Consumer: dashboard frontend (Dashboard, DetailPanel header). Backward-compatibility: existing fields MUST NOT be renamed or removed (REQ-15.21); add-only.
  */
 export interface MumeiFeatureSummary {
   /**

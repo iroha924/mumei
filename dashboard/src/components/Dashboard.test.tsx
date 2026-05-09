@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import type { MumeiFeatureSummary } from '@/types/feature-summary'
 import { server } from '../test/setup'
-import { CompactDashboard } from './CompactDashboard'
+import { Dashboard } from './Dashboard'
 
 function renderWithProviders(): void {
   // Disable retries to surface error states immediately during tests.
@@ -15,7 +15,7 @@ function renderWithProviders(): void {
   function Wrapper({ children }: { children: ReactNode }): ReactNode {
     return <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   }
-  render(<CompactDashboard />, { wrapper: Wrapper })
+  render(<Dashboard />, { wrapper: Wrapper })
 }
 
 const sampleFeature: MumeiFeatureSummary = {
@@ -37,7 +37,7 @@ const sampleFeature: MumeiFeatureSummary = {
   archived: false,
 }
 
-describe('CompactDashboard', () => {
+describe('Dashboard', () => {
   it('renders the empty state when /api/features returns []', async () => {
     renderWithProviders()
     await waitFor(() => {

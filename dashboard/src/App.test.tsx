@@ -20,13 +20,6 @@ describe('App', () => {
     })
   })
 
-  it('exposes a polite live region for SSE connection status', async () => {
-    renderApp()
-    await waitFor(() => {
-      expect(screen.getByRole('status')).toBeInTheDocument()
-    })
-  })
-
   it('renders the empty state when no features exist', async () => {
     renderApp()
     await waitFor(() => {

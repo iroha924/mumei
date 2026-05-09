@@ -12,11 +12,10 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useEventStream } from '@/hooks/useEventStream'
 import { useFeatures } from '@/hooks/useFeatures'
-import { useMeta, useMetaStats } from '@/hooks/useMeta'
+import { useMeta } from '@/hooks/useMeta'
 import { useTrendHooks } from '@/hooks/useTrendHooks'
 import { useTrendReviews } from '@/hooks/useTrendReviews'
 import { useTrendTokens } from '@/hooks/useTrendTokens'
@@ -29,7 +28,7 @@ import { HBar, LegendDot, LineChart, StackedBar } from './charts'
 import { DetailPanel } from './DetailPanel'
 import { EmptyState } from './EmptyState'
 import { ErrorBanner } from './ErrorBanner'
-import { LivePulse, PulseRing, VerdictBadge } from './primitives'
+import { PulseRing, VerdictBadge } from './primitives'
 
 const SECTION_INVALIDATIONS: Record<string, ReadonlyArray<readonly (string | number)[]>> = {
   features: [['features']],
@@ -43,17 +42,13 @@ const SECTION_INVALIDATIONS: Record<string, ReadonlyArray<readonly (string | num
   detail: [],
 }
 
-type Phase = 'plan' | 'implement' | 'review' | 'done'
-type PhaseFilter = 'all' | Phase
-
 /**
- * Compact-variant dashboard. Wired entirely to backend hooks; mock data
- * has been replaced with EmptyState fallback for fresh projects per
+ * Top-level dashboard. Wired entirely to backend hooks; mock data has
+ * been replaced with EmptyState fallback for fresh projects per
  * REQ-15.3 / REQ-15.18.
  */
-export function CompactDashboard(): ReactElement {
+export function Dashboard(): ReactElement {
   const [selected, setSelected] = useState<string | null>(null)
-  const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('all')
   const [slugFilter, setSlugFilter] = useState('')
   const live = useEventStream('/api/events')
 
@@ -71,12 +66,7 @@ export function CompactDashboard(): ReactElement {
           aria-label="features"
           className="flex flex-col basis-[40%] min-w-0 rounded-lg border border-zinc-800 bg-zinc-900/30 overflow-hidden"
         >
-          <FilterStrip
-            phase={phaseFilter}
-            onPhaseChange={setPhaseFilter}
-            slug={slugFilter}
-            onSlugChange={setSlugFilter}
-          />
+          <FilterStrip slug={slugFilter} onSlugChange={setSlugFilter} />
           <div className="flex-1 min-h-0 overflow-y-auto">
             <ErrorBoundarySection name="features">
               <Suspense fallback={<FeatureGridSkeleton />}>
@@ -84,7 +74,6 @@ export function CompactDashboard(): ReactElement {
                   pulses={live.pulses}
                   selected={selected}
                   onSelect={setSelected}
-                  phaseFilter={phaseFilter}
                   slugFilter={slugFilter}
                 />
               </Suspense>
@@ -193,15 +182,8 @@ function ErrorBoundarySection({
   )
 }
 
-function TopBar({
-  connected,
-  disconnected,
-}: {
-  connected: boolean
-  disconnected: boolean
-}): ReactElement {
+function TopBar({ disconnected }: { connected: boolean; disconnected: boolean }): ReactElement {
   const meta = useMeta().data
-  const stats = useMetaStats().data
   return (
     <header className="shrink-0">
       {disconnected && (
@@ -228,23 +210,6 @@ function TopBar({
         <div className="hidden sm:flex items-center gap-2 max-w-md font-mono text-[17px] min-w-0">
           <span className="text-zinc-200 truncate">{meta.projectLabel}</span>
         </div>
-        <div className="ml-auto flex items-center gap-3 lg:gap-4 font-mono text-[17px] shrink-0 flex-wrap justify-end">
-          <CompactStat n={String(stats.activeCount)} label="active" />
-          <CompactStat n={formatTokens(stats.monthTokens)} label="tokens" />
-          <CompactStat
-            n={`${Math.round(stats.cacheHitRate * 100)}%`}
-            label="cache"
-            tone="emerald"
-          />
-          <span className="hidden xl:inline-flex items-baseline gap-1">
-            <CompactStat n={`${stats.hooksPerSec.toFixed(2)}/s`} label="hooks" />
-          </span>
-          <span className="hidden 2xl:inline-flex items-baseline gap-1">
-            <CompactStat n={String(stats.eventCount24h)} label="events" />
-          </span>
-          <span className="hidden sm:inline-block w-px h-4 bg-zinc-800" />
-          <LivePulse connected={connected} />
-        </div>
       </div>
     </header>
   )
@@ -258,54 +223,16 @@ function TopBarSkeleton(): ReactElement {
   )
 }
 
-function CompactStat({
-  n,
-  label,
-  tone,
-}: {
-  n: string
-  label: string
-  tone?: 'emerald'
-}): ReactElement {
-  return (
-    <div className="flex items-baseline gap-1">
-      <span
-        className={cn('tabular-nums', tone === 'emerald' ? 'text-emerald-400' : 'text-zinc-200')}
-      >
-        {n}
-      </span>
-      <span className="text-zinc-500 uppercase text-[15px] tracking-wider">{label}</span>
-    </div>
-  )
-}
-
 function FilterStrip({
-  phase,
-  onPhaseChange,
   slug,
   onSlugChange,
 }: {
-  phase: PhaseFilter
-  onPhaseChange: (p: PhaseFilter) => void
   slug: string
   onSlugChange: (s: string) => void
 }): ReactElement {
   return (
-    <div className="px-3 py-3 border-b border-zinc-800 flex flex-wrap items-center gap-3 bg-zinc-900/50">
-      <Tabs value={phase} onValueChange={(v) => onPhaseChange(v as PhaseFilter)}>
-        <TabsList className="bg-transparent">
-          {(['all', 'plan', 'implement', 'review', 'done'] as const).map((p) => (
-            <TabsTrigger
-              key={p}
-              value={p}
-              className="font-mono text-xs cursor-pointer border border-transparent data-[state=active]:bg-zinc-800/60 data-[state=active]:text-zinc-100 data-[state=active]:border-zinc-700"
-            >
-              {p}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-      <div className="flex-1 min-w-[8rem]" />
+    <div className="px-3 py-3 border-zinc-800 flex items-center gap-3">
+      <div className="flex-1 min-w-0" />
       <Input
         value={slug}
         onChange={(e) => onSlugChange(e.target.value)}
@@ -321,23 +248,20 @@ function FeatureGrid({
   pulses,
   selected,
   onSelect,
-  phaseFilter,
   slugFilter,
 }: {
   pulses: Set<string>
   selected: string | null
   onSelect: (slug: string | null) => void
-  phaseFilter: PhaseFilter
   slugFilter: string
 }): ReactElement {
   const features = useFeatures().data
-  const [showArchived, setShowArchived] = useState(true)
+  const [showArchived, setShowArchived] = useState(false)
   if (features.length === 0) {
     return <EmptyState />
   }
   const slugQuery = slugFilter.trim().toLowerCase()
   const matches = (f: MumeiFeatureSummary): boolean => {
-    if (phaseFilter !== 'all' && f.phase !== phaseFilter) return false
     if (slugQuery && !f.slug.toLowerCase().includes(slugQuery)) return false
     return true
   }
@@ -348,7 +272,7 @@ function FeatureGrid({
       {active.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 auto-rows-fr">
           {active.map((f) => (
-            <CompactCard
+            <FeatureCard
               key={f.slug}
               f={f}
               selected={selected === f.slug}
@@ -377,7 +301,7 @@ function FeatureGrid({
               className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5 auto-rows-fr opacity-70"
             >
               {archived.map((f) => (
-                <CompactCard
+                <FeatureCard
                   key={f.slug}
                   f={f}
                   selected={selected === f.slug}
@@ -403,7 +327,7 @@ function FeatureGridSkeleton(): ReactElement {
   )
 }
 
-function CompactCard({
+function FeatureCard({
   f,
   selected,
   pulse,
@@ -415,9 +339,10 @@ function CompactCard({
   onSelect: (slug: string) => void
 }): ReactElement {
   const progressPct = f.totalWaves > 0 ? Math.round((f.waveProgress / f.totalWaves) * 100) : 0
-  // phase=review/done are visually distinct from phase=implement: amber bar +
-  // 'review' overlay for review, emerald bar + 'done' overlay for done. Phase
-  // implement (incl. 100% progress) keeps the existing violet/blue treatment.
+  // Phase-aware bar color is the single visual cue; the textual phase label
+  // below is the canonical source of truth — no duplicate overlay text or
+  // right-side label, no separate archive-hint row, no token/cache footer
+  // (those live in the trend panels).
   const barColorClass =
     f.phase === 'review'
       ? 'bg-amber-500/80'
@@ -426,8 +351,6 @@ function CompactCard({
         : f.totalWaves > 0
           ? 'bg-violet-500/80'
           : 'bg-zinc-700/40'
-  const overlayLabel = f.phase === 'review' ? 'review' : f.phase === 'done' ? 'done' : null
-  const showArchiveHint = f.phase === 'done'
   return (
     <PulseRing active={pulse}>
       <Card
@@ -443,7 +366,11 @@ function CompactCard({
         }}
         style={
           selected
-            ? { borderColor: 'var(--mumei-text)', borderWidth: '2px', borderStyle: 'solid' }
+            ? {
+                borderColor: 'var(--mumei-text)',
+                borderWidth: '2px',
+                borderStyle: 'solid',
+              }
             : undefined
         }
         className={cn(
@@ -455,62 +382,28 @@ function CompactCard({
         <div className="px-3 h-[42px] flex items-center gap-2">
           <span className="font-mono text-[17px] text-zinc-500 tabular-nums">{f.id}</span>
           <span className="font-mono text-[17px] text-zinc-100 truncate flex-1">{f.slug}</span>
-          <span
-            className={cn(
-              'w-1.5 h-1.5 rounded-full',
-              f.vehicle === 'spec' ? 'bg-sky-400' : 'bg-violet-400',
-            )}
-            aria-hidden="true"
-          />
         </div>
         <div className="px-3 h-[24px] flex items-center gap-2">
-          <div className="relative flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+          <div className="flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
             <div
               className={cn('h-full rounded-full', barColorClass)}
               style={{ width: `${progressPct}%` }}
             />
-            {overlayLabel && (
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 flex items-center justify-center font-mono text-[10px] uppercase tracking-wider text-zinc-100 mix-blend-luminosity pointer-events-none"
-              >
-                {overlayLabel}
-              </span>
-            )}
           </div>
-          <span className="font-mono text-[15px] tabular-nums shrink-0 w-12 text-right">
-            {overlayLabel ? (
-              <span className="text-zinc-300">{overlayLabel}</span>
-            ) : f.totalWaves > 0 ? (
-              <span className="text-zinc-300">{progressPct}%</span>
-            ) : (
-              <span className="text-zinc-600">—</span>
-            )}
-          </span>
         </div>
-        {showArchiveHint && (
-          <div className="px-3 -mt-1 mb-1 font-mono text-[13px] text-emerald-400/80">
-            Run <span className="text-emerald-300">/mumei:archive {f.slug}</span>
-          </div>
-        )}
         <div className="px-3 h-[26px] flex items-center">
           <span className="font-mono text-[16px] text-zinc-400 truncate">
             {f.phase}
             {f.nextPhase ? ` ▶ ${f.nextPhase}` : ''}
           </span>
         </div>
-        <div className="px-3 h-[44px] flex items-center">
+        <div className="px-3 h-[40px] flex items-center justify-between">
           {f.lastVerdict ? (
             <VerdictBadge verdict={f.lastVerdict} iter={f.lastIter} />
           ) : (
             <span className="font-mono text-[16px] text-zinc-600">— no review yet</span>
           )}
-        </div>
-        <div className="px-3 h-[34px] border-t border-zinc-800/80 flex items-center justify-between font-mono text-[16px]">
-          <span className="text-zinc-500 tabular-nums">
-            {formatTokens(f.tokens)} · {Math.round(f.cacheHit * 100)}%
-          </span>
-          <span className="text-zinc-600">{relTime(f.lastActivityMin)}</span>
+          <span className="font-mono text-[15px] text-zinc-600">{relTime(f.lastActivityMin)}</span>
         </div>
       </Card>
     </PulseRing>
