@@ -42,7 +42,10 @@ export type MumeiActivityEvent = {
   | {
       ts: string;
       kind: "hook";
-      rule_id: string;
+      /**
+       * Hook rule short id emitted by hooks/_lib/hook-stats.sh:mumei_hook_stats_record.
+       */
+      hook_id: string;
       decision: "allow" | "deny" | "warn" | "block" | "noop";
     }
 );

@@ -38,8 +38,8 @@ describe('buildActivity', () => {
     await writeFile(
       path.join(mumeiDir, '.hook-stats.jsonl'),
       [
-        JSON.stringify({ ts: recentHook, rule_id: 'lint-tasks', decision: 'allow' }),
-        JSON.stringify({ ts: cutoffOldHook, rule_id: 'old', decision: 'allow' }), // outside window
+        JSON.stringify({ ts: recentHook, hook_id: 'lint-tasks', decision: 'allow' }),
+        JSON.stringify({ ts: cutoffOldHook, hook_id: 'old', decision: 'allow' }), // outside window
       ].join('\n'),
     )
     const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
@@ -47,7 +47,7 @@ describe('buildActivity', () => {
     const kinds = r.map((e) => e.kind)
     expect(kinds).toContain('hook')
     expect(kinds).toContain('review')
-    expect(r.find((e) => e.kind === 'hook' && e.rule_id === 'old')).toBeUndefined()
+    expect(r.find((e) => e.kind === 'hook' && e.hook_id === 'old')).toBeUndefined()
     // time-desc invariant: each ts >= the next.
     for (let i = 1; i < r.length; i++) {
       const prev = r[i - 1]
@@ -63,7 +63,7 @@ describe('buildActivity', () => {
     const lines: string[] = []
     for (let i = 0; i < 100; i++) {
       const ts = new Date(farFutureNow.getTime() - (i + 1) * 60_000).toISOString()
-      lines.push(JSON.stringify({ ts, rule_id: `r${i}`, decision: 'allow' }))
+      lines.push(JSON.stringify({ ts, hook_id: `r${i}`, decision: 'allow' }))
     }
     await writeFile(path.join(mumeiDir, '.hook-stats.jsonl'), lines.join('\n'))
     const r = await buildActivity({ projectRoot, limit: 10, now: farFutureNow })

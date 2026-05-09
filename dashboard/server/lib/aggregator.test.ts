@@ -194,18 +194,18 @@ describe('aggregateHooksTopN', () => {
     const fp = path.join(dir, 'hook-stats.jsonl')
     const recent = '2026-05-08T11:00:00Z'
     const lines = [
-      JSON.stringify({ ts: recent, rule_id: 'lint-tasks', decision: 'allow' }),
-      JSON.stringify({ ts: recent, rule_id: 'lint-tasks', decision: 'allow' }),
-      JSON.stringify({ ts: recent, rule_id: 'lint-tasks', decision: 'deny' }),
-      JSON.stringify({ ts: recent, rule_id: 'pre-edit-guard', decision: 'deny' }),
+      JSON.stringify({ ts: recent, hook_id: 'lint-tasks', decision: 'allow' }),
+      JSON.stringify({ ts: recent, hook_id: 'lint-tasks', decision: 'allow' }),
+      JSON.stringify({ ts: recent, hook_id: 'lint-tasks', decision: 'deny' }),
+      JSON.stringify({ ts: recent, hook_id: 'pre-edit-guard', decision: 'deny' }),
       // outside 24h window — must be skipped
-      JSON.stringify({ ts: '2026-05-01T00:00:00Z', rule_id: 'old', decision: 'allow' }),
+      JSON.stringify({ ts: '2026-05-01T00:00:00Z', hook_id: 'old', decision: 'allow' }),
     ]
     await writeFile(fp, lines.join('\n'))
     const rows = await aggregateHooksTopN(fp, 10, 24, NOW)
     expect(rows).toEqual([
-      { rule_id: 'lint-tasks', count: 3, decision: 'allow' },
-      { rule_id: 'pre-edit-guard', count: 1, decision: 'deny' },
+      { hook_id: 'lint-tasks', count: 3, decision: 'allow' },
+      { hook_id: 'pre-edit-guard', count: 1, decision: 'deny' },
     ])
   })
 
@@ -214,7 +214,7 @@ describe('aggregateHooksTopN', () => {
     const recent = '2026-05-08T11:00:00Z'
     const lines: string[] = []
     for (let i = 0; i < 15; i++) {
-      lines.push(JSON.stringify({ ts: recent, rule_id: `r${i}`, decision: 'allow' }))
+      lines.push(JSON.stringify({ ts: recent, hook_id: `r${i}`, decision: 'allow' }))
     }
     await writeFile(fp, lines.join('\n'))
     const rows = await aggregateHooksTopN(fp, 5, 24, NOW)
@@ -241,7 +241,7 @@ describe('eventCount24h', () => {
       cost,
       JSON.stringify({ ts: recent, feature: 'a', phase: 'after', input_tokens: 1 }),
     )
-    await writeFile(hook, JSON.stringify({ ts: recent, rule_id: 'r', decision: 'allow' }))
+    await writeFile(hook, JSON.stringify({ ts: recent, hook_id: 'r', decision: 'allow' }))
     await writeFile(
       path.join(reviewsDir, '20260508T100000Z.json'),
       JSON.stringify({ verdict: 'PASS' }),
@@ -271,7 +271,7 @@ describe('hooksPerSec', () => {
     const recent = '2026-05-08T11:00:00Z'
     const lines: string[] = []
     for (let i = 0; i < 86_400; i++) {
-      lines.push(JSON.stringify({ ts: recent, rule_id: 'r', decision: 'allow' }))
+      lines.push(JSON.stringify({ ts: recent, hook_id: 'r', decision: 'allow' }))
     }
     await writeFile(fp, lines.join('\n'))
     const r = await hooksPerSec(fp, NOW)

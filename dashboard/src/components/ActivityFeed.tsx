@@ -47,7 +47,7 @@ function activityKey(e: MumeiActivityEvent): string {
     case 'phase':
       return `phase::${e.ts}::${e.slug}::${e.from}->${e.to}`
     case 'hook':
-      return `hook::${e.ts}::${e.rule_id}::${e.decision}`
+      return `hook::${e.ts}::${e.hook_id}::${e.decision}`
   }
 }
 
@@ -126,12 +126,12 @@ function ActivityRow({ event }: { event: MumeiActivityEvent }): ReactElement {
           ts={ts}
           kindColor="text-amber-300"
           kind="hook"
-          summary={event.rule_id}
+          summary={event.hook_id}
           trailing={event.decision}
           detail={
             <>
               <DetailHeader badgeColor="border-amber-500/40 text-amber-300" kind="hook" ts={ts} />
-              <p className="text-sm text-zinc-200 font-mono">{event.rule_id}</p>
+              <p className="text-sm text-zinc-200 font-mono">{event.hook_id}</p>
               <p className="text-xs text-zinc-500">
                 decision <span className="text-zinc-200">{event.decision}</span>
               </p>

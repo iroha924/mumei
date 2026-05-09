@@ -40,18 +40,18 @@
     },
     "HooksTrend": {
       "type": "array",
-      "description": "GET /api/trends/hooks?topN=10&windowH=24 result. Top-N rule_id rows by firing count within the window.",
+      "description": "GET /api/trends/hooks?topN=10&windowH=24 result. Top-N hook_id rows by firing count within the window.",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["rule_id", "count", "decision"],
+        "required": ["hook_id", "count", "decision"],
         "properties": {
-          "rule_id": { "type": "string", "description": "e.g. lint-tasks, pre-edit-guard." },
+          "hook_id": { "type": "string", "description": "Hook rule short id emitted by hooks/_lib/hook-stats.sh:mumei_hook_stats_record (e.g. S1, M1, X3, I1)." },
           "count": { "type": "integer", "minimum": 1 },
           "decision": {
             "type": "string",
             "enum": ["allow", "deny", "warn", "block", "noop"],
-            "description": "Most common decision recorded for the rule_id within the window."
+            "description": "Most common decision recorded for the hook_id within the window."
           }
         }
       }

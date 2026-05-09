@@ -95,11 +95,11 @@
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["ts", "kind", "rule_id", "decision"],
+              "required": ["ts", "kind", "hook_id", "decision"],
               "properties": {
                 "ts": { "type": "string", "format": "date-time" },
                 "kind": { "const": "hook" },
-                "rule_id": { "type": "string" },
+                "hook_id": { "type": "string", "description": "Hook rule short id emitted by hooks/_lib/hook-stats.sh:mumei_hook_stats_record." },
                 "decision": { "type": "string", "enum": ["allow", "deny", "warn", "block", "noop"] }
               }
             }

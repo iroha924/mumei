@@ -45,9 +45,10 @@ export interface CostLogEntry {
 
 export interface HookStatsEntry {
   ts: string
-  rule_id: string
+  hook_id: string
   decision: string
-  hook?: string
+  tool_name?: string
+  reason?: string
   feature?: string
 }
 
@@ -64,7 +65,7 @@ export interface DailyVerdictBucket {
 }
 
 export interface HookCount {
-  rule_id: string
+  hook_id: string
   count: number
   decision: string
 }
@@ -196,9 +197,9 @@ export async function aggregateReviewsByDay(
 }
 
 /**
- * Aggregate hook firings from `.hook-stats.jsonl` into top-N rule_id
+ * Aggregate hook firings from `.hook-stats.jsonl` into top-N hook_id
  * rows within a rolling window of `windowH` hours. The most common
- * decision per rule_id is reported.
+ * decision per hook_id is reported.
  */
 export async function aggregateHooksTopN(
   filePath: string,
@@ -207,19 +208,18 @@ export async function aggregateHooksTopN(
   now: Date = new Date(),
 ): Promise<HookCount[]> {
   const cutoff = new Date(now.getTime() - windowH * 3600_000).toISOString()
-  // rule_id -> { count, decisions: { decision -> count } }
   const counts = new Map<string, { count: number; decisions: Map<string, number> }>()
   for await (const e of readJsonl<HookStatsEntry>(filePath)) {
     if (!e.ts || e.ts < cutoff) continue
-    if (!e.rule_id) continue
-    const slot = counts.get(e.rule_id) ?? { count: 0, decisions: new Map<string, number>() }
+    if (!e.hook_id) continue
+    const slot = counts.get(e.hook_id) ?? { count: 0, decisions: new Map<string, number>() }
     slot.count += 1
     const dec = e.decision || 'noop'
     slot.decisions.set(dec, (slot.decisions.get(dec) ?? 0) + 1)
-    counts.set(e.rule_id, slot)
+    counts.set(e.hook_id, slot)
   }
   const rows: HookCount[] = []
-  for (const [rule_id, slot] of counts) {
+  for (const [hook_id, slot] of counts) {
     let topDecision = 'noop'
     let topCount = -1
     for (const [d, c] of slot.decisions) {
@@ -228,7 +228,7 @@ export async function aggregateHooksTopN(
         topDecision = d
       }
     }
-    rows.push({ rule_id, count: slot.count, decision: topDecision })
+    rows.push({ hook_id, count: slot.count, decision: topDecision })
   }
   rows.sort((a, b) => b.count - a.count)
   return rows.slice(0, topN)

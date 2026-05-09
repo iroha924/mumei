@@ -35,16 +35,16 @@ export type ReviewsTrend = {
   MI: number;
 }[];
 /**
- * GET /api/trends/hooks?topN=10&windowH=24 result. Top-N rule_id rows by firing count within the window.
+ * GET /api/trends/hooks?topN=10&windowH=24 result. Top-N hook_id rows by firing count within the window.
  */
 export type HooksTrend = {
   /**
-   * e.g. lint-tasks, pre-edit-guard.
+   * Hook rule short id emitted by hooks/_lib/hook-stats.sh:mumei_hook_stats_record (e.g. S1, M1, X3, I1).
    */
-  rule_id: string;
+  hook_id: string;
   count: number;
   /**
-   * Most common decision recorded for the rule_id within the window.
+   * Most common decision recorded for the hook_id within the window.
    */
   decision: "allow" | "deny" | "warn" | "block" | "noop";
 }[];

@@ -140,9 +140,9 @@ async function collectHooks(projectRoot: string, cutoff: string): Promise<MumeiA
   const out: MumeiActivityEvent[] = []
   for await (const e of readJsonl<HookStatsEntry>(file)) {
     if (!e.ts || e.ts < cutoff) continue
-    if (!e.rule_id) continue
+    if (!e.hook_id) continue
     const decision = (e.decision || 'noop') as 'allow' | 'deny' | 'warn' | 'block' | 'noop'
-    out.push({ ts: e.ts, kind: 'hook', rule_id: e.rule_id, decision })
+    out.push({ ts: e.ts, kind: 'hook', hook_id: e.hook_id, decision })
   }
   return out
 }

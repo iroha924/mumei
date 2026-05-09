@@ -101,14 +101,14 @@ describe('trendHooks', () => {
     await writeFile(
       path.join(mumeiDir, '.hook-stats.jsonl'),
       [
-        JSON.stringify({ ts: recent, rule_id: 'lint-tasks', decision: 'allow' }),
-        JSON.stringify({ ts: recent, rule_id: 'lint-tasks', decision: 'allow' }),
-        JSON.stringify({ ts: recent, rule_id: 'pre-edit-guard', decision: 'deny' }),
+        JSON.stringify({ ts: recent, hook_id: 'lint-tasks', decision: 'allow' }),
+        JSON.stringify({ ts: recent, hook_id: 'lint-tasks', decision: 'allow' }),
+        JSON.stringify({ ts: recent, hook_id: 'pre-edit-guard', decision: 'deny' }),
       ].join('\n'),
     )
     const rows = await trendHooks({ projectRoot, topN: 10, windowH: 24, now: NOW })
-    expect(rows[0]).toEqual({ rule_id: 'lint-tasks', count: 2, decision: 'allow' })
-    expect(rows[1]).toEqual({ rule_id: 'pre-edit-guard', count: 1, decision: 'deny' })
+    expect(rows[0]).toEqual({ hook_id: 'lint-tasks', count: 2, decision: 'allow' })
+    expect(rows[1]).toEqual({ hook_id: 'pre-edit-guard', count: 1, decision: 'deny' })
   })
 
   it('returns [] when .hook-stats.jsonl is missing', async () => {
