@@ -123,6 +123,11 @@ are generated from the subject line alone, and bot-style attribution adds noise.
 
 ## Pull request workflow
 
+`main` is branch-protected: direct pushes are rejected at the server. Every
+change reaches `main` through a pull request whose required status checks all
+pass. External contributors fork; the maintainer creates a topic branch in this
+repo.
+
 1. Fork or branch from `main` (`git checkout -b feat/your-feature`).
 2. Implement the change, keeping commits focused and Conventional Commits-formatted.
 3. Run `bats -r tests/` and `/validate` locally; both must pass.
@@ -137,8 +142,20 @@ are generated from the subject line alone, and bot-style attribution adds noise.
    so do this in the same commit as the rule itself.
 6. Open the PR. The template (`.github/PULL_REQUEST_TEMPLATE.md`) lists the
    pre-merge checklist; tick each item that applies.
-7. CI runs on the PR. All required checks must pass before merge.
-8. Self-merge is permitted (1-developer reality); approval count is not enforced.
+7. CI runs on the PR. The following 8 required status checks must all pass
+   before `main` will accept the merge: `lint`, `lint-extra`,
+   `bats (macos-latest)`, `bats (ubuntu-latest)`, `codeql (actions)`,
+   `codeql (javascript-typescript)`, `pr-target-guard`, `mutable-tag-guard`.
+   Other checks (e.g. `signed-commit-verify`, `dashboard-ci / build`) run but
+   are informational, not blocking.
+8. Self-merge is permitted via squash or rebase (linear history is enforced;
+   merge commits are rejected). Approval count is not required.
+
+The protection rule applies to administrators as well — there is no
+`bypass` list. To temporarily relax the rule for an emergency repair, the
+maintainer disables protection via `gh api -X DELETE
+/repos/<owner>/<repo>/branches/main/protection`, makes the change, and
+re-applies protection in the same session.
 
 ## Spec-driven changes
 
