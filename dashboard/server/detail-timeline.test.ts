@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { buildFeatureDetail } from './detail.ts'
+import { buildFeatureDetail, dedupTimeline } from './detail.ts'
 
 const PLUGIN_ROOT = path.resolve(import.meta.dirname, '../..')
 
@@ -90,29 +90,31 @@ describe('buildTimeline (spec vehicle)', () => {
     expect(events).toContain('spec-review/tasks iter 1 PASS')
   })
 
-  it('commit event at same second supersedes phase marker (F-010 regex coverage)', async () => {
-    const featDir = await writeSpecFeature(projectRoot, 'REQ-5-collide', {
-      id: 'REQ-5',
-      slug: 'collide',
-      phase: 'implement',
-    })
-    await writeFile(path.join(featDir, 'requirements.md'), '# collide')
-    // The phase marker derives ts from state.json mtime; the commit
-    // event is harvested by collectImplementationCommits via git log,
-    // which the test cannot easily fake. Instead exercise dedupTimeline
-    // directly: assert the regex `/^phase: .* → /` matches the new
-    // event prefix so the commit-supersedes-phase branch can fire.
-    const r = await buildFeatureDetail({
-      projectRoot,
-      pluginRoot: PLUGIN_ROOT,
-      featureKey: 'REQ-5-collide',
-    })
-    const events = r?.timeline.map((e) => e.event) ?? []
-    expect(events).toContain('phase: (unknown) → implement')
-    // The dedupTimeline branch's regex must accept the new event prefix.
-    // Without the fix, /^phase: → / would not match this event and the
-    // same-second-commit override would never fire.
-    expect(/^phase: .* → /.test('phase: (unknown) → implement')).toBe(true)
+  it('commit event at same second supersedes phase marker (F-010 + F-011 dedup branch coverage)', () => {
+    // Direct dedupTimeline test: phase marker (ref:null) and commit
+    // (ref:sha) at the SAME second → only commit survives. This
+    // exercises the override branch end-to-end (F-011 fix), not just
+    // the regex literal in isolation.
+    const ts = '2026-05-09T19:00:00Z'
+    const result = dedupTimeline([
+      { ts, event: 'phase: (unknown) → implement', ref: null },
+      { ts, event: 'Wave 1 commit: feat: foo', ref: 'abc1234' },
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]?.event).toBe('Wave 1 commit: feat: foo')
+    expect(result[0]?.ref).toBe('abc1234')
+  })
+
+  it('preserves phase marker when no commit collides on the same second', () => {
+    const result = dedupTimeline([
+      { ts: '2026-05-09T19:00:00Z', event: 'phase: (unknown) → implement', ref: null },
+      { ts: '2026-05-09T19:00:30Z', event: 'Wave 1 commit: feat: foo', ref: 'abc1234' },
+    ])
+    expect(result).toHaveLength(2)
+    expect(result.map((e) => e.event)).toEqual([
+      'phase: (unknown) → implement',
+      'Wave 1 commit: feat: foo',
+    ])
   })
 
   it('marks archive-resident features with an archived event', async () => {

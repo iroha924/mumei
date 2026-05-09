@@ -488,7 +488,7 @@ async function buildPlanTimeline(args: {
   return out
 }
 
-function dedupTimeline(events: TimelineEvent[]): TimelineEvent[] {
+export function dedupTimeline(events: TimelineEvent[]): TimelineEvent[] {
   // Sort asc first, then collapse semantically equivalent events at the
   // same second. Commit events (ref != null) win over phase / state mtime
   // markers when they collide on ts.
