@@ -356,6 +356,11 @@ if [[ "$(jq 'length' <<<"$structural_findings")" -gt 0 ]]; then
     jq --argjson sf "$structural_findings" \
        '.findings_surfaced = ($sf + (.findings_surfaced // []))' \
        <"$latest_review" >"${latest_review}.tmp"
+    # Surface a stderr note when only MEDIUM findings exist so the user
+    # sees the degraded-mode signal (REQ-17 review adv-F-002 fix).
+    medium_count="$(jq 'length' <<<"$structural_findings")"
+    printf '[mumei] structural integrity check produced %d MEDIUM finding(s); see %s for details\n' \
+      "$medium_count" "$latest_review" >&2
   fi
   mv "${latest_review}.tmp" "$latest_review"
 fi

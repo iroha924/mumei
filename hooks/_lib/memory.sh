@@ -304,6 +304,17 @@ _mumei_memory_evict_oldest() {
     rm -f "$tmp"
     return 1
   }
+  # Post-write integrity check: pre-eviction file had >= 2 id headers (we
+  # checked entry_count <= 1 earlier and refused). Eviction must leave at
+  # least 1 id header. A 0-byte tmp or one without any `<!-- id: ` marker
+  # signals awk produced corrupt output (truncated write, OOM mid-pipe).
+  # Refuse the mv to keep MEMORY.md intact, log warn, return 1 — the
+  # caller's loop guard then aborts cleanly.
+  if [[ ! -s "$tmp" ]] || ! grep -q '^<!-- id: ' "$tmp"; then
+    mumei_log_warn "memory eviction integrity check failed for ${reviewer}; refusing to mv corrupt tmp"
+    rm -f "$tmp"
+    return 1
+  fi
   mv "$tmp" "$mfile" || {
     rm -f "$tmp"
     return 1

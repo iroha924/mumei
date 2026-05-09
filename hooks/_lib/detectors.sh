@@ -90,8 +90,20 @@ mumei_detector_version_compare() {
 mumei_detector_version_check() {
   local binary="$1" minimum="$2"
   command -v "$binary" >/dev/null 2>&1 || return 0
-  local version_output
-  version_output="$("$binary" --version 2>&1)"
+  # Wrap with `timeout 5` so a hung --version (corp proxy stub, stale venv,
+  # broken symlink shim) cannot block Stage 0 indefinitely. timeout exit
+  # status 124 is treated as "unparsable" — silent return, no false alarm.
+  # Fall back to a plain invocation when `timeout` is not on PATH (rare on
+  # macOS without coreutils); the hung-stub risk is then accepted.
+  local version_output rc=0
+  if command -v timeout >/dev/null 2>&1; then
+    version_output="$(timeout 5 "$binary" --version 2>&1)" || rc=$?
+    if ((rc == 124)); then
+      return 0
+    fi
+  else
+    version_output="$("$binary" --version 2>&1)" || true
+  fi
   local cmp
   cmp="$(mumei_detector_version_compare "$version_output" "$minimum")"
   case "$cmp" in

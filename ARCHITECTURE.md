@@ -170,6 +170,14 @@ Key constraints:
 
 - **Detector findings are ground truth.** When `high_count > 0`, security-reviewer
   is skipped and the verdict pins to `MAJOR_ISSUES` regardless of LLM output.
+- **`spec-compliance-reviewer` accepts a `scope_source` parameter** that the
+  orchestrator appends to the reviewer prompt as a literal `scope_source=<path>`
+  suffix. The agent body branches on the file extension: `requirements.md`
+  → spec-vehicle EARS comparison (full AC categories: ac_drift, missing_ac,
+  scope_creep, over_engineering, silent_reinterpretation); `plan.md` →
+  plan-vehicle natural-language plan comparison (scope_creep and
+  silent_reinterpretation only — no formal ACs). One agent file serves both
+  vehicles; the total deployed agent count remains at 8.
 - **Reviewers run on fresh contexts.** No reviewer sees its own prior runs;
   cross-context bleed is prevented structurally.
 - **`issue-validator` memory is `local` (read-only).** Parallel writes would
