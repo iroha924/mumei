@@ -30,6 +30,12 @@ exclude_path = [
   # liveness-checked at commit time, and including them roughly doubles the
   # external request load lychee makes per CI run.
   ".github/audit-prompts/",
+  # release-please-generated CHANGELOG.md: contains self-referential
+  # `compare/vX.Y.Z...vN.N.N` URLs that 404 until the tag is pushed (which
+  # only happens at release PR merge), and auto-generated `#N` links from
+  # commit messages that GitHub renders as issue links even when the
+  # original `#N` referred to a code-scanning alert.
+  "CHANGELOG.md",
 ]
 
 # Skip URLs that have a long history of flaky network errors in CI (not
