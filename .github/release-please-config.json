@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "include-component-in-tag": false,
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "mumei",
+      "tag-format": "v${version}",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "dashboard": {
+      "release-type": "node",
+      "package-name": "mumei-dashboard",
+      "tag-format": "dashboard-v${version}"
+    }
+  }
+}

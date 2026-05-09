@@ -1,0 +1,40 @@
+name: release-please
+
+# Automated release flow. release-please-action analyses Conventional
+# Commits on `main`, maintains a "release PR" per package (plugin root +
+# dashboard/), and pushes a tag when the maintainer merges that PR.
+#
+# The existing release.yml / release-dashboard.yml workflows pick up
+# the tag push (`v*` and `dashboard-v*` respectively) and perform
+# build + sign + SBOM + publish. Nothing in those workflows changed.
+#
+# Token: prefer secrets.RELEASE_PLEASE_TOKEN (PAT) so the release PR
+# triggers the required status checks via main CI. With the default
+# GITHUB_TOKEN, GitHub deliberately suppresses workflow runs on PRs
+# that the action itself authored, leaving the release PR unmergeable
+# under branch protection. If RELEASE_PLEASE_TOKEN is unset the action
+# falls back to GITHUB_TOKEN — the release PR is still created, but a
+# maintainer must push an empty commit (or set up the PAT) before the
+# protection rule will allow the merge.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json

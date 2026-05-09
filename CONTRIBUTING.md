@@ -169,6 +169,42 @@ Wave. The artifacts live under `.mumei/specs/<feature>/`. This is gitignored, so
 the spec stays local; share intent through the PR description and link to the
 relevant `decisions.md` entry under `docs/` if applicable.
 
+## Releases
+
+Releases are automated by [release-please](https://github.com/googleapis/release-please).
+Maintainers do **not** run a manual `/release` command; instead:
+
+1. Land Conventional-Commits-formatted PRs on `main` as usual. Each PR's
+   subject (`feat:` / `fix:` / `feat!:` / `BREAKING CHANGE:` footer) drives
+   the eventual semver bump.
+2. The `release-please` workflow (`.github/workflows/release-please.yml`)
+   maintains one **release pull request per package**:
+   - `chore(main): release v<X.Y.Z>` for the plugin (root)
+   - `chore(main): release dashboard-v<X.Y.Z>` for the dashboard
+     The body of each release PR is the auto-generated CHANGELOG covering
+     all commits landed since the previous release tag.
+3. When a release PR is merged, release-please pushes the corresponding
+   tag (`v<X.Y.Z>` or `dashboard-v<X.Y.Z>`). The existing tag-triggered
+   workflows (`release.yml`, `release-dashboard.yml`) take over from
+   there: build → Sigstore sign → SBOM → SLSA → publish.
+
+Version sources of truth:
+
+- Plugin: `.claude-plugin/plugin.json` `version` field. release-please
+  updates this in lockstep with the tag via `extra-files` config.
+- Dashboard: `dashboard/package.json` `version` field (standard
+  release-please `node` strategy).
+- The `.github/.release-please-manifest.json` file tracks the current
+  released version of each package; do not edit by hand.
+
+`RELEASE_PLEASE_TOKEN` (PAT) setup is required so the release PR
+triggers branch-protection-required CI runs. With the default
+`GITHUB_TOKEN`, GitHub deliberately suppresses workflow runs on PRs
+authored by an action, leaving the release PR unmergeable. Generate a
+fine-grained PAT with `contents: write` + `pull_requests: write` on
+this repository, then add it under Settings → Secrets → Actions as
+`RELEASE_PLEASE_TOKEN`.
+
 ## Maintainer-only — bumping pinned external binaries
 
 `shfmt` and `shellharden` are downloaded by CI from upstream GitHub Releases
