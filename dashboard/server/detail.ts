@@ -4,6 +4,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import type { MumeiFeatureDetailPayload as MumeiFeatureDetail } from '../src/types/feature-detail.ts'
 import { type CostLogEntry, readJsonl } from './lib/aggregator.ts'
+import { isValidFeatureKey } from './lib/feature-key.ts'
 import { buildWaveplan } from './lib/tasks-bridge.ts'
 
 const exec = promisify(execFile)
@@ -19,6 +20,7 @@ export async function buildFeatureDetail(args: {
   featureKey: string
 }): Promise<MumeiFeatureDetail | null> {
   const { projectRoot, pluginRoot, featureKey } = args
+  if (!isValidFeatureKey(featureKey)) return null
   const dir = await resolveFeatureDir(projectRoot, featureKey)
   if (!dir) return null
 

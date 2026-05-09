@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { isValidFeatureKey } from './feature-key.ts'
 
 const exec = promisify(execFile)
 
@@ -135,6 +136,7 @@ export async function buildWaveplan(args: {
   bustCache?: boolean
 }): Promise<WaveMeta[]> {
   const { projectRoot, featureKey, pluginRoot, bustCache } = args
+  if (!isValidFeatureKey(featureKey)) return []
   const memoKey = `${projectRoot}::${featureKey}`
   const cachedHit = memo.get(memoKey)
   if (!bustCache && cachedHit && Date.now() - cachedHit.ts < MEMO_TTL_MS) {
