@@ -21,6 +21,7 @@ import { useTrendHooks } from '@/hooks/useTrendHooks'
 import { useTrendReviews } from '@/hooks/useTrendReviews'
 import { useTrendTokens } from '@/hooks/useTrendTokens'
 import { formatTokens, relTime } from '@/lib/format'
+import { hookIdLabel } from '@/lib/hook-id-labels'
 import { cn } from '@/lib/utils'
 import type { MumeiFeatureSummary } from '@/types/feature-summary'
 import { ActivityFeed } from './ActivityFeed'
@@ -497,7 +498,7 @@ function TrendBar(): ReactElement {
   const hooks = useTrendHooks(10, 24).data
   const totalTokens = tokens.reduce((acc, p) => acc + p.v, 0)
   const hooksRows = hooks.map((h) => ({
-    id: h.hook_id,
+    id: hookIdLabel(h.hook_id),
     n: h.count,
     decision:
       h.decision === 'deny' || h.decision === 'block'

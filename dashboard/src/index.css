@@ -64,6 +64,21 @@
   --chart-3: oklch(0.65 0.08 70);
   --chart-4: oklch(0.6 0.1 30);
   --chart-5: oklch(0.6 0.04 195);
+
+  /* shadcn/ui surface tokens. `bg-background` / `border-border` /
+     `text-foreground` etc. resolve here so shadcn primitives (chart
+     tooltip, card, etc.) render against the warm-cream paper surface
+     instead of an undefined transparent fill. Tooltip background uses
+     a slight transparency (85%) so the chart hover is readable while
+     the underlying line still shows through. */
+  --color-background: rgba(251, 246, 234, 0.8);
+  --color-foreground: #2c281f;
+  --color-border: rgba(206, 193, 163, 0.55);
+  --color-muted-foreground: #8e8470;
+  --color-popover: rgba(251, 246, 234, 0.92);
+  --color-popover-foreground: #2c281f;
+  --color-card: #fbf6ea;
+  --color-card-foreground: #2c281f;
 }
 
 .dark {

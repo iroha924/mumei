@@ -254,23 +254,207 @@ async function loadCostPerIter(args: {
     })
 }
 
-async function buildTimeline(args: {
+type TimelineEvent = MumeiFeatureDetail['timeline'][number]
+
+interface StateJsonShape {
+  id?: string
+  slug?: string
+  phase?: 'plan' | 'implement' | 'review' | 'done'
+  approved_at?: string | null
+  pending_review?: boolean
+  task_completed_count?: number
+  created_at?: string
+  updated_at?: string
+}
+
+async function readStateJson(featureDir: string): Promise<StateJsonShape | null> {
+  try {
+    const body = await readFile(path.join(featureDir, 'state.json'), 'utf8')
+    return JSON.parse(body) as StateJsonShape
+  } catch {
+    return null
+  }
+}
+
+async function tryFileMtime(
+  featureDir: string,
+  rel: string,
+  label: string,
+  out: TimelineEvent[],
+): Promise<void> {
+  try {
+    const s = await stat(path.join(featureDir, rel))
+    out.push({ ts: s.mtime.toISOString(), event: label, ref: null })
+  } catch {
+    // file missing — skip
+  }
+}
+
+async function collectSpecReviewEvents(featureDir: string, out: TimelineEvent[]): Promise<void> {
+  const dir = path.join(featureDir, 'spec-reviews')
+  let entries: { name: string; isFile: () => boolean }[]
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  for (const ent of entries) {
+    if (!ent.isFile() || !ent.name.endsWith('.json')) continue
+    const m = /^.+Z-(requirements|design|tasks)\.json$/.exec(ent.name)
+    if (!m) continue
+    const doc = m[1]
+    const fp = path.join(dir, ent.name)
+    try {
+      const body = JSON.parse(await readFile(fp, 'utf8')) as {
+        verdict?: 'PASS' | 'NEEDS_IMPROVEMENT' | 'MAJOR_ISSUES'
+        iteration?: number
+      }
+      if (!body.verdict) continue
+      const s = await stat(fp)
+      out.push({
+        ts: s.mtime.toISOString(),
+        event: `spec-review/${doc} iter ${body.iteration ?? 1} ${body.verdict}`,
+        ref: null,
+      })
+    } catch {
+      // skip bad json
+    }
+  }
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+async function collectImplementationCommits(
+  projectRoot: string,
+  featureKey: string,
+  out: TimelineEvent[],
+): Promise<void> {
+  // Match commits whose subject mentions the feature key (`REQ-18-...`)
+  // OR the bare REQ id (`REQ-18`). Path-based filtering on featureDir
+  // misses commits in `dashboard/`, `hooks/`, etc., so subject-regex is
+  // the primary signal.
+  const idMatch = /^REQ-\d+/.exec(featureKey)
+  const slugRe = new RegExp(`(?:^|\\W)${escapeRegex(featureKey)}(?:\\W|$)`)
+  const idRe = idMatch ? new RegExp(`(?:^|\\W)${escapeRegex(idMatch[0])}(?:\\W|$)`) : null
+  let stdout: string
+  try {
+    const r = await exec('git', ['log', '-n', '200', '--format=%cI%x09%H%x09%s'], {
+      cwd: projectRoot,
+      maxBuffer: 4 * 1024 * 1024,
+    })
+    stdout = r.stdout
+  } catch {
+    return
+  }
+  for (const line of stdout.split('\n').filter(Boolean)) {
+    const [ts, sha, ...rest] = line.split('\t')
+    if (!ts || !sha) continue
+    const subj = rest.join('\t')
+    if (!slugRe.test(subj) && !(idRe && idRe.test(subj))) continue
+    const wm = /Wave\s+(\d+)/i.exec(subj)
+    const event = wm ? `Wave ${wm[1]} commit: ${subj}` : `commit: ${subj}`
+    out.push({ ts, event, ref: sha })
+  }
+}
+
+async function buildSpecTimeline(args: {
   projectRoot: string
   featureDir: string
   featureKey: string
   reviews: MumeiFeatureDetail['reviews']
-}): Promise<MumeiFeatureDetail['timeline']> {
-  const out: MumeiFeatureDetail['timeline'] = []
+}): Promise<TimelineEvent[]> {
+  const out: TimelineEvent[] = []
+  const { featureDir, projectRoot, featureKey, reviews } = args
 
-  // state.json mtime → "created"
-  try {
-    const s = await stat(path.join(args.featureDir, 'state.json'))
-    out.push({ ts: s.birthtime.toISOString(), event: 'created', ref: null })
-  } catch {
-    // ignore
+  await tryFileMtime(featureDir, 'requirements.md', 'requirements.md drafted', out)
+  await tryFileMtime(featureDir, 'design.md', 'design.md drafted', out)
+  await tryFileMtime(featureDir, 'tasks.md', 'tasks.md drafted', out)
+
+  await collectSpecReviewEvents(featureDir, out)
+
+  const state = await readStateJson(featureDir)
+  if (state?.approved_at) {
+    out.push({ ts: state.approved_at, event: 'approved by user', ref: null })
+  }
+  // Surface the latest known phase as a best-effort transition marker
+  // (state.json snapshots are not kept, so we cannot reconstruct the
+  // full from→to history; instead emit one marker per transition we
+  // can infer from current state + state.json mtime).
+  if (state?.phase && state.phase !== 'plan') {
+    try {
+      const s = await stat(path.join(featureDir, 'state.json'))
+      out.push({
+        ts: s.mtime.toISOString(),
+        event: `phase: → ${state.phase}`,
+        ref: null,
+      })
+    } catch {
+      // ignore
+    }
   }
 
-  for (const r of args.reviews) {
+  for (const r of reviews) {
+    const wavePart = typeof r.wave === 'number' ? `Wave ${r.wave} ` : ''
+    out.push({
+      ts: r.ts,
+      event: `review ${wavePart}iter ${r.iteration} ${r.verdict}`.replace(/\s+/g, ' ').trim(),
+      ref: null,
+    })
+  }
+
+  await collectImplementationCommits(projectRoot, featureKey, out)
+
+  if (featureDir.includes(`${path.sep}archive${path.sep}`)) {
+    try {
+      const s = await stat(featureDir)
+      out.push({ ts: s.mtime.toISOString(), event: 'archived', ref: null })
+    } catch {
+      // ignore
+    }
+  }
+
+  return out
+}
+
+async function buildPlanTimeline(args: {
+  projectRoot: string
+  featureDir: string
+  featureKey: string
+  reviews: MumeiFeatureDetail['reviews']
+}): Promise<TimelineEvent[]> {
+  const out: TimelineEvent[] = []
+  const { featureDir, projectRoot, featureKey, reviews } = args
+
+  await tryFileMtime(featureDir, 'plan.md', 'plan.md captured', out)
+
+  const state = await readStateJson(featureDir)
+  // Plan vehicle stores per-task progress as a single rolled-up counter
+  // on state.json. Without an audit-log of counter rollovers, we surface
+  // a single summary event whose ts is state.json mtime.
+  if (typeof state?.task_completed_count === 'number' && state.task_completed_count > 0) {
+    try {
+      const s = await stat(path.join(featureDir, 'state.json'))
+      out.push({
+        ts: s.mtime.toISOString(),
+        event: `${state.task_completed_count} task${state.task_completed_count === 1 ? '' : 's'} completed`,
+        ref: null,
+      })
+    } catch {
+      // ignore
+    }
+  }
+  if (state?.pending_review) {
+    try {
+      const s = await stat(path.join(featureDir, 'state.json'))
+      out.push({ ts: s.mtime.toISOString(), event: 'pending review', ref: null })
+    } catch {
+      // ignore
+    }
+  }
+
+  for (const r of reviews) {
     out.push({
       ts: r.ts,
       event: `review iter ${r.iteration} ${r.verdict}`,
@@ -278,28 +462,55 @@ async function buildTimeline(args: {
     })
   }
 
-  // Recent commits touching the feature dir.
-  try {
-    const { stdout } = await exec(
-      'git',
-      [
-        'log',
-        '-n',
-        '20',
-        '--format=%cI%x09%H%x09%s',
-        '--',
-        path.relative(args.projectRoot, args.featureDir),
-      ],
-      { cwd: args.projectRoot, maxBuffer: 1024 * 1024 },
-    )
-    for (const line of stdout.split('\n').filter(Boolean)) {
-      const [ts, sha, ...rest] = line.split('\t')
-      if (!ts || !sha) continue
-      out.push({ ts, event: `commit: ${rest.join('\t')}`, ref: sha })
+  await collectImplementationCommits(projectRoot, featureKey, out)
+
+  if (featureDir.includes(`${path.sep}archive${path.sep}`)) {
+    try {
+      const s = await stat(featureDir)
+      out.push({ ts: s.mtime.toISOString(), event: 'archived', ref: null })
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore git failure
   }
 
-  return out.sort((a, b) => a.ts.localeCompare(b.ts))
+  return out
+}
+
+function dedupTimeline(events: TimelineEvent[]): TimelineEvent[] {
+  // Sort asc first, then collapse semantically equivalent events at the
+  // same second. Commit events (ref != null) win over phase / state mtime
+  // markers when they collide on ts.
+  const sorted = [...events].sort((a, b) => a.ts.localeCompare(b.ts))
+  const out: TimelineEvent[] = []
+  for (const ev of sorted) {
+    const prev = out[out.length - 1]
+    if (!prev) {
+      out.push(ev)
+      continue
+    }
+    const sameSecond = prev.ts.slice(0, 19) === ev.ts.slice(0, 19)
+    if (sameSecond && prev.event === ev.event) continue
+    if (sameSecond && prev.ref === null && ev.ref !== null && /^phase: → /.test(prev.event)) {
+      // commit at same second supersedes a transition marker we inferred from mtime.
+      out[out.length - 1] = ev
+      continue
+    }
+    out.push(ev)
+  }
+  return out
+}
+
+async function buildTimeline(args: {
+  projectRoot: string
+  featureDir: string
+  featureKey: string
+  reviews: MumeiFeatureDetail['reviews']
+}): Promise<MumeiFeatureDetail['timeline']> {
+  // Vehicle dispatch: spec dirs live under specs/ or archive/REQ-N-...,
+  // plan dirs are bare slugs under plans/ or archive/<slug>.
+  const isSpec =
+    /(?:^|[\\/])specs[\\/]/.test(args.featureDir) ||
+    /(?:^|[\\/])archive[\\/][^\\/]+[\\/]REQ-\d+-/.test(args.featureDir)
+  const events = isSpec ? await buildSpecTimeline(args) : await buildPlanTimeline(args)
+  return dedupTimeline(events)
 }

@@ -153,8 +153,9 @@ export function HBar({ data, h = 200 }: { data: HBarRow[]; h?: number }): ReactE
           dataKey="id"
           tickLine={false}
           axisLine={false}
-          width={140}
-          tick={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fill: '#4a4234' }}
+          width={210}
+          interval={0}
+          tick={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fill: '#4a4234' }}
         />
         <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
         <Bar dataKey="n" radius={[0, 4, 4, 0]} fill={`var(--color-${data[0]?.decision ?? 'pass'})`}>
