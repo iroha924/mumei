@@ -217,12 +217,18 @@ provision the PAT:
    **`hir4ta/mumei` → Settings → Secrets and variables → Actions** as
    a new repository secret named `RELEASE_PLEASE_TOKEN`.
 
-The PAT is required: without `RELEASE_PLEASE_TOKEN`, the workflow
-fails because the action has no credentials to push the release branch
-and create the release PR. Falling back to `GITHUB_TOKEN` would let
-the action create the PR, but GitHub then suppresses workflow runs on
-that PR (re-entrancy guard), so it would never satisfy the required
-status checks under branch protection.
+The PAT is required for two compounding reasons:
+
+- This workflow intentionally runs with **read-only `GITHUB_TOKEN`**
+  (`permissions: contents: read`, no `pull-requests: write`). Without
+  `RELEASE_PLEASE_TOKEN` the action has no credentials to push the
+  release branch or open the release PR, and the run fails outright.
+- Even if `GITHUB_TOKEN` were elevated, GitHub suppresses workflow
+  runs on PRs authored by an action (re-entrancy guard), so the
+  release PR could never satisfy the required status checks under
+  branch protection.
+
+Supplying the PAT sidesteps both constraints simultaneously.
 
 ## Maintainer-only — bumping pinned external binaries
 

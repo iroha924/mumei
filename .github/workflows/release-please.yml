@@ -14,8 +14,8 @@ name: release-please
 # and GitHub deliberately suppresses workflow runs on PRs authored via
 # the default GITHUB_TOKEN. With RELEASE_PLEASE_TOKEN supplied the
 # action holds its own credentials, so the workflow can run with
-# read-only GITHUB_TOKEN scope (the contents:write permission scorecard
-# would otherwise flag is unnecessary here).
+# read-only GITHUB_TOKEN scope — scorecard would otherwise flag a
+# job-level contents:write as unnecessary here.
 
 on:
   push:
