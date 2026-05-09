@@ -17,44 +17,32 @@ export function VerdictBadge({
 }): ReactElement {
   if (!verdict) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl bg-zinc-800/60 text-zinc-500 text-[17px] font-mono">
-        <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-zinc-800/60 text-zinc-400 text-[12px] font-mono uppercase tracking-wider">
         no review
       </span>
     )
   }
+  // Solid organic background + warm cream text. The bg uses the redefined
+  // sage / ochre / terracotta hues (--color-emerald-500 / --color-amber-500
+  // / --color-rose-500); text uses zinc-50 (warm cream) for high contrast.
   const map = {
-    PASS: {
-      dot: 'bg-emerald-500',
-      text: 'text-emerald-400',
-      bg: 'bg-emerald-500/10',
-      ring: 'ring-emerald-500/20',
-    },
-    NEEDS_IMPROVEMENT: {
-      dot: 'bg-amber-500',
-      text: 'text-amber-400',
-      bg: 'bg-amber-500/10',
-      ring: 'ring-amber-500/20',
-    },
-    MAJOR_ISSUES: {
-      dot: 'bg-rose-500',
-      text: 'text-rose-400',
-      bg: 'bg-rose-500/10',
-      ring: 'ring-rose-500/20',
-    },
+    PASS: 'bg-emerald-500',
+    NEEDS_IMPROVEMENT: 'bg-amber-500',
+    MAJOR_ISSUES: 'bg-rose-500',
   } as const
-  const c = map[verdict]
+  const labelMap = {
+    PASS: 'PASS',
+    NEEDS_IMPROVEMENT: 'NEEDS WORK',
+    MAJOR_ISSUES: 'BLOCKED',
+  } as const
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xl ring-1 text-[17px] font-mono',
-        c.bg,
-        c.ring,
-        c.text,
+        'inline-flex items-center px-2 py-0.5 rounded-md text-[12px] font-mono uppercase tracking-wider text-zinc-50',
+        map[verdict],
       )}
     >
-      <span className={cn('w-1.5 h-1.5 rounded-full', c.dot)} />
-      {verdict}
+      {labelMap[verdict]}
       {iter ? ` · iter ${iter}` : ''}
     </span>
   )

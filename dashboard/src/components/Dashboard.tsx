@@ -231,7 +231,7 @@ function FilterStrip({
   onSlugChange: (s: string) => void
 }): ReactElement {
   return (
-    <div className="px-3 py-3 border-zinc-800 flex items-center gap-3">
+    <div className="px-3 pt-3 border-zinc-800 flex items-center gap-3">
       <div className="flex-1 min-w-0" />
       <Input
         value={slug}

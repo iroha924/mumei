@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDetail } from '@/hooks/useDetail'
-import { formatTokens } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import type { MumeiFeatureDetailPayload } from '@/types/feature-detail'
 import { VerdictBadge } from './primitives'
 
@@ -11,14 +11,13 @@ interface DetailPanelProps {
   slug: string | null
 }
 
-type Tab = 'timeline' | 'acs' | 'waveplan' | 'reviews' | 'cost'
+type Tab = 'timeline' | 'acs' | 'waveplan' | 'reviews'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
   { id: 'acs', label: 'ACs' },
   { id: 'waveplan', label: 'Wave plan' },
   { id: 'reviews', label: 'Reviews' },
-  { id: 'cost', label: 'Cost' },
 ]
 
 /**
@@ -93,9 +92,6 @@ function DetailContent({ slug }: { slug: string }): ReactElement {
         <TabsContent value="reviews">
           <ReviewsTab detail={detail} />
         </TabsContent>
-        <TabsContent value="cost">
-          <CostTab detail={detail} />
-        </TabsContent>
       </div>
     </Tabs>
   )
@@ -136,11 +132,10 @@ function AcsTab({ detail }: { detail: MumeiFeatureDetailPayload }): ReactElement
             <span className="text-zinc-300">{ac.id}</span>
             <Badge
               variant="outline"
-              className={
-                ac.confirmed
-                  ? 'border-emerald-500/70 bg-emerald-900/30 text-emerald-200'
-                  : 'border-amber-500/70 bg-amber-900/30 text-amber-200'
-              }
+              className={cn(
+                'border-transparent text-zinc-50 text-[11px] tracking-wider uppercase',
+                ac.confirmed ? 'bg-emerald-500' : 'bg-amber-500',
+              )}
             >
               {ac.confirmed ? 'CONFIRMED' : 'ASSUMPTION'}
             </Badge>
@@ -232,34 +227,6 @@ function ReviewsTab({ detail }: { detail: MumeiFeatureDetailPayload }): ReactEle
         </li>
       ))}
     </ul>
-  )
-}
-
-function CostTab({ detail }: { detail: MumeiFeatureDetailPayload }): ReactElement {
-  if (detail.costPerIter.length === 0) {
-    return <Placeholder>No cost recorded yet.</Placeholder>
-  }
-  const totalTokens = detail.costPerIter.reduce((acc, c) => acc + c.tokens, 0)
-  return (
-    <div className="space-y-3">
-      <div className="font-mono text-[14px] text-zinc-300">
-        Total tokens: <span className="text-zinc-100">{formatTokens(totalTokens)}</span>
-      </div>
-      <ul className="space-y-1.5">
-        {detail.costPerIter.map((c) => (
-          <li
-            key={c.iter}
-            className="flex items-baseline gap-3 font-mono text-[13px] text-zinc-300"
-          >
-            <span className="text-zinc-500">iter {c.iter}</span>
-            <span className="tabular-nums">{formatTokens(c.tokens)}</span>
-            <span className="tabular-nums text-zinc-500">
-              cache {Math.round(c.cacheHit * 100)}%
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
   )
 }
 

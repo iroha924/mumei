@@ -38,8 +38,10 @@ describe('buildActivity', () => {
     await writeFile(
       path.join(mumeiDir, '.hook-stats.jsonl'),
       [
-        JSON.stringify({ ts: recentHook, hook_id: 'lint-tasks', decision: 'allow' }),
-        JSON.stringify({ ts: cutoffOldHook, hook_id: 'old', decision: 'allow' }), // outside window
+        // deny so it survives the activity feed filter (allow / noop are
+        // dropped per dashboard refinement — only deny / block surface).
+        JSON.stringify({ ts: recentHook, hook_id: 'lint-tasks', decision: 'deny' }),
+        JSON.stringify({ ts: cutoffOldHook, hook_id: 'old', decision: 'deny' }), // outside window
       ].join('\n'),
     )
     const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
@@ -63,7 +65,7 @@ describe('buildActivity', () => {
     const lines: string[] = []
     for (let i = 0; i < 100; i++) {
       const ts = new Date(farFutureNow.getTime() - (i + 1) * 60_000).toISOString()
-      lines.push(JSON.stringify({ ts, hook_id: `r${i}`, decision: 'allow' }))
+      lines.push(JSON.stringify({ ts, hook_id: `r${i}`, decision: 'deny' }))
     }
     await writeFile(path.join(mumeiDir, '.hook-stats.jsonl'), lines.join('\n'))
     const r = await buildActivity({ projectRoot, limit: 10, now: farFutureNow })
@@ -129,62 +131,26 @@ describe('buildActivity', () => {
     }
   })
 
-  it('emits task_progress events for spec vehicle [x] tasks', async () => {
-    const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-3-qux')
-    await mkdir(featDir, { recursive: true })
+  it('drops allow / noop hook events from the feed (deny-only)', async () => {
+    const mumeiDir = path.join(projectRoot, '.mumei')
+    await mkdir(mumeiDir, { recursive: true })
+    const farFutureNow = new Date(Date.now() + 60_000)
+    const recent = new Date(farFutureNow.getTime() - 30 * 60_000).toISOString()
     await writeFile(
-      path.join(featDir, 'state.json'),
-      JSON.stringify({ id: 'REQ-3', slug: 'qux', phase: 'implement' }),
-    )
-    await writeFile(
-      path.join(featDir, 'tasks.md'),
+      path.join(mumeiDir, '.hook-stats.jsonl'),
       [
-        '# qux Implementation Plan',
-        '',
-        '## Wave 1: setup',
-        '**Goal**: x',
-        '**Verify**: y',
-        '',
-        '- [x] 1.1 first task',
-        '  - _Files: a.ts_',
-        '  - _Depends: -_',
-        '  - _Requirements: REQ-3.1_',
-        '- [x] 1.2 second task',
-        '  - _Files: b.ts_',
-        '  - _Depends: 1.1_',
-        '  - _Requirements: REQ-3.2_',
-        '- [ ] 1.3 third (not done)',
-        '  - _Files: c.ts_',
-        '  - _Depends: -_',
-        '  - _Requirements: REQ-3.3_',
+        JSON.stringify({ ts: recent, hook_id: 'I2', decision: 'deny' }),
+        JSON.stringify({ ts: recent, hook_id: 'X3', decision: 'allow' }),
+        JSON.stringify({ ts: recent, hook_id: 'I1', decision: 'noop' }),
+        JSON.stringify({ ts: recent, hook_id: 'W2', decision: 'block' }),
       ].join('\n'),
     )
-    const farFutureNow = new Date(Date.now() + 60_000)
     const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
-    const tasks = r.filter((e) => e.kind === 'task_progress')
-    expect(tasks).toHaveLength(2)
-    const ids = tasks
-      .map((e) => (e.kind === 'task_progress' ? e.task_id : null))
-      .filter(Boolean)
-      .sort()
-    expect(ids).toEqual(['1.1', '1.2'])
-  })
-
-  it('emits task_progress event for plan vehicle task_completed_count', async () => {
-    const featDir = path.join(projectRoot, '.mumei', 'plans', 'fix-bug')
-    await mkdir(featDir, { recursive: true })
-    await writeFile(
-      path.join(featDir, 'state.json'),
-      JSON.stringify({ slug: 'fix-bug', phase: 'implement', task_completed_count: 4 }),
+    const hooks = r.filter((e) => e.kind === 'hook')
+    expect(hooks.map((e) => (e.kind === 'hook' ? e.hook_id : ''))).toEqual(
+      expect.arrayContaining(['I2', 'W2']),
     )
-    const farFutureNow = new Date(Date.now() + 60_000)
-    const r = await buildActivity({ projectRoot, limit: 50, now: farFutureNow })
-    const planTask = r.find((e) => e.kind === 'task_progress')
-    expect(planTask).toBeDefined()
-    if (planTask && planTask.kind === 'task_progress') {
-      expect(planTask.vehicle).toBe('plan')
-      expect(planTask.wave).toBeNull()
-      expect(planTask.task_id).toBe('4')
-    }
+    expect(hooks.find((e) => e.kind === 'hook' && e.hook_id === 'X3')).toBeUndefined()
+    expect(hooks.find((e) => e.kind === 'hook' && e.hook_id === 'I1')).toBeUndefined()
   })
 })

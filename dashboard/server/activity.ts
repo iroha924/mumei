@@ -41,21 +41,23 @@ export async function buildActivity(args: {
   const { projectRoot, limit, now = new Date() } = args
   const cutoff = new Date(now.getTime() - WINDOW_MS).toISOString()
 
-  const [commits, reviews, phases, hooks, subagents, taskProgress, archives] = await Promise.all([
+  const [commits, reviews, phases, hooks, subagents, archives] = await Promise.all([
     collectCommits(projectRoot, cutoff),
     collectReviews(projectRoot, cutoff),
     collectPhaseChanges(projectRoot, cutoff),
     collectHooks(projectRoot, cutoff),
     collectSubagents(projectRoot, cutoff),
-    collectTaskProgress(projectRoot, cutoff),
     collectArchives(projectRoot, cutoff),
   ])
 
-  // Per-kind quotas before the global slice (F-009). Hot hook activity
-  // (1 firing per second is normal) would otherwise saturate the limit
-  // and bury commits / reviews / phases that mattered. Quotas are sized
-  // so a typical 50-row window comfortably fits each kind's recent
-  // signal while still capping noisy hook traffic.
+  // Activity feed shows lifecycle signals only — per-task progress is
+  // implicit in Wave commits, so task_progress is intentionally NOT
+  // collected here. Hook events are filtered to deny / block only:
+  // allow / noop firings are normal traffic and would dominate the feed
+  // with no actionable signal.
+  const denyHooks = hooks.filter(
+    (e) => e.kind === 'hook' && (e.decision === 'deny' || e.decision === 'block'),
+  )
   const cap = (events: MumeiActivityEvent[], n: number): MumeiActivityEvent[] => {
     const sorted = [...events].sort((a, b) => b.ts.localeCompare(a.ts))
     return sorted.slice(0, Math.max(0, n))
@@ -64,9 +66,8 @@ export async function buildActivity(args: {
     ...cap(commits, 10),
     ...cap(reviews, 10),
     ...cap(phases, 10),
-    ...cap(hooks, 15),
-    ...cap(subagents, 15),
-    ...cap(taskProgress, 15),
+    ...cap(denyHooks, 10),
+    ...cap(subagents, 10),
     ...cap(archives, 5),
   ]
   all.sort((a, b) => b.ts.localeCompare(a.ts))
@@ -257,78 +258,6 @@ async function collectSubagents(
         phase: e.phase,
         tokens_total: tokensTotal,
       })
-    }
-  }
-  return out
-}
-
-async function collectTaskProgress(
-  projectRoot: string,
-  cutoff: string,
-): Promise<MumeiActivityEvent[]> {
-  const out: MumeiActivityEvent[] = []
-  // Spec vehicle: parse current tasks.md, emit one event per [x] task
-  // using the task line's source file mtime. This is best-effort because
-  // audit-log does not record per-checkbox flips today.
-  for (const stateFile of await collectStateFiles(projectRoot)) {
-    const featureDir = path.dirname(stateFile)
-    const slug = path.basename(featureDir)
-    const isPlan = featureDir.includes(`${path.sep}plans${path.sep}`)
-    if (isPlan) {
-      try {
-        const body = await readFile(stateFile, 'utf8')
-        const parsed = JSON.parse(body) as { task_completed_count?: number }
-        const count = parsed.task_completed_count
-        if (typeof count !== 'number' || count <= 0) continue
-        const s = await stat(stateFile)
-        const ts = s.mtime.toISOString()
-        if (ts < cutoff) continue
-        out.push({
-          ts,
-          kind: 'task_progress',
-          slug,
-          vehicle: 'plan',
-          wave: null,
-          task_id: String(count),
-        })
-      } catch {
-        // skip bad state.json
-      }
-      continue
-    }
-    const tasksFile = path.join(featureDir, 'tasks.md')
-    let tasksBody: string
-    try {
-      tasksBody = await readFile(tasksFile, 'utf8')
-    } catch {
-      continue
-    }
-    let s: Awaited<ReturnType<typeof stat>>
-    try {
-      s = await stat(tasksFile)
-    } catch {
-      continue
-    }
-    const ts = s.mtime.toISOString()
-    if (ts < cutoff) continue
-    let currentWave: number | null = null
-    for (const raw of tasksBody.split('\n')) {
-      const waveMatch = /^##\s+Wave\s+(\d+):/i.exec(raw)
-      if (waveMatch?.[1]) {
-        currentWave = Number.parseInt(waveMatch[1], 10)
-        continue
-      }
-      const taskMatch = /^- \[x\]\s+(\d+\.\d+)\b/.exec(raw)
-      if (taskMatch?.[1] && currentWave !== null) {
-        out.push({
-          ts,
-          kind: 'task_progress',
-          slug,
-          vehicle: 'spec',
-          wave: currentWave,
-          task_id: taskMatch[1],
-        })
-      }
     }
   }
   return out
