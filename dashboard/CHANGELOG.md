@@ -1,0 +1,57 @@
+# Changelog
+
+## [0.3.0](https://github.com/hir4ta/mumei/compare/v0.2.4...v0.3.0) (2026-05-09)
+
+
+### Features
+
+* agent-memory-curation Wave 4 — docs reflection + orphan cleanup (gitignored content only) ([1ec86cd](https://github.com/hir4ta/mumei/commit/1ec86cdb963929406d71b2b6884b7c3728a6d424))
+* **dashboard:** 40:30:30 three-column layout, flat panels, fix HoverCard ref forwarding, active-tab-only border, themed input/tab borders ([2683253](https://github.com/hir4ta/mumei/commit/26832531df63df612e6f8b07590d78131ad076e3))
+* **dashboard:** activity feed expansion — subagent / task_progress / archive + phase from=null (REQ-18 Wave 5) ([950697c](https://github.com/hir4ta/mumei/commit/950697c081f7cd7fffc70a7d1cb078f02d6eea51))
+* **dashboard:** add 6 schemas + types skeleton for live data (REQ-15 Wave 1) ([aff7886](https://github.com/hir4ta/mumei/commit/aff788618527aeb463f90b74054bc21ea8861cff))
+* **dashboard:** adopt shadcn Card for spec list, robust selected border (inline style fallback), gitignore stray .mumei/ ([81fdae4](https://github.com/hir4ta/mumei/commit/81fdae401c8452fd312bccdd7d3ebd738ea9f88f))
+* **dashboard:** adopt shadcn/ui — HoverCard for activity rows, Tabs / Button / Input / Alert / Badge / Skeleton / ScrollArea / Separator throughout ([c4e00b4](https://github.com/hir4ta/mumei/commit/c4e00b40f1d264cbdd727503bc07a32eda01c5b7))
+* **dashboard:** adopt shadcn/ui chart over Recharts (REQ-18 Wave 2) ([c4cd816](https://github.com/hir4ta/mumei/commit/c4cd816e1b575311a53156cd0e61ae9665bebf20))
+* **dashboard:** backend lib + /api/meta + new /api/features (REQ-15 Wave 2) ([2ec2089](https://github.com/hir4ta/mumei/commit/2ec20897395b15e0907bf61fd9d150f8ad456bb7))
+* **dashboard:** close scaffold gaps — Biome + missing deps + test config + server hardening ([f7d1b04](https://github.com/hir4ta/mumei/commit/f7d1b0405818d4e66840f23e59640b529808acf3))
+* **dashboard:** expand timeline event kinds + tooltip+hook-id-label UX (REQ-18 Wave 3) ([de56b81](https://github.com/hir4ta/mumei/commit/de56b8105daa63a97e040038e5c9ce4eec8edb62))
+* **dashboard:** explain PASS/NI/MI legend with shadcn Tooltip on hover ([05203c5](https://github.com/hir4ta/mumei/commit/05203c58d6008aeb192c889259302b7c99db635c))
+* **dashboard:** HoverCard side=bottom, gap between charts, header no-underline + stats ml-auto, drop DetailPanel close button ([ba47014](https://github.com/hir4ta/mumei/commit/ba47014de3e0ed0724cb685e4f0517e748f41c63))
+* **dashboard:** implement Compact variant from Claude Design handoff (organic/dusty palette, paper texture, shimmer ring) ([19069f1](https://github.com/hir4ta/mumei/commit/19069f1bc03fb96e0467c24c3d603cbf5a7ed61c))
+* **dashboard:** include archived features in /api/features with collapsible UI section ([daa070a](https://github.com/hir4ta/mumei/commit/daa070aba7f2c2877c1dee38c6ff8a587d1d667f))
+* **dashboard:** phase-aware progress bar + WCAG badge + log silence + archive flag (REQ-18 Wave 6) ([97e75ec](https://github.com/hir4ta/mumei/commit/97e75ec37d9176c8794dce559705a6d2248cfbf2))
+* **dashboard:** rename rule_id → hook_id across schema/types/aggregator/activity (REQ-18 Wave 1) ([20dad0e](https://github.com/hir4ta/mumei/commit/20dad0e07d5c25424fea223655bb9c665fed5dfb))
+* **dashboard:** selective trend invalidation via feature.update.affects + tasks.md watcher (REQ-18 Wave 4) ([4bf872e](https://github.com/hir4ta/mumei/commit/4bf872e25b0fe41c6a8266b8983dd5430dc71a9d))
+* **dashboard:** SSE multiplex + frontend hooks rewrite (REQ-15 Wave 4) ([9cc93c1](https://github.com/hir4ta/mumei/commit/9cc93c10bc4e36943dba36666be5e256a21215fa))
+* **dashboard:** trends + detail + activity endpoints (REQ-15 Wave 3) ([f9adfdd](https://github.com/hir4ta/mumei/commit/f9adfdd48df934da7fa13add9f63dd0687a40bd2))
+* **dashboard:** UI rewrite, mock removal, EmptyState/ErrorBanner (REQ-15 Wave 5) ([e2a1dac](https://github.com/hir4ta/mumei/commit/e2a1dac37d04fb7b87cfcb7e80ea09335342b2bb))
+* **dashboard:** wire phase/slug filters, cursor-pointer on clickables, hover tooltips on activity rows, wider chart viewBox + last-label collision fix ([0cacc7c](https://github.com/hir4ta/mumei/commit/0cacc7ce0f30741885b166c5d57d06916c36fefd))
+* **harness:** Phase C — dashboard scaffold (@mumei/dashboard, monorepo) ([ae6cd68](https://github.com/hir4ta/mumei/commit/ae6cd685a038a2c41b8b56e0fa4867004af2d4de))
+* **skills,dashboard,scripts:** SKILL wrap optional + (agent,ts) dedup defence (REQ-16 Wave 3) ([dd93e79](https://github.com/hir4ta/mumei/commit/dd93e79bdf1edf7e68347ebc7da61e3600981c80))
+
+
+### Bug Fixes
+
+* **dashboard:** address review iter 1 findings — mount ActivityFeed, replace SSE placeholders with activity.changed, fix invalidations + chokidar regex (REQ-15 review) ([b42d857](https://github.com/hir4ta/mumei/commit/b42d857e5a2b936952058a29cc6aac56cae133f0))
+* **dashboard:** bump @vitejs/plugin-react to ^6.0.1 for vite 8 peer-dep ([c32184e](https://github.com/hir4ta/mumei/commit/c32184ee457c652f65d3ef4f23ceac0e19a1254c))
+* **dashboard:** bump font sizes ~30-50% for desktop legibility (27in monitor) ([de980f6](https://github.com/hir4ta/mumei/commit/de980f656a96114afde94ff4be2e2e1d97948f0c))
+* **dashboard:** cap card grid at 3-col + wider sidebar (400/480/560) + larger logo (48px) + bigger title (26px) ([52e213b](https://github.com/hir4ta/mumei/commit/52e213bbb3d55dd74aa2a30d06b01e449bdd6926))
+* **dashboard:** center 'i' dot in mumei ASCII logo ([9d7bf44](https://github.com/hir4ta/mumei/commit/9d7bf44d599d485d0945c881cd3a7bbef37cdd08))
+* **dashboard:** chart NaN/dup-key on empty data, detail.ts walks archive + accepts bare/compound keys ([0ddca2d](https://github.com/hir4ta/mumei/commit/0ddca2d8524088b80cb3eb392f7bdd38ad9db9ff))
+* **dashboard:** featureKey allowlist guard at public API entry (CodeQL js/path-injection) ([79cfbd6](https://github.com/hir4ta/mumei/commit/79cfbd6b9a4ef64cd6f3befa8ede77054f3d4957))
+* **dashboard:** inline sanitizer for path-injection + docs for branch protection ([#18](https://github.com/hir4ta/mumei/issues/18)) ([7b49834](https://github.com/hir4ta/mumei/commit/7b49834335f319058da6e87803db466ad457a4f4))
+* **dashboard:** inline-style fallback for selected card border (Tailwind utility may have been stripped by JIT) ([bdb198d](https://github.com/hir4ta/mumei/commit/bdb198d69524915e00b6fab86ff2d898c8d60982))
+* **dashboard:** pin test fixture mtime to NOW (wall-clock drift bug, REQ-16 follow-up) ([7a8bbe5](https://github.com/hir4ta/mumei/commit/7a8bbe5f3bd95b082907ed224a58e432df560e93))
+* **dashboard:** REQ-18 review iter 1 — per-bar HBar color / phase from / per-task plan events / archive sort / agent allowlist / SSE debounce / activity quotas ([e66b961](https://github.com/hir4ta/mumei/commit/e66b961a37f9da646aad80f2672490509e3e2ef1))
+* **dashboard:** resolve test PLUGIN_ROOT relative to repo (CI portability) ([49a517d](https://github.com/hir4ta/mumei/commit/49a517da198a9885c3219166e9e093ba6c4c7d53))
+* **dashboard:** responsive layout (laptop/mobile) + shimmer ring radius pin to 1rem ([ca88922](https://github.com/hir4ta/mumei/commit/ca88922fcdeb138c665f70929d5a4c091c16a4ad))
+* **dashboard:** review iter 2 — distinct debounce keys, revert 5xx scope creep, ratify activity.changed (REQ-15) ([e148ee3](https://github.com/hir4ta/mumei/commit/e148ee394accda8f961712d73d14c29d9f99a24f))
+* **dashboard:** serve SPA root via @fastify/static and clean up boot banner ([f595b68](https://github.com/hir4ta/mumei/commit/f595b6871f9a1c5841c2f36a840e7ba228b4e98b))
+* **dashboard:** taller charts (320px), larger axis labels, archived shown by default, wider sidebar (480/600/720) ([f42c78f](https://github.com/hir4ta/mumei/commit/f42c78f8f059b574adb8de029644c38d99d476e3))
+* **dashboard:** tasks-bridge log dedup uses TTL staleness check (REQ-15 review iter 3) ([7d2ee60](https://github.com/hir4ta/mumei/commit/7d2ee604d2cdeb9ed4e7bacc2922293bf86dab01))
+* **dashboard:** vite customLogger filters proxy ECONNREFUSED noise (REQ-18 review iter 4 F-012) ([8b899f3](https://github.com/hir4ta/mumei/commit/8b899f3c40ef5f7309357a41988e3c6a13e5d62a))
+* **dashboard:** vite proxy ECONNREFUSED noise + dedupTimeline end-to-end test (REQ-18 review iter 2/3 followup) ([43d150e](https://github.com/hir4ta/mumei/commit/43d150ec89dbcbf86358a29d0e39640ddd8423a3))
+* **dashboard:** walk-up resolve PROJECT_ROOT from cwd, shorter chart x-axis labels (MM-DD @ 11px) ([ab92a54](https://github.com/hir4ta/mumei/commit/ab92a54aa96ac06d06f11f3178a220d62a8adf03))
+* **dashboard:** widen dedupTimeline phase regex to match new prefix (REQ-18 review iter 2 F-010) ([6c6d82e](https://github.com/hir4ta/mumei/commit/6c6d82eb5b6c17822f898e8f51acec77f9516273))
+* **REQ-16 iter 2:** cross-project scope, in-flight pin, coalesce-merge dedup, observability ([bc896e3](https://github.com/hir4ta/mumei/commit/bc896e3822c2a347d02c2cb4908b449d556d56cd))
+* **REQ-16:** rename _to_epoch → _mumei_to_epoch + use $PWD (lint-all gates) ([0ff25f4](https://github.com/hir4ta/mumei/commit/0ff25f498514954ef05c8198ea570808e6a9665f))
