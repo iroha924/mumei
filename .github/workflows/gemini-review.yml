@@ -116,8 +116,10 @@ jobs:
                   ],
                   "includeTools": [
                     "add_comment_to_pending_review",
-                    "pull_request_read",
-                    "pull_request_review_write"
+                    "create_pending_pull_request_review",
+                    "submit_pending_pull_request_review",
+                    "get_pull_request",
+                    "get_pull_request_diff"
                   ],
                   "env": {
                     "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
@@ -128,8 +130,56 @@ jobs:
                 "core": []
               }
             }
-          extensions: |
-            [
-              "https://github.com/gemini-cli-extensions/code-review"
-            ]
-          prompt: "/pr-code-review"
+          # Custom prompt — does NOT use the gemini-cli-extensions/code-review
+          # `/pr-code-review` slash command. That extension references MCP tool
+          # names (e.g., `pull_request_read.get_diff`) that do not match the
+          # registry exposed by `github-mcp-server:v0.27.0`, causing Gemini to
+          # exhaust its turn budget searching for non-existent tools and exit
+          # with an empty response. Tracked upstream as
+          # https://github.com/google-github-actions/run-gemini-cli/issues/510
+          # (PR #515 pending). Until that lands, we drive the review directly
+          # so tool names match what the MCP server actually publishes.
+          # GEMINI.md (project root) is auto-loaded by gemini-cli and supplies
+          # the review rubric / what-to-flag / what-to-skip; this prompt only
+          # orchestrates the GitHub Review API dance.
+          prompt: |-
+            You are reviewing pull request #${{ github.event.pull_request.number }}
+            in repository ${{ github.repository }}. The review rubric, severity
+            scale, and project-specific conventions are in `GEMINI.md` at the
+            workspace root — read it first.
+
+            Steps:
+
+            1. Call `get_pull_request` to fetch the PR title / body / metadata.
+            2. Call `get_pull_request_diff` to fetch the full diff.
+            3. Apply the review per `GEMINI.md`. Skip findings without a
+               concrete failure scenario (per the rubric's "no concrete
+               failure scenario → omit" rule).
+            4. Open a pending review with
+               `create_pending_pull_request_review` (event_type omitted at
+               creation; see step 6). If the call returns
+               "can only have one pending review per pull request",
+               continue to step 5 — the existing pending review is fine.
+            5. For each finding, call `add_comment_to_pending_review` with the
+               appropriate `path`, `line`, `side` (`RIGHT` for added /
+               modified lines, `LEFT` for removed lines), and a body that
+               starts with `[SEVERITY]` (HIGH / MEDIUM / LOW / NIT).
+               When you have a concrete code suggestion, include a
+               ```suggestion block``` so GitHub renders the apply button.
+            6. Call `submit_pending_pull_request_review` with
+               `event_type: "COMMENT"` (do NOT use APPROVE or REQUEST_CHANGES)
+               and a `body` formatted as:
+
+                   ## 📋 Review Summary
+
+                   A brief 2-3 sentence assessment of the PR's objective and
+                   overall quality.
+
+                   ## 🔍 General Feedback
+
+                   - Bullets for general observations or recurring patterns
+                     that don't fit on a specific line.
+
+            If no findings warrant flagging, still submit a COMMENT review
+            with a summary that says "No blocking issues found." plus any
+            positive observations.
