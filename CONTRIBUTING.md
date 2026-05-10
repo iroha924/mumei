@@ -161,12 +161,13 @@ relevant `decisions.md` entry under `docs/` if applicable.
 
 ## Releases
 
-Releases are cut by the maintainer using the bundled `release` skill
-(`.claude/skills/release/SKILL.md`) inside Claude Code. The skill is
-not part of the distributed plugin; it lives under `.claude/` and is
-gitignored from the published tarball.
+Releases are maintainer-only. External contributors do not need to
+reproduce a release locally; the procedure lives in a private skill
+that is not part of the distributed plugin (the entire `.claude/` tree
+is gitignored).
 
-The skill takes either no argument, a SemVer bump keyword
+For maintainers, the procedure (in `.claude/skills/release/SKILL.md`)
+takes either no argument, a SemVer bump keyword
 (`patch` / `minor` / `major`), or an explicit version (`0.4.2`). It
 creates one commit that wraps any uncommitted work, pushes to `main`,
 watches the `main` CI run, then on green creates an annotated tag

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Aggregate the cost-log written by hooks/_lib/cost-log.sh helpers
-#. Reads the JSONL log for one feature and prints three
+# Reads the JSONL log for one feature and prints three
 # pivoted views (by agent, by iteration, by wave) on stdout.
 #
 # Usage:

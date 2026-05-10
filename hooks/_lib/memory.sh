@@ -254,7 +254,7 @@ mumei_memory_apply_operation() {
 }
 
 # Append one record per curator decision to .mumei/.curator-log.jsonl
-#. Called from mumei_memory_apply_operation on every exit
+# Called from mumei_memory_apply_operation on every exit
 # path: SKIP (applied=false), ADD/UPDATE (applied=true).
 # Args: dir input applied(true|false) candidate_json
 _mumei_memory_curator_log_append() {

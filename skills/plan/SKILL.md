@@ -729,7 +729,7 @@ fi
 ### Stage 0 — Detector run (iter 1 mandatory, iter 2+ ext-diff conditional)
 
 Invoke the detector entry point as a single Bash call before any reviewer
-launches. This (run once, not per-reviewer) and gives the
+launches. Running it once (instead of per-reviewer) gives the
 orchestrator a HIGH count to branch on.
 
 **iter 2+ skip when no detector-relevant file changed:**

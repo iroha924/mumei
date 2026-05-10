@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Byte-exact advisory for files where CRLF or tab indentation is part of
 # the byte stream and Edit/Write must reproduce the bytes exactly
-#. Pure observation — never blocks. Caller wires the returned
+# Pure observation — never blocks. Caller wires the returned
 # note into permissionDecisionReason.
 #
 # Env knobs:

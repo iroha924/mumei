@@ -112,8 +112,8 @@ git mv "$source_dir" "${target_dir}/${feature}" 2>/dev/null \
   || { echo "source dir move failed: ${source_dir}" >&2; exit 1; }
 
 # Move the brainstorm scratch file alongside the spec / plan, if
-# present. Vehicle-independent — mandates the same scratch
-# co-move behaviour for plan vehicle as for spec vehicle.
+# present. Vehicle-independent: plan vehicle uses the same scratch
+# co-move behaviour as spec vehicle.
 if [[ -n "$slug" && -f "$scratch_src" ]]; then
   scratch_dst="${target_dir}/${feature}/scratch.md"
   git mv "$scratch_src" "$scratch_dst" 2>/dev/null \

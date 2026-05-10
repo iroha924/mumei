@@ -197,7 +197,7 @@ mumei_review_compute_next_iter_reviewers() {
 }
 
 # Rotate reviewers when iter N's planned set is a permutation of iter N-1's
-#. Hash-based, stateless, deterministic for the same
+# Hash-based, stateless, deterministic for the same
 # (feature, iter, candidate-pool) tuple. Adversarial is always preserved
 # and excluded from the rotation pool.
 #
