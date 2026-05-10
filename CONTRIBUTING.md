@@ -220,12 +220,21 @@ creates a topic branch in this repo.
    `plugin-json-validate.yml`, and `dashboard-ci.yml` (path-triggered).
    Address failures before merge.
 8. Monitor the PR after opening. CI green is necessary but not
-   sufficient — also check Copilot's automated review:
+   sufficient — also check the automated reviewers (mumei runs two
+   in parallel for genuine multi-vendor coverage):
    - `task pr:watch` — wait for the latest CI run on this branch
    - `gh pr checks <N>` — CI status snapshot
    - `task pr:copilot -- <N>` — Copilot summary + inline review
-     comments in one call
-     Address Copilot findings (push fix commits) before merging.
+     (Anthropic Claude family).
+   - `task pr:codex-fetch -- <N>` — OpenAI Codex summary + inline
+     review (Codex Cloud auto-posts on PR open AND on each push, per
+     the repo's settings; only use `task pr:codex -- <N> "<focus>"`
+     when you want a focus-specific re-review such as
+     `"for security regressions"`).
+     Address findings from BOTH reviewers (push fix commits) before
+     merging. They focus differently — Copilot tends to surface
+     correctness / consistency, Codex flags P0/P1 issues focused on
+     architecture and security per OpenAI's review prompt.
 9. Self-merge via squash or rebase (linear history; merge commits should
    be avoided). No required approval count.
 
