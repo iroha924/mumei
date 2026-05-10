@@ -71,8 +71,7 @@ tasks:
       - src/types/**/*.ts
 
   build:
-    desc: "Production build (typecheck + tsc -b + vite build + tsup server)"
-    deps: [typecheck]
+    desc: "Production build (tsc -b + vite build + tsup server). tsc -b inside `npm run build` does typecheck-equivalent work; do not chain `task dashboard:typecheck` before this in CI."
     cmds:
       - npm run build
     sources:

@@ -46,13 +46,18 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      # All static-lint checks below delegate to scripts/lint-*.sh so
-      # pre-push (.pre-commit-config.yaml) and CI run the SAME logic on
-      # the SAME file globs. The pre-push hook calls scripts/lint-all.sh
-      # which fans out to the same sub-scripts; if a check passes one
-      # side and fails the other, that means tool versions diverged
-      # (shellcheck, jq, awk) — investigate the version, not the
-      # script. See scripts/lint-all.sh for the canonical order.
+      - name: install task
+        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          version: "3.49.1"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # All static-lint checks below are exposed as Taskfile entries so
+      # local (`task lint:...`) and CI invoke the SAME command. The
+      # pre-commit hooks call scripts/lint-*.sh directly (Taskfile is
+      # not pre-commit-aware); if a check passes one side and fails the
+      # other, that means tool versions diverged (shellcheck, jq, awk)
+      # — investigate the version, not the script.
 
       - name: shellcheck (hooks/_lib/*.sh + hooks/*.sh + scripts/*.sh)
         run: shellcheck hooks/_lib/*.sh hooks/*.sh scripts/*.sh
@@ -64,7 +69,7 @@ jobs:
           done
 
       - name: verify mumei_ prefix on bash functions
-        run: bash scripts/lint-bash-prefix.sh
+        run: task lint:bash-prefix
 
       - name: jq empty (manifest, hooks)
         run: |
@@ -72,16 +77,16 @@ jobs:
           jq empty hooks/hooks.json
 
       - name: plan-vehicle hooks.json registration check
-        run: bash scripts/lint-plan-vehicle-hooks.sh
+        run: task lint:plan-vehicle
 
       - name: agent + skill frontmatter check
-        run: bash scripts/lint-frontmatter.sh
+        run: task lint:frontmatter
 
       - name: Hook ID consistency (REQ-11.1)
-        run: bash scripts/lint-hook-ids.sh
+        run: task lint:hook-ids
 
       - name: docs ↔ filesystem drift (REQ-11.2)
-        run: bash scripts/lint-docs-drift.sh
+        run: task lint:docs-drift
 
       # ─────────────────────────────────────────
       # 配布物 README / LICENSE 存在確認
@@ -281,6 +286,12 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: install task
+        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          version: "3.49.1"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       # bats-core を install.sh で直接入れる。bats-core/bats-action@3.0.0 は
       # 内部で actions/cache@v4 を使い Node 20 deprecation + tar restore failure
       # warning を出すため不採用。git clone shallow + sudo install.sh は両 OS
@@ -292,7 +303,7 @@ jobs:
           bats --version
 
       - name: bats tests/
-        run: bats -r tests/
+        run: task test:bats
 
   # ─────────────────────────────────────────
   # CodeQL static analysis (formerly codeql.yml). mumei is bash, which

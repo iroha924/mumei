@@ -26,17 +26,20 @@ jobs:
           cache: "npm"
           cache-dependency-path: dashboard/package-lock.json
 
+      - name: install task
+        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          version: "3.49.1"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: install
-        working-directory: dashboard
-        run: npm ci --prefer-offline
+        run: task dashboard:install
 
       - name: typecheck
-        working-directory: dashboard
-        run: npm run typecheck
+        run: task dashboard:typecheck
 
       - name: lint (biome --error-on-warnings)
-        working-directory: dashboard
-        run: npm run lint
+        run: task dashboard:lint
 
       - name: generate-types (verify schema sync)
         working-directory: dashboard
@@ -44,15 +47,13 @@ jobs:
           npm run generate-types
           if ! git diff --quiet -- src/types/; then
             # shellcheck disable=SC2016  # markdown-style code spans in error message
-            echo "::error::generated types differ from committed src/types/. Run 'npm run generate-types' and commit the result." >&2
+            echo "::error::generated types differ from committed src/types/. Run 'task dashboard:generate-types' and commit the result." >&2
             git --no-pager diff -- src/types/
             exit 1
           fi
 
       - name: build
-        working-directory: dashboard
-        run: npm run build
+        run: task dashboard:build
 
       - name: test
-        working-directory: dashboard
-        run: npm test
+        run: task dashboard:test
