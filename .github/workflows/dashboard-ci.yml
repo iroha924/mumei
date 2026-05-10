@@ -1,12 +1,6 @@
 name: dashboard-ci
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "dashboard/**"
-      - "schemas/**"
-      - ".github/workflows/dashboard-ci.yml"
   pull_request:
     paths:
       - "dashboard/**"

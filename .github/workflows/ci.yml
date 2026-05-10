@@ -32,7 +32,7 @@ env:
 
 jobs:
   lint:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -93,7 +93,7 @@ jobs:
   # hooks in CI would be redundant; instead we cover the gaps here.
   # ─────────────────────────────────────────
   lint-extra:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # Minimum permissions per GitHub hardening guide
     # (https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication).
@@ -261,7 +261,7 @@ jobs:
   # bats のバージョンは pin して両 OS 間の挙動差を抑える。
   # ─────────────────────────────────────────
   bats:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
