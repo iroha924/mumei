@@ -312,12 +312,15 @@ tasks:
         gh pr view "$pr" --comments | tail -40
         echo
         echo "=== inline ==="
-        # `gh api` auto-substitutes {owner}/{repo} from the current repo.
+        # `--paginate` follows the GitHub API's `Link: rel=next` header
+        # so PRs with more than 30 review comments aren't silently
+        # truncated. `--slurp` collects all pages into a single JSON
+        # array which jq then iterates.
         # Inline review comments arrive with `.user.login == "Copilot"`
-        # (the reviews endpoint uses `copilot-pull-request-reviewer[bot]`,
+        # (reviews endpoint uses `copilot-pull-request-reviewer[bot]`,
         # the comments endpoint uses the literal "Copilot").
-        gh api "repos/{owner}/{repo}/pulls/${pr}/comments" \
-          --jq '.[] | select(.user.login == "Copilot") | "[\(.path):\(.line // .original_line)] \(.body)"'
+        gh api --paginate --slurp "repos/{owner}/{repo}/pulls/${pr}/comments" \
+          --jq '.[] | .[] | select(.user.login == "Copilot") | "[\(.path):\(.line // .original_line)] \(.body)"'
 
   pr:codex:
     desc: "Trigger an OpenAI Codex PR re-review by posting an `@codex review` comment"
@@ -357,15 +360,21 @@ tasks:
           [[ -n "$pr" ]] && echo "got: '$pr' (must be a single integer)"
           exit 1
         fi
-        # Codex posts reviews via the standard GitHub Reviews + inline
-        # comment APIs from the `codex[bot]` author.
-        echo "=== reviews (summary) ==="
+        # Codex Cloud posts via the GitHub App login
+        # `chatgpt-codex-connector` (the reviews endpoint strips `[bot]`,
+        # the comments endpoint keeps `chatgpt-codex-connector[bot]`).
+        # Use an explicit allowlist instead of a substring match so a
+        # human user with "codex" in their handle doesn't get
+        # misattributed.
+        echo "=== latest review (summary) ==="
         gh pr view "$pr" --json reviews \
-          --jq '.reviews[] | select((.author.login // "") | test("(?i)codex")) | "\(.submittedAt) [\(.state)] \(.author.login):\n\(.body)\n"'
+          --jq '[.reviews[] | select(.author.login == "chatgpt-codex-connector")] | sort_by(.submittedAt) | last | "\(.submittedAt) [\(.state)] \(.author.login):\n\(.body)\n"'
         echo
         echo "=== inline review comments authored by Codex ==="
-        gh api "repos/{owner}/{repo}/pulls/${pr}/comments" \
-          --jq '.[] | select((.user.login // "") | test("(?i)codex")) | "[\(.path):\(.line // .original_line)] \(.body)"'
+        # `--paginate` walks `Link: rel=next` so PRs with > 30 review
+        # comments aren't silently truncated. `--slurp` aggregates pages.
+        gh api --paginate --slurp "repos/{owner}/{repo}/pulls/${pr}/comments" \
+          --jq '.[] | .[] | select(.user.login == "chatgpt-codex-connector[bot]" or .user.login == "chatgpt-codex-connector") | "[\(.path):\(.line // .original_line)] \(.body)"'
 
   # ---------------------------------------------------------------
   # Post-merge watcher — call after `gh pr merge` to confirm main CI green.
