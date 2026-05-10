@@ -15,6 +15,12 @@
 
 set -u
 
+# Anchor cwd to the project root so relative .mumei/ paths land
+# in the right place when invoked from a subdir (monorepo dev).
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" && -d "$CLAUDE_PROJECT_DIR" ]]; then
+  cd "$CLAUDE_PROJECT_DIR" || exit 0
+fi
+
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(realpath "$0")")")}"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/log.sh"

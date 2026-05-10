@@ -13,6 +13,12 @@
 
 set -u
 
+# Anchor cwd to the project root so relative .mumei/ paths land
+# in the right place when invoked from a subdir (monorepo dev).
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" && -d "$CLAUDE_PROJECT_DIR" ]]; then
+  cd "$CLAUDE_PROJECT_DIR" || exit 0
+fi
+
 if [[ "${MUMEI_BYPASS:-0}" == "1" ]]; then
   exit 0
 fi
