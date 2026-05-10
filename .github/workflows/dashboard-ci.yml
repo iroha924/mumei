@@ -6,6 +6,9 @@ on:
       - "dashboard/**"
       - "schemas/**"
       - ".github/workflows/dashboard-ci.yml"
+  # Manual rerun path: `gh workflow run dashboard-ci.yml --ref main`.
+  # Used to validate an emergency direct-push to main without a PR.
+  workflow_dispatch:
 
 permissions:
   contents: read
