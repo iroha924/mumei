@@ -1,29 +1,24 @@
 // @vitest-environment jsdom
 //
 // Explicit jsdom directive: state.test.ts intentionally exercises the
-// client-side runtime path (REQ-19.10 SSE validator runs on the browser),
-// so we want to verify TypeCompiler.Compile() under jsdom rather than the
-// Vitest default pool environment. The shared setup.ts also assumes
-// jsdom (it patches window.matchMedia), so this directive doubles as the
-// setup precondition.
+// client-side runtime path (the SSE validator runs on the browser),
+// so we want to verify TypeCompiler.Compile() under jsdom rather than
+// the Vitest default pool environment. The shared setup.ts also
+// assumes jsdom (it patches window.matchMedia), so this directive
+// doubles as the setup precondition.
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { describe, expect, it } from 'vitest'
 
 // Side-effect import: registers `date-time` format so TypeCompiler.Compile
 // does not raise "Unknown format" at Check time. Production validators
-// (Wave 2 dashboard/src/lib/validators.ts) will import the same module.
+// (dashboard/src/lib/validators.ts) import the same module.
 import './_formats.ts'
 import { StateSchema } from './state.ts'
 
 describe('StateSchema TypeCompiler smoke test', () => {
-  // Verifies that TypeCompiler.Compile() works in Vitest's default test
-  // environment (jsdom). REQ-19.10 SSE validator runs on the client side,
-  // so client-environment compatibility is non-negotiable. If this test
-  // fails on jsdom, the SSE validator path needs `// @vitest-environment node`
-  // or another workaround captured in design.md Risks 2.
   const validate = TypeCompiler.Compile(StateSchema)
 
-  it('compiles a validator that accepts a well-formed state object', () => {
+  it('accepts a spec-vehicle state.json (id + current_wave + approved_at)', () => {
     const ok = {
       id: 'REQ-19',
       slug: 'dashboard-typebox-unification',
@@ -36,40 +31,52 @@ describe('StateSchema TypeCompiler smoke test', () => {
     expect(validate.Check(ok)).toBe(true)
   })
 
+  it("accepts a plan-vehicle state.json (vehicle:'plan' + plan_file_path + review_runs, no id, no current_wave)", () => {
+    // Schema MUST accept the shape produced by mumei_state_init_plan
+    // in hooks/_lib/state.sh; otherwise /api/features 500s for any
+    // active plan-vehicle feature.
+    const ok = {
+      vehicle: 'plan',
+      slug: 'fix-bug',
+      phase: 'implement',
+      plan_file_path: '/Users/me/.claude/plans/fix-bug.md',
+      task_created_count: 5,
+      task_completed_count: 3,
+      pending_review: false,
+      review_runs: [],
+      created_at: '2026-05-01T00:00:00Z',
+      updated_at: '2026-05-08T11:00:00Z',
+    }
+    expect(validate.Check(ok)).toBe(true)
+  })
+
   it('rejects an object with an invalid phase enum value', () => {
     const bad = {
-      id: 'REQ-19',
       slug: 'foo',
       phase: 'unknown',
-      current_wave: 0,
       created_at: '2026-05-10T14:21:13Z',
       updated_at: '2026-05-10T14:21:13Z',
     }
     expect(validate.Check(bad)).toBe(false)
   })
 
-  it('rejects an object missing a required field', () => {
+  it('rejects an object missing the always-required `slug` field', () => {
     const missing = {
-      id: 'REQ-19',
-      slug: 'foo',
+      // slug omitted
       phase: 'plan',
-      // current_wave omitted
       created_at: '2026-05-10T14:21:13Z',
       updated_at: '2026-05-10T14:21:13Z',
     }
     expect(validate.Check(missing)).toBe(false)
   })
 
-  it('rejects an object with an unknown additional property (additionalProperties: false)', () => {
-    const extra = {
-      id: 'REQ-19',
+  it('rejects an object whose created_at is not ISO 8601 date-time', () => {
+    const bad = {
       slug: 'foo',
       phase: 'plan',
-      current_wave: 0,
-      created_at: '2026-05-10T14:21:13Z',
+      created_at: 'yesterday',
       updated_at: '2026-05-10T14:21:13Z',
-      bogus: 'should-be-rejected',
     }
-    expect(validate.Check(extra)).toBe(false)
+    expect(validate.Check(bad)).toBe(false)
   })
 })

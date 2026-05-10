@@ -2,23 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mumei.dev/schemas/state.schema.json",
   "title": "mumei feature state",
-  "description": "Persistent per-feature state written atomically by hooks/_lib/state.sh. Lives at .mumei/specs/<feature>/state.json (spec vehicle) or .mumei/plans/<slug>/state.json (plan vehicle).",
-  "additionalProperties": false,
+  "description": "Persistent per-feature state written atomically by hooks/_lib/state.sh. Lives at .mumei/specs/<feature>/state.json (spec vehicle) or .mumei/plans/<slug>/state.json (plan vehicle). Required fields are the intersection of both shapes.",
   "type": "object",
   "required": [
-    "id",
     "slug",
     "phase",
-    "current_wave",
     "created_at",
     "updated_at"
   ],
   "properties": {
-    "id": {
-      "pattern": "^(REQ-[0-9]+|[a-z0-9][a-z0-9-]*)$",
-      "description": "Spec-vehicle stable identifier (REQ-N). For plan-vehicle features this field equals slug (kebab-case).",
-      "type": "string"
-    },
     "slug": {
       "pattern": "^[a-z0-9][a-z0-9-]*$",
       "description": "Kebab-case feature name.",
@@ -45,11 +37,6 @@
         }
       ]
     },
-    "current_wave": {
-      "minimum": 0,
-      "description": "Wave number currently in flight. 0 before approval gate, 1+ during implement, equals last Wave during review.",
-      "type": "integer"
-    },
     "created_at": {
       "format": "date-time",
       "description": "ISO 8601 UTC. Set on state-init, never updated.",
@@ -60,6 +47,16 @@
       "description": "ISO 8601 UTC. Bumped on every state mutation.",
       "type": "string"
     },
+    "id": {
+      "pattern": "^(REQ-[0-9]+|[a-z0-9][a-z0-9-]*)$",
+      "description": "Spec-vehicle stable identifier (REQ-N). Absent for plan-vehicle features (use `slug`).",
+      "type": "string"
+    },
+    "current_wave": {
+      "minimum": 0,
+      "description": "Spec vehicle: Wave number currently in flight. 0 before approval gate, 1+ during implement, equals last Wave during review. Absent for plan-vehicle features.",
+      "type": "integer"
+    },
     "approved_at": {
       "format": "date-time",
       "description": "Set on the spec-vehicle Phase 3.5 user approval transition. Plan vehicle does not set this field.",
@@ -68,6 +65,23 @@
     "last_observed_head": {
       "pattern": "^[0-9a-f]{7,40}$",
       "description": "git rev-parse HEAD captured by hooks at the most recent transition. Used to detect external commits.",
+      "type": "string"
+    },
+    "vehicle": {
+      "description": "Set explicitly to 'plan' by mumei_state_init_plan. Spec-vehicle init does not write this field; readers should treat absence as 'spec'.",
+      "anyOf": [
+        {
+          "const": "spec",
+          "type": "string"
+        },
+        {
+          "const": "plan",
+          "type": "string"
+        }
+      ]
+    },
+    "plan_file_path": {
+      "description": "Plan vehicle only. Path captured from ExitPlanMode tool input at plan-mode commit time.",
       "type": "string"
     },
     "pending_review": {
@@ -84,8 +98,13 @@
       "description": "Plan vehicle only. Counter of TaskCompleted events.",
       "type": "integer"
     },
+    "review_runs": {
+      "description": "Plan vehicle only. Append-only history of review iterations driven by /mumei:review. Shape is opaque to the dashboard.",
+      "type": "array",
+      "items": {}
+    },
     "depends_on": {
-      "description": "Phase D forward-compat. Cross-feature dependency list. Populated from tasks.md _DependsOn:_ meta when introduced.",
+      "description": "Cross-feature dependency list. Populated from tasks.md _DependsOn:_ meta.",
       "type": "array",
       "items": {
         "pattern": "^REQ-[0-9]+(-[a-z0-9-]+)?$",

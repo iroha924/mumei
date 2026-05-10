@@ -90,9 +90,14 @@ export async function listFeatures(args: {
       const stateRaw = await safeReadFile(path.join(featureDir, 'state.json'))
       let vehicle: 'spec' | 'plan' = 'spec'
       try {
-        const parsed = stateRaw ? (JSON.parse(stateRaw) as { id?: string; slug?: string }) : null
-        // spec vehicle: id is REQ-N. plan vehicle: id == slug.
-        if (parsed?.id && !/^REQ-[0-9]+$/.test(parsed.id)) vehicle = 'plan'
+        const parsed = stateRaw ? (JSON.parse(stateRaw) as { id?: string; vehicle?: string }) : null
+        // Plan-vehicle init writes `vehicle: 'plan'` and omits `id`;
+        // spec-vehicle init writes `id: REQ-N` and omits `vehicle`.
+        // Treat either signal as decisive.
+        if (parsed) {
+          if (parsed.vehicle === 'plan') vehicle = 'plan'
+          else if (!parsed.id) vehicle = 'plan'
+        }
       } catch {
         // fall through with default vehicle=spec
       }

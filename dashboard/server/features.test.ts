@@ -66,15 +66,20 @@ describe('listFeatures', () => {
   it('builds plan-vehicle summary with task counters', async () => {
     const featDir = path.join(projectRoot, '.mumei', 'plans', 'fix-bug')
     await mkdir(featDir, { recursive: true })
+    // Plan-vehicle state.json shape (mumei_state_init_plan output):
+    // no `id`, no `current_wave`; carries `vehicle: 'plan'` and
+    // `plan_file_path` instead. Schema must accept this layout.
     await writeFile(
       path.join(featDir, 'state.json'),
       JSON.stringify({
-        id: 'fix-bug',
+        vehicle: 'plan',
         slug: 'fix-bug',
         phase: 'implement',
-        current_wave: 0,
+        plan_file_path: '/tmp/fix-bug.md',
         task_created_count: 5,
         task_completed_count: 3,
+        pending_review: false,
+        review_runs: [],
         created_at: '2026-05-01T00:00:00Z',
         updated_at: '2026-05-08T11:00:00Z',
       }),
