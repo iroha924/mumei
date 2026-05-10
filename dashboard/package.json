@@ -67,7 +67,7 @@
     "fastify": "^5.8.0",
     "jsdom": "^25.0.1",
     "json-schema-to-typescript": "^15.0.3",
-    "lucide-react": "^0.469.0",
+    "lucide-react": "^1.14.0",
     "msw": "^2.7.0",
     "pino-pretty": "^13.0.0",
     "pngjs": "^7.0.0",
