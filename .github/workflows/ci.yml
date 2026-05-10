@@ -171,7 +171,7 @@ jobs:
           # `docker run ghcr.io/.../trufflehog:${VERSION}` does not float
           # to `:latest`. Keep this aligned with the action SHA pin
           # above and the .pre-commit-config.yaml trufflehog rev.
-          version: "3.90.10"
+          version: "3.95.2"
           extra_args: --results=verified
 
       # lychee is heavy and rate-limit-sensitive; keep it out of pre-commit

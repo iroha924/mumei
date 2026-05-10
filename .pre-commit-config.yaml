@@ -94,7 +94,7 @@ repos:
       - id: gitleaks
 
   - repo: https://github.com/trufflesecurity/trufflehog
-    rev: v3.90.10
+    rev: v3.95.2
     hooks:
       - id: trufflehog
         name: trufflehog (filesystem)
