@@ -101,9 +101,11 @@ users can model them rather than discovering them later.
   passes every in-tree check. Out-of-band detection (community
   vigilance, scorecard divergence) is the only signal.
 - **R3 — Single-maintainer review.** mumei has no two-party-review
-  requirement and no enforced branch protection on `main`. A typo or
-  malicious commit by the maintainer can land directly. SLSA L4's
-  two-party review is approximated by CI gates and the controls
+  requirement, and `main` has no enforced branch protection at the
+  server level (the project's development rule requires PR review,
+  but it is not technically blocking). A typo or malicious commit by
+  the maintainer who bypasses the convention can land directly. SLSA
+  L4's two-party review is approximated by CI gates and the controls
   listed above, not actually enforced.
 - **R4 — Bash analysis gap.** CodeQL does not analyze shell
   scripts. `shellcheck` (CI + pre-commit) and `semgrep` (review

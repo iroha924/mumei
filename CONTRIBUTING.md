@@ -123,10 +123,12 @@ are generated from the subject line alone, and bot-style attribution adds noise.
 
 ## Pull request workflow
 
-`main` is not branch-protected — direct pushes are accepted. Even so,
-contributors are expected to land changes through a pull request so the
-CI checks below run on the diff before merge. External contributors fork;
-the maintainer creates a topic branch in this repo.
+`main` has no server-side branch protection, but the project's
+development rule **requires every change to go through a pull request**
+so the CI checks below run on the diff before merge. Direct pushes to
+`main` are not allowed by convention, even though they are not
+technically blocked. External contributors fork; the maintainer
+creates a topic branch in this repo.
 
 1. Fork or branch from `main` (`git checkout -b feat/your-feature`).
 2. Implement the change, keeping commits focused and Conventional Commits-formatted.
