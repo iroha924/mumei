@@ -164,7 +164,7 @@ jobs:
       # entropy-based + verified-only mode catches secrets the rules miss.
       # Both run on every PR and push to main per REQ-8.5.3.
       - name: trufflehog (secret scan)
-        uses: trufflesecurity/trufflehog@bc2cd3e45e3aa4a6c627bd0c424580f86dde1855 # v3.90.10
+        uses: trufflesecurity/trufflehog@17456f8c7d042d8c82c9a8ca9e937231f9f42e26 # v3.95.2
         with:
           path: ./
           # Pin the docker image tag so the action's internal
