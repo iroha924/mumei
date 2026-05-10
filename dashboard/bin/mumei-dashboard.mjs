@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Entry point for `npx @mumei/dashboard`. Boots the Fastify server in
+// Entry point for `npx mumei-dashboard`. Boots the Fastify server in
 // the user's current working directory (which is read as the project
 // root). The Vite dev server is a separate concern handled by
 // `npm run dev` from the dashboard repo; the published bin always
@@ -26,7 +26,7 @@ if (!existsSync(builtEntry)) {
     process.on('SIGTERM', () => child.kill('SIGTERM'))
   } else {
     console.error(
-      '@mumei/dashboard: no built server found at dist/server/index.js. Run `npm run build:server`.',
+      'mumei-dashboard: no built server found at dist/server/index.js. Run `npm run build:server`.',
     )
     process.exit(1)
   }

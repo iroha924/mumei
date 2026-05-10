@@ -26,11 +26,11 @@ Repository layout:
   `PRIVACY.md` / `CODE_OF_CONDUCT.md` / `AGENTS.md`.
 - **Dashboard sub-project**: `dashboard/` — Vite + React 19 +
   Fastify 5 + Tailwind v4 + TanStack Query + Biome. Distributed
-  separately on npm as `@mumei/dashboard`. Excluded from the
-  plugin tarball via `.gitattributes`.
+  separately on npm as `mumei-dashboard` (unscoped). Excluded from
+  the plugin tarball via `.gitattributes`.
 - **Shared dev-time only (NOT shipped)**: `schemas/*.json` is the
-  source of truth for type generation; consumed by the dashboard
-  via `npm run generate-types`. Excluded from BOTH the plugin
+  source of truth for type generation; produced from TypeBox sources
+  under `dashboard/src/schemas/*.ts` via `npm run schemas`. Excluded from BOTH the plugin
   tarball (`schemas/ export-ignore` in `.gitattributes`) and the
   dashboard's npm package (npm files allowlist). Edit a schema
   in lockstep with regenerating `dashboard/src/types/`.

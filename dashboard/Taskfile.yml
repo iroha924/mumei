@@ -1,4 +1,4 @@
-# Taskfile for the @mumei/dashboard sub-project.
+# Taskfile for the mumei-dashboard sub-project (unscoped npm package).
 #
 # Included from the root Taskfile.yml as `dashboard:` namespace with
 # `dir: ./dashboard`, so `task dashboard:test` from the repo root is
