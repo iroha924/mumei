@@ -131,12 +131,15 @@ technically blocked. External contributors fork; the maintainer
 creates a topic branch in this repo.
 
 1. **Branch first, then plan.** Fork or branch from `main`
-   (`git checkout -b feat/your-feature`, or `fix/` / `docs/` / `refactor/` /
-   `chore/` per Conventional Commits type) **before** invoking
-   `/mumei:plan <feature>`. Direct work on `main` followed by retroactive
-   branching (the "reverse dogfood" pattern: edit on main → `git reset --hard`
-   → re-commit on branch) is forbidden by convention; both the orchestrator
-   (Claude) and the contributor are responsible for branching first.
+   (`git checkout -b feat/your-feature`; the branch-name prefix should
+   match one of the allowed Conventional Commits types listed under
+   "Commit conventions" above, such as `feat/`, `fix/`, `docs/`,
+   `refactor/`, `chore/`, etc.) **before** invoking `/mumei:plan
+<feature>`. Direct work on `main` followed by retroactive branching
+   (the "reverse dogfood" pattern: edit on main → `git reset --hard` →
+   re-commit on branch) is forbidden by convention; both the
+   orchestrator (Claude) and the contributor are responsible for
+   branching first.
 2. Implement the change, keeping commits focused and Conventional Commits-formatted.
 3. Run `bats -r tests/` and `/validate` locally; both must pass.
 4. Update `README.md`, `PRIVACY.md`, or `docs/` if your change alters external
