@@ -47,8 +47,8 @@ ACTIVE_VEHICLE="$(mumei_state_active_vehicle "$KEY")"
 # signaled by pending_review=true (set by hooks/post-task-event.sh on
 # the Nth TaskCompleted that matches task_created_count). The /mumei:archive
 # prompt for phase=done plan-vehicle features is owned by the
-# /mumei:review skill (REQ-9.23 echo on PASS); the Stop hook only gates
-# pending review, never phase=done (REQ-9.24 explicitly excludes done).
+# /mumei:review skill; the Stop hook only gates
+# pending review, never phase=done.
 if [[ "$ACTIVE_VEHICLE" == "plan" ]]; then
   PLAN_PENDING="$(mumei_state_read_any "$KEY" '.pending_review')"
   PLAN_REVIEW_DIR=".mumei/plans/${KEY}/reviews"

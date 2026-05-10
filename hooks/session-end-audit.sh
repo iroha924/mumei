@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SessionEnd (REQ-13.9): audit log of session terminations.
+# SessionEnd: audit log of session terminations.
 #
 # Records session_id / reason / active feature snapshot to JSONL.
 # SessionEnd cannot block per Claude Code spec — exit code is ignored.

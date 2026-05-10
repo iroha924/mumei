@@ -2,7 +2,7 @@
 # Verify that mumei Hook rule IDs (`P/I/W/R/M/X` followed by digits) are
 # unique across the canonical sources and have no orphan references.
 # Targets the W-02 class of regression: the same ID pointing at two
-# different rules (REQ-11.1).
+# different rules.
 #
 # Canonical source for the ID set is the Hook rules table in
 # ARCHITECTURE.md. Other sources are checked against it:

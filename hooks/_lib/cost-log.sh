@@ -5,7 +5,7 @@
 # .mumei/plans/<slug>/cost-log.jsonl (plan vehicle). Per-feature,
 # JSONL append-only. Aggregation: scripts/aggregate-cost.sh.
 #
-# Authoritative record path (REQ-16): hooks/subagent-cost-log.sh fires
+# Authoritative record path: hooks/subagent-cost-log.sh fires
 # on SubagentStop and writes a phase=after record by reverse-looking up
 # the subagent's own jsonl from agent_id. The orchestrator-side wrap
 # below is OPTIONAL — call it only when you want a `phase=before`

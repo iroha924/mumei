@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUseFailure (REQ-13.10): audit log of tool failures.
+# PostToolUseFailure: audit log of tool failures.
 #
 # Records tool_name / tool_input excerpt / error / cwd to JSONL audit log
 # for later debugging. Never blocks.

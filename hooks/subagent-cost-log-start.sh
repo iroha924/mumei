@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SubagentStart hook (REQ-16 iter 2 / F-002 fix). Pins the active
+# SubagentStart hook. Pins the active
 # feature at subagent launch time so the SubagentStop hook can attribute
 # cost-log records correctly even if the operator switches features
 # (writes a new value to .mumei/current) between launch and stop.

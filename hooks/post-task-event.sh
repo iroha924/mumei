@@ -5,10 +5,10 @@
 # task_completed_count on TaskCompleted, and sets pending_review=true
 # when (task_completed_count == task_created_count > 0).
 #
-# This hook never blocks (REQ-9.14 — TaskCompleted is treated as a
-# notification, since `decision: "block"` cannot undo the status
-# transition per V4). It also no-ops for non-plan-vehicle sessions
-# (spec vehicle, or projects without mumei).
+# This hook never blocks (TaskCompleted is treated as a notification,
+# since `decision: "block"` cannot undo the status transition). It also
+# no-ops for non-plan-vehicle sessions (spec vehicle, or projects
+# without mumei).
 
 set -u
 

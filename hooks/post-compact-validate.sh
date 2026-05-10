@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostCompact (REQ-13.3): re-validate `.mumei/current` against the
+# PostCompact: re-validate `.mumei/current` against the
 # filesystem after compaction.
 #
 # Emits a stderr warning if `.mumei/current` references a feature whose

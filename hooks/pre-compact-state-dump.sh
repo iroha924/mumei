@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreCompact (REQ-13.1): inject the active feature's state into
+# PreCompact: inject the active feature's state into
 # `additionalContext` so post-compact context still tracks `.mumei/current`.
 #
 # Emits a one-line JSON summary (slug / phase / current_wave / pending_review).

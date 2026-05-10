@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # UserPromptSubmit advisory: hint at proactive `/compact` when context
-# usage exceeds MUMEI_COMPACT_HINT_PCT (default 60). Implements REQ-11.4.
+# usage exceeds MUMEI_COMPACT_HINT_PCT (default 60).
 #
 # Output is purely advisory — emitted via hookSpecificOutput.additionalContext.
 # Never blocks. Falls silent when the transcript or its usage info is

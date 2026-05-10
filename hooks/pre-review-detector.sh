@@ -52,7 +52,7 @@ if [[ -n "$missing_bins" ]]; then
   exit 2
 fi
 
-# REQ-17.12 / REQ-17.13 — version warning (warn-only, never blocks).
+# version warning (warn-only, never blocks).
 # Both detector binaries are present (we passed the check above), so verify
 # they're at least at the recommended baseline. Old versions still run; the
 # user just sees a stderr nudge to update.

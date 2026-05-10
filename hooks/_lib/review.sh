@@ -164,9 +164,9 @@ mumei_review_aggregate_verdict() {
 }
 
 # Compute the next_iter_reviewers list from a surfaced findings array.
-# Always includes "adversarial" (REQ-7.3 invariant). Echoes a JSON array.
+# Always includes "adversarial". Echoes a JSON array.
 #
-# When prev_reviewers and feature/iter are supplied, rotate (REQ-11.8) is
+# When prev_reviewers and feature/iter are supplied, rotate is
 # applied at the tail so the runtime pipeline never re-launches an
 # identical reviewer set two iterations in a row. Callers in iter 1 pass
 # `prev_reviewers="[]"` (no rotation possible).
@@ -197,9 +197,9 @@ mumei_review_compute_next_iter_reviewers() {
 }
 
 # Rotate reviewers when iter N's planned set is a permutation of iter N-1's
-# (REQ-11.8). Hash-based, stateless, deterministic for the same
+#. Hash-based, stateless, deterministic for the same
 # (feature, iter, candidate-pool) tuple. Adversarial is always preserved
-# (REQ-7.3 invariant) and excluded from the rotation pool.
+# and excluded from the rotation pool.
 #
 # Args:
 #   $1 prev_reviewers JSON array  ([] for iter 1 → no rotation)
@@ -255,7 +255,7 @@ mumei_review_rotate_reviewers() {
   jq -c --arg p "$pick" '. + [$p] | unique' <<<"$next_json"
 }
 
-# Check the iter-N-all-PASS short-circuit (REQ-7.7).
+# Check the iter-N-all-PASS short-circuit.
 # Returns 0 if the previous iter for the SAME wave was PASS with HIGH=0
 # (caller should skip this iter and write a synthetic shortcircuit JSON).
 # Returns 1 otherwise (caller proceeds with full iter).
@@ -305,7 +305,7 @@ mumei_review_should_short_circuit() {
 #   feature, wave, iteration, verdict; review.sh adds nothing).
 # Args:
 #   $1 review_dir
-#   $2 suffix   ("" for normal, "shortcircuit" for REQ-7.7 synthetic)
+#   $2 suffix   ("" for normal, "shortcircuit" for synthetic)
 # Echoes the written file path on stdout.
 mumei_review_persist() {
   local review_dir="$1"
@@ -363,7 +363,7 @@ mumei_review_structural_check() {
 
   # Per-script existence check. A missing script no longer silently
   # short-circuits to an empty array — that path hid the structural
-  # check from the verdict whenever scripts/ was incomplete (REQ-17.8).
+  # check from the verdict whenever scripts/ was incomplete.
   # Instead emit a MEDIUM finding per missing script so the review JSON
   # records "Stage 6.6 ran but could not check rule X". The verdict is
   # NOT escalated to MAJOR_ISSUES (MEDIUM does not pin), but the user

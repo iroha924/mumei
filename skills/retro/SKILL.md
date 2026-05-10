@@ -45,11 +45,10 @@ for candidate in $(find .mumei/archive -maxdepth 3 -type d -name "$feature" 2>/d
 done
 [[ -n "$feature_dir" ]] || { echo "feature not found: $feature" >&2; exit 1; }
 
-# Cost-log backfill (REQ-16.9): if the feature has no cost-log.jsonl
-# yet (the SubagentStop hook only started recording after REQ-16
-# Wave 1, so older features come up empty), try to recover the data
-# from Claude Code's session logs. Always best-effort — graceful fail
-# is mandatory. The script returns 0 even when no records can be
+# Cost-log backfill: if the feature has no cost-log.jsonl yet
+# (older features may come up empty), try to recover the data from
+# Claude Code's session logs. Always best-effort — graceful fail is
+# mandatory. The script returns 0 even when no records can be
 # recovered and writes a "partial backfill only" line to stderr.
 cost_log="${feature_dir}/cost-log.jsonl"
 if [[ ! -f "$cost_log" ]] || [[ "$(wc -c <"$cost_log")" -eq 0 ]]; then

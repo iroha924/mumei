@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Brainstorm scratch parser (REQ-14.2). Reads `.mumei/scratch/<slug>.md`
+# Brainstorm scratch parser. Reads `.mumei/scratch/<slug>.md`
 # and recommends a vehicle (spec or plan) based on signal density:
 #   - ac_count >= 4   → spec
 #   - any "complexity keyword" in Goal section → spec
@@ -62,7 +62,7 @@ _mumei_scratch_goal_body() {
 # of matched keywords (deduped, lowercased).
 _mumei_scratch_match_keywords() {
   local goal_body="$1"
-  # Keyword list is fixed by REQ-14.2 design; extending here also
+  # Keyword list is fixed; extending here also
   # requires updating tests/lib/vehicle-picker.bats.
   local keywords=(redesign refactor migration architecture rewrite overhaul)
   local matched=()

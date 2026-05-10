@@ -53,8 +53,6 @@ review_dir=".mumei/plans/${slug}/reviews"
 state_path=".mumei/plans/${slug}/state.json"
 ```
 
-REQ-9.15 / REQ-9.15.2 — the skill no-ops on missing or spec-vehicle active features and tells the user the right path.
-
 ### Cost-log recording (automatic via SubagentStop hook)
 
 Cost-log records (`phase=after`) are written automatically by
@@ -69,7 +67,7 @@ The `mumei_cost_log_before` / `_after` helpers in
 is not required** — the SubagentStop hook is the authoritative path.
 Aggregate via `scripts/aggregate-cost.sh`.
 
-### Reviewer prompt structure (REQ-11.7)
+### Reviewer prompt structure
 
 Use `hooks/_lib/reviewer-prompt.sh` to build the reviewer Task prompt as
 **immutable prefix + variable suffix** so Anthropic's prompt cache (5-min
@@ -89,7 +87,7 @@ Plan vehicle passes `wave="all"` to the helper; the rest is identical to
 spec vehicle. Keep the prefix byte-identical across iterations to
 preserve cache hits.
 
-### Step 2 — pending_review gate (REQ-9.16)
+### Step 2 — pending_review gate
 
 ```bash
 pending="$(jq -r '.pending_review // false' "$state_path")"
@@ -108,7 +106,7 @@ State is left untouched on this abort path; the user simply continues their task
 
 ### Step 3 — Iteration accounting
 
-Plan vehicle does not have Wave structure, so `wave` is fixed at the literal string `"all"` (matches the REQ-7.7 short-circuit helper which accepts `"all"` as a wildcard). The iteration counter is derived from existing review JSONs in `review_dir`:
+Plan vehicle does not have Wave structure, so `wave` is fixed at the literal string `"all"` (the short-circuit helper accepts `"all"` as a wildcard). The iteration counter is derived from existing review JSONs in `review_dir`:
 
 ```bash
 prev_iter="$(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
@@ -120,17 +118,17 @@ current_iter=$((prev_iter + 1))
 current_wave="all"
 ```
 
-### Step 4 — REQ-7.7 iter-N-all-PASS short-circuit
+### Step 4 — iter-N-all-PASS short-circuit
 
 ```bash
 if prev_review="$(mumei_review_should_short_circuit "$review_dir" "$current_wave" "$current_iter")"; then
-  echo "iter $((current_iter - 1)) was clean (verdict=PASS, HIGH=0). Skipping iter ${current_iter} via REQ-7.7."
+  echo "iter $((current_iter - 1)) was clean (verdict=PASS, HIGH=0). Skipping iter ${current_iter}."
   jq -n \
     --arg slug "$slug" \
     --argjson iteration "$current_iter" \
     --arg short_circuited_from "$prev_review" \
     '{feature: $slug, wave: "all", iteration: $iteration, verdict: "PASS",
-      summary: "REQ-7.7 short-circuit — previous iter was clean (verdict=PASS, HIGH=0).",
+      summary: "Short-circuit — previous iter was clean (verdict=PASS, HIGH=0).",
       short_circuited_from: $short_circuited_from,
       findings_surfaced: [], findings_filtered: [],
       next_iter_reviewers: [], detector_skipped: true, detector_reused_from: null}' \
@@ -141,7 +139,7 @@ if prev_review="$(mumei_review_should_short_circuit "$review_dir" "$current_wave
 fi
 ```
 
-### Step 5 — Stage 0 detector (REQ-9.17)
+### Step 5 — Stage 0 detector
 
 ```bash
 summary="$(mumei_review_run_detector "$review_dir" "$current_iter" "$CLAUDE_PLUGIN_ROOT")"
@@ -167,12 +165,12 @@ detector_reused_from="$(jq -r '.detector_reused_from // empty' <<<"$summary")"
 
 If the detector reports `bypassed: true` (set when `MUMEI_BYPASS=1`), treat `high_count` as `0` and continue.
 
-### Step 6 — Launch reviewers (REQ-9.18 / REQ-17.6)
+### Step 6 — Launch reviewers
 
 Plan vehicle launches the same reviewer set as spec vehicle, including
-`spec-compliance-reviewer` with a `scope_source=plan.md` parameter
-(REQ-17.6 — generalized post-REQ-17 to compare diff against the
-user-approved plan markdown instead of requirements.md).
+`spec-compliance-reviewer` with a `scope_source=plan.md` parameter so
+the reviewer compares the diff against the user-approved plan markdown
+instead of requirements.md.
 
 - iter 1 baseline:
   - if `high_count == 0`: launch `spec-compliance-reviewer`,
@@ -207,9 +205,9 @@ When `high_count > 0`, inject the HIGH detector findings into all running
 reviewer prompts as a `<detector_findings ground_truth="true">` block
 exactly as Phase 5 does (see `skills/plan/SKILL.md` Stage 1).
 
-### Step 7 — Per-issue validation (REQ-9.19)
+### Step 7 — Per-issue validation
 
-For each finding returned by the reviewers, apply the same severity-conditional gate as Phase 5 Stage 4 (REQ-7.4):
+For each finding returned by the reviewers, apply the same severity-conditional gate as Phase 5 Stage 4:
 
 - HIGH / CRITICAL → `issue-validator` mandatory.
 - MEDIUM / LOW + reviewer.confidence == HIGH → skip with `valid_by_assertion`, except for the ~20% hash-sample calibration path (`shasum -a 256 | cut -c1` ∈ {0,1,2}).
@@ -217,15 +215,15 @@ For each finding returned by the reviewers, apply the same severity-conditional 
 
 The validator returns `decision: "valid" | "invalid" | "unsure"`. Keep `valid` and `valid_by_assertion`; move `invalid` to `findings_filtered`; surface `unsure` with a warning marker.
 
-### Step 8 — Aggregate verdict + persist (REQ-9.20)
+### Step 8 — Aggregate verdict + persist
 
 ```bash
 # surfaced_json and filtered_json are JSON arrays produced by Step 7.
 # reviewer_verdicts is the per-reviewer status object the reviewers returned.
 
 verdict="$(mumei_review_aggregate_verdict "$high_count" "$surfaced_json" "$reviewer_verdicts_json")"
-# REQ-11.8: pass prev_reviewers + slug + iter so the helper applies rotation
-# at the tail (preserves the REQ-7.3 adversarial invariant).
+# pass prev_reviewers + slug + iter so the helper applies rotation
+# at the tail (preserves the adversarial invariant).
 prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"
 next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
   "$surfaced_json" "$prev_reviewers" "$slug" "$current_iter")"
@@ -270,15 +268,15 @@ echo "review written: ${written}"
 
 After the review JSON is persisted (Step 8) and before phase transition (Step 9),
 walk every reviewer's `memory_candidates` array and dispatch each candidate to
-`memory-curator` (REQ-10.11). The curator scores against the 7-axis rubric (>= 15/21
+`memory-curator`. The curator scores against the 7-axis rubric (>= 15/21
 → ADD or UPDATE, else SKIP). The orchestrator validates the curator's strict JSON
 via `mumei_memory_validate_curator_output` and on validator pass applies the operation
 to `.claude/agent-memory/<reviewer>/MEMORY.md` via `mumei_memory_apply_operation`.
 Failure of any single candidate is non-blocking — the orchestrator emits
 `[mumei] curator output invalid: <reason>` to stderr, treats that candidate as SKIP,
-and continues. Plan vehicle's reviewer set post-REQ-17 is the full
+and continues. Plan vehicle's reviewer set is the full
 `spec-compliance` + `security` + `adversarial` triple, identical to spec
-vehicle (REQ-17.6 — generalized via `scope_source=plan.md`).
+vehicle.
 
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/memory.sh"
@@ -357,7 +355,7 @@ if [[ "$(jq 'length' <<<"$structural_findings")" -gt 0 ]]; then
        '.findings_surfaced = ($sf + (.findings_surfaced // []))' \
        <"$latest_review" >"${latest_review}.tmp"
     # Surface a stderr note when only MEDIUM findings exist so the user
-    # sees the degraded-mode signal (REQ-17 review adv-F-002 fix).
+    # sees the degraded-mode signal.
     medium_count="$(jq 'length' <<<"$structural_findings")"
     printf '[mumei] structural integrity check produced %d MEDIUM finding(s); see %s for details\n' \
       "$medium_count" "$latest_review" >&2
@@ -366,12 +364,12 @@ if [[ "$(jq 'length' <<<"$structural_findings")" -gt 0 ]]; then
 fi
 ```
 
-Per REQ-17.8, missing linter scripts produce `severity: MEDIUM`
+Missing linter scripts produce `severity: MEDIUM`
 findings instead of silent no-op. The caller branches on severity:
 HIGH/CRITICAL escalates verdict to `MAJOR_ISSUES`; MEDIUM is surfaced
 without escalation.
 
-### Step 9 — Phase transition + user prompt (REQ-9.21 / REQ-9.22 / REQ-9.23 / REQ-9.33.2)
+### Step 9 — Phase transition + user prompt
 
 ```bash
 case "$verdict" in
@@ -390,7 +388,7 @@ case "$verdict" in
 esac
 ```
 
-`MUMEI_BYPASS=1` (REQ-9.33 / REQ-9.33.2): when the env var is set, the Stop hook (L-R1) and PreBash hook (L-R2) `decision: "block"` paths do not fire. Verdict computation, review JSON write, and phase transitions proceed normally — the escape hatch only neutralizes the gates, not the bookkeeping. This stays consistent with the spec-vehicle escape hatch.
+`MUMEI_BYPASS=1`: when the env var is set, the Stop hook (L-R1) and PreBash hook (L-R2) `decision: "block"` paths do not fire. Verdict computation, review JSON write, and phase transitions proceed normally — the escape hatch only neutralizes the gates, not the bookkeeping. This stays consistent with the spec-vehicle escape hatch.
 
 ## Output
 

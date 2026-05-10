@@ -41,7 +41,7 @@ fi
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
 
-# REQ-9.36: I4 (phantom completion) is spec-only — plan vehicle does
+# I4 (phantom completion) is spec-only — plan vehicle does
 # not have a tasks.md to mark [x] in. Use the unified vehicle resolver
 # so dispatch matches pre-bash-guard / archive (spec wins on dual-state).
 case "$(mumei_state_active_vehicle "$FEATURE")" in

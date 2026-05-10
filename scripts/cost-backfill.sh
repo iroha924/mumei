@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cost-log backfill (REQ-16.9). Reconstructs missing cost-log.jsonl
+# Cost-log backfill. Reconstructs missing cost-log.jsonl
 # entries for a feature by walking Claude Code's session logs:
 #
 #   ~/.claude/projects/<encoded>/<session-uuid>.jsonl

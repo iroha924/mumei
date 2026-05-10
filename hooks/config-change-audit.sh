@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ConfigChange (REQ-13.8): audit log + invalid JSON gate.
+# ConfigChange: audit log + invalid JSON gate.
 #
 # Records each settings change (`config_source`, `changed_fields`) to an
 # append-only JSONL audit log. If the changed settings file is unparsable

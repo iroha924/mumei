@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Aggregate the hook decision log written by hooks/_lib/hook-stats.sh
-# (REQ-11.13). Reads .mumei/.hook-stats.jsonl and pivots by Hook ID.
+#. Reads .mumei/.hook-stats.jsonl and pivots by Hook ID.
 #
 # Usage:
 #   bash scripts/aggregate-hook-stats.sh

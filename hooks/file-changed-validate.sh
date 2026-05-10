@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FileChanged (REQ-13.4): re-run lint-tasks on watched files when changed
+# FileChanged: re-run lint-tasks on watched files when changed
 # outside the PreToolUse/PostToolUse chain (external editor, CI, manual vim).
 #
 # Watched files are configured at the matcher level in hooks.json

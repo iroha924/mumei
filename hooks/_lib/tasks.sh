@@ -127,16 +127,16 @@ mumei_tasks_requirements() {
   _mumei_tasks_extract_meta "$task_id" "Requirements" "$tf"
 }
 
-# Wave-level cross-feature dependency. REQ-15 may declare it depends on
-# REQ-14 by adding a `**Depends-Feature**:` line after `**Goal**:` and
-# `**Verify**:` in any Wave header. The value is a comma-separated list
-# of feature ids (REQ-N) or compound keys (REQ-N-slug).
+# Wave-level cross-feature dependency. A feature may declare it depends
+# on another by adding a `**Depends-Feature**:` line after `**Goal**:`
+# and `**Verify**:` in any Wave header. The value is a comma-separated
+# list of feature ids (REQ-N) or compound keys (REQ-N-slug).
 #
 # Example tasks.md fragment:
 #   ## Wave 1: ...
 #   **Goal**: ...
 #   **Verify**: ...
-#   **Depends-Feature**: REQ-14, REQ-12
+#   **Depends-Feature**: REQ-N, REQ-M
 #
 # Echo the deduplicated, space-separated list of features the spec
 # depends on across ALL Waves, or empty when none are declared.

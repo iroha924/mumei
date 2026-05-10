@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Append-only JSONL audit log helper for mumei hooks (REQ-13.6 / 13.8 / 13.9 / 13.10).
+# Append-only JSONL audit log helper for mumei hooks.
 #
 # Usage from hook handlers:
 #

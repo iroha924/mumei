@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# InstructionsLoaded (REQ-13.6): audit log of CLAUDE.md / .claude/rules/*.md
+# InstructionsLoaded: audit log of CLAUDE.md / .claude/rules/*.md
 # loads. The matcher in hooks.json restricts firing to load_reason
 # `session_start` or `compact` to avoid path_glob_match storms.
 #

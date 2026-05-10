@@ -9,7 +9,7 @@ memory: project
 
 <!--
 Role: Adversarial reviewer (what breaks in production)
-Inputs: Wave diff + prior_findings (output of the other 2 reviewers — spec-compliance + security; post-REQ-7 the code-quality reviewer was removed)
+Inputs: Wave diff + prior_findings (output of the other 2 reviewers — spec-compliance + security)
 Output: stdout only, conforming strictly to the specified JSON schema
 Principle: Always present concrete production failure scenarios. Do not flag pure speculation.
 -->

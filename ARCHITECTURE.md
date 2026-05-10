@@ -27,7 +27,6 @@ mumei/
 │   ├── adversarial-reviewer.md
 │   ├── issue-validator.md
 │   └── memory-curator.md
-│   # (code-quality-reviewer.md was removed in REQ-7 — see docs/mumei-decisions.md)
 ├── skills/                 # user-invocable orchestration
 │   ├── plan/               # /mumei:plan — the orchestrator
 │   ├── brainstorm/         # /mumei:brainstorm — pre-spec Q&A
@@ -43,13 +42,13 @@ mumei/
 │   │   ├── detectors.sh    # semgrep / osv-scanner runners + severity normalizer
 │   │   ├── review.sh       # shared Phase 5 / /mumei:review pipeline helpers
 │   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
-│   │   ├── cost-log.sh     # optional pre/post wrap helpers; SubagentStop hook is authoritative (REQ-16)
+│   │   ├── cost-log.sh     # optional pre/post wrap helpers; SubagentStop hook is authoritative
 │   │   ├── reviewer-prompt.sh # immutable prefix + variable suffix builder for cache-friendly prompts
-│   │   ├── byte-exact.sh   # CRLF / tab advisory for byte-exact-prone file types (REQ-11.12)
+│   │   ├── byte-exact.sh   # CRLF / tab advisory for byte-exact-prone file types
 │   │   ├── hook-stats.sh   # hook decision recorder (.mumei/.hook-stats.jsonl)
 │   │   ├── audit-log.sh    # append-only JSONL helper (.mumei/audit-log/*.jsonl)
-│   │   ├── log-rotate.sh   # size-based truncate for append-only JSONL (REQ-14)
-│   │   ├── scratch-parser.sh # brainstorm scratch parser → vehicle recommend (REQ-14)
+│   │   ├── log-rotate.sh   # size-based truncate for append-only JSONL
+│   │   ├── scratch-parser.sh # brainstorm scratch parser → vehicle recommend
 │   │   ├── dependencies.sh # cross-feature `**Depends-Feature**:` queries (Phase D)
 │   │   └── log.sh          # mumei_log_info / warn / error / debug
 │   ├── pre-edit-guard.sh   # P1 / P2 / P3 / I1 / I2 / W1 / M1 / S1
@@ -58,25 +57,25 @@ mumei/
 │   ├── post-bash-guard.sh  # X1 (advisory: out-of-scope Bash writes) + X3 (Wave auto-advance on git commit, internal)
 │   ├── stop-guard.sh       # R1 / R3 + detector defense line
 │   ├── pre-review-detector.sh  # Stage 0 of /mumei:plan review pipeline
-│   ├── userprompt-context-hint.sh  # UserPromptSubmit context hint (REQ-11.4)
+│   ├── userprompt-context-hint.sh  # UserPromptSubmit context hint
 │   ├── post-task-event.sh  # TaskCreated / TaskCompleted handler (plan vehicle)
 │   ├── pre-exitplan-guard.sh  # ExitPlanMode plan-vehicle init (L-P1)
-│   ├── pre-compact-state-dump.sh  # PreCompact: inject .mumei/current state into additionalContext (REQ-13.1)
-│   ├── session-start-status.sh  # SessionStart: surface active feature status (REQ-13.2)
-│   ├── post-compact-validate.sh  # PostCompact: re-validate .mumei/current vs filesystem (REQ-13.3)
-│   ├── file-changed-validate.sh  # FileChanged: lint watched files on external edit (REQ-13.4)
-│   ├── cwd-changed-detect.sh  # CwdChanged: notify when entering mumei project (REQ-13.5)
-│   ├── instructions-loaded-audit.sh  # InstructionsLoaded: audit log of CLAUDE.md/rules loads (REQ-13.6)
-│   ├── userprompt-expansion-context.sh  # UserPromptExpansion: enrich /mumei:archive with feature summary (REQ-13.7)
-│   ├── config-change-audit.sh  # ConfigChange: audit + invalid JSON exit 2 (REQ-13.8)
-│   ├── session-end-audit.sh  # SessionEnd: session metadata audit log (REQ-13.9)
-│   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log (REQ-13.10)
-│   ├── subagent-cost-log-start.sh  # SubagentStart: pin active feature to .mumei/in-flight-agents/<agent_id> (REQ-16 iter 2 / F-002)
-│   ├── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction (REQ-16)
+│   ├── pre-compact-state-dump.sh  # PreCompact: inject .mumei/current state into additionalContext
+│   ├── session-start-status.sh  # SessionStart: surface active feature status
+│   ├── post-compact-validate.sh  # PostCompact: re-validate .mumei/current vs filesystem
+│   ├── file-changed-validate.sh  # FileChanged: lint watched files on external edit
+│   ├── cwd-changed-detect.sh  # CwdChanged: notify when entering mumei project
+│   ├── instructions-loaded-audit.sh  # InstructionsLoaded: audit log of CLAUDE.md/rules loads
+│   ├── userprompt-expansion-context.sh  # UserPromptExpansion: enrich /mumei:archive with feature summary
+│   ├── config-change-audit.sh  # ConfigChange: audit + invalid JSON exit 2
+│   ├── session-end-audit.sh  # SessionEnd: session metadata audit log
+│   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log
+│   ├── subagent-cost-log-start.sh  # SubagentStart: pin active feature to .mumei/in-flight-agents/<agent_id>
+│   ├── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction
 │   └── stop-cost-backfill.sh  # Stop (async): safety-net cost-backfill for SubagentStop hooks that lost the jsonl-flush race
 ├── scripts/
 │   ├── lint-tasks.sh       # X2 (advisory: tasks.md format)
-│   └── cost-backfill.sh    # /mumei:retro: rebuild cost-log.jsonl from session logs (REQ-16)
+│   └── cost-backfill.sh    # /mumei:retro: rebuild cost-log.jsonl from session logs
 ├── tests/                  # bats suite (CI on macOS + Ubuntu)
 ├── schemas/                # shared JSON Schemas (state / review / cost-log + dashboard payloads: feature-summary / meta / trends / feature-detail / activity-event / sse-event) — NOT shipped in plugin tarball
 ├── dashboard/              # mumei-dashboard — Vite + React 19 + Tailwind v4 + shadcn/ui — NOT shipped in plugin tarball
@@ -152,14 +151,14 @@ flowchart TD
   S0 -->|HIGH = 0| S1A
   S0 -->|HIGH > 0| S1B
 
-  S1A["Stage 1 ‖<br/>spec-compliance / security<br/>(2 fresh contexts, post-REQ-7)"]
+  S1A["Stage 1 ‖<br/>spec-compliance / security<br/>(2 fresh contexts)"]
   S1B["Stage 1 ‖ skip security<br/>spec-compliance only<br/>(detector findings = ground truth)"]
 
   S1A --> S2
   S1B --> S2
   S2["Stage 2<br/>adversarial-reviewer<br/>(prior_findings injected)"]
   S2 --> S3["Stage 3<br/>aggregate findings"]
-  S3 --> S4["Stage 4 ‖<br/>issue-validator × N<br/>(severity-conditional, REQ-7.4:<br/>HIGH/CRITICAL mandatory,<br/>MEDIUM/LOW skip + ~19% calibration)"]
+  S3 --> S4["Stage 4 ‖<br/>issue-validator × N<br/>(severity-conditional:<br/>HIGH/CRITICAL mandatory,<br/>MEDIUM/LOW skip + ~19% calibration)"]
   S4 --> S5["Stage 5<br/>filter to valid (or valid_by_assertion) only"]
   S5 --> S6["Stage 6<br/>persist reviews/&lt;ts&gt;.json<br/>+ verdict aggregation<br/>(iter_head, next_iter_reviewers,<br/>detector_skipped, detector_reused_from)"]
 

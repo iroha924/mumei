@@ -41,7 +41,7 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/nu
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
 
-# REQ-9.36: X1/X3 are spec-only — Wave/current_wave concept is absent
+# X1/X3 are spec-only — Wave/current_wave concept is absent
 # in plan vehicle, and tasks.md _Files: meta is absent too. Unified
 # vehicle resolver: spec wins on dual-state.
 case "$(mumei_state_active_vehicle "$FEATURE")" in
@@ -117,10 +117,10 @@ if [[ -n "$CHANGED_FILES" ]]; then
 fi
 
 # --- X3: Wave auto-advance after a successful git commit ---
-# Triple gate (REQ-12.1):
+# Triple gate:
 #   1. tool_response.exit_code == 0 (short-circuit, but unreliable in
 #      pre-commit auto-fix chains where shell `$?` masks intermediate
-#      failures — 3 occurrences observed in REQ-11 dogfood).
+#      failures — 3 occurrences observed in dogfood).
 #   2. HEAD changed since last X3 fire (state.last_observed_head ≠
 #      current HEAD). Catches the W-X1 case where exit_code says 0 but
 #      no commit actually landed.

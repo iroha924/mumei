@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SessionStart (REQ-13.2): surface the active feature's status into
+# SessionStart: surface the active feature's status into
 # `additionalContext` at session startup or resume.
 #
 # Falls silent (kuroko stance) when there is no active feature.

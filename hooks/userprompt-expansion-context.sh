@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# UserPromptExpansion (REQ-13.7): inject archive-target feature summary
+# UserPromptExpansion: inject archive-target feature summary
 # into `additionalContext` when /mumei:archive is invoked.
 #
 # Reads the latest review JSON for the target feature and surfaces

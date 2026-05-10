@@ -15,7 +15,7 @@ fi
 # Per-detector timeout in seconds. semgrep on large repos can take minutes.
 MUMEI_DETECTOR_TIMEOUT="${MUMEI_DETECTOR_TIMEOUT:-600}"
 
-# REQ-17.12 / REQ-17.13 — minimum recommended versions for silent-degradation
+# minimum recommended versions for silent-degradation
 # detection. Both are warn-only thresholds (Stage 0 still runs even on older
 # binaries; user is nudged to update via stderr).
 #
@@ -82,7 +82,7 @@ mumei_detector_version_compare() {
 
 # Run a detector's --version, parse the output, and emit a single
 # mumei_log_warn line on stderr if the version is below the configured
-# minimum. Never blocks (REQ-17.13). Parse failures are silent — we don't
+# minimum. Never blocks. Parse failures are silent — we don't
 # want a fancy / new --version format ("Semgrep CE v1.162.0") to spam warns.
 # Args:
 #   $1: binary name ("semgrep" or "osv-scanner")

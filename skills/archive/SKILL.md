@@ -11,7 +11,7 @@ Role: Move a completed feature into archive/{YYYY-MM}/
 Input: feature slug (spec vehicle compound key like REQ-9-foo, or plan vehicle bare slug like fix-login)
 Output: mv .mumei/{specs,plans}/<feature>/ -> .mumei/archive/<YYYY-MM>/<feature>/
 Principle: Side-effect heavy, so disable-model-invocation: true (user-invoked only).
-           Vehicle is auto-detected by directory existence (REQ-9.31).
+           Vehicle is auto-detected by directory existence.
 -->
 
 # Archive
@@ -27,7 +27,7 @@ Move a completed feature out of the active workspace into the archive directory.
 
 Refuse with a clear error if any of these fail:
 
-1. `<feature>` slug must exist as a directory under either `.mumei/specs/` (spec vehicle) or `.mumei/plans/` (plan vehicle). REQ-9.31 — try specs/ first, then plans/. Refuse if neither has the slug.
+1. `<feature>` slug must exist as a directory under either `.mumei/specs/` (spec vehicle) or `.mumei/plans/` (plan vehicle). Try specs/ first, then plans/. Refuse if neither has the slug.
 2. `state.json` must have `phase: "done"` (or `phase: "review"` with the latest review verdict `PASS`, with explicit confirmation).
 3. Working tree must be clean for files within the feature's `_Files:_` scope (spec vehicle only — plan vehicle has no `_Files:_` meta and skips this check).
 4. **`.mumei/current` is exclusively owned by this skill.** No other skill or hook may clear it. If `<feature>` is the active feature in `.mumei/current`, this skill auto-clears the file as part of the archive operation (see Method below). The "owned exclusively" rule prevents session-handoff inconsistency where a prior turn cleared `.mumei/current` while leaving the spec / plan dir behind, causing the next session to lose track of in-progress work.
@@ -39,7 +39,7 @@ source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/state.sh"
 
 feature="$1"
 
-# REQ-9.31 — auto-detect vehicle by directory existence. spec vehicle
+# auto-detect vehicle by directory existence. spec vehicle
 # (.mumei/specs/) takes precedence when both happen to exist; the slug
 # collision picker in /mumei:plan is supposed to prevent that situation
 # in the first place.
@@ -103,7 +103,7 @@ slug="$(mumei_state_read_any "$feature" '.slug' 2>/dev/null || true)"
 [[ -z "$slug" ]] && slug="$feature"
 scratch_src=".mumei/scratch/${slug}.md"
 
-# Move the source directory (REQ-9.32). The move + git history serves as
+# Move the source directory. The move + git history serves as
 # the audit trail. Refuse to continue if both git mv and the bare mv
 # fallback fail — without an explicit guard the scratch block would
 # still run on a half-archived feature.
@@ -112,7 +112,7 @@ git mv "$source_dir" "${target_dir}/${feature}" 2>/dev/null \
   || { echo "source dir move failed: ${source_dir}" >&2; exit 1; }
 
 # Move the brainstorm scratch file alongside the spec / plan, if
-# present. Vehicle-independent — REQ-9.32 mandates the same scratch
+# present. Vehicle-independent — mandates the same scratch
 # co-move behaviour for plan vehicle as for spec vehicle.
 if [[ -n "$slug" && -f "$scratch_src" ]]; then
   scratch_dst="${target_dir}/${feature}/scratch.md"

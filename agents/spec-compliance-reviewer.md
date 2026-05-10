@@ -23,7 +23,7 @@ This agent is invoked from both vehicles. The orchestrator passes a `scope_sourc
 - **spec vehicle** (`/mumei:plan` Phase 5 Stage 1): `scope_source=.mumei/specs/<feature>/requirements.md`. Compare the diff against the EARS ACs (`REQ-N.M`) listed in that file and the tasks in `tasks.md`.
 - **plan vehicle** (`/mumei:review` Step 6): `scope_source=.mumei/plans/<slug>/plan.md`. Compare the diff against the natural-language plan markdown captured by `pre-exitplan-guard.sh`. Treat the plan body as the user-approved scope; flag any code change describing behavior NOT mentioned (or implied by) the plan as `scope_creep`.
 
-The agent file (`agents/spec-compliance-reviewer.md`) is the single entry point for both vehicles — there is no separate plan-compliance-reviewer agent. The total deployed agent count remains at 8 post-REQ-17.
+The agent file (`agents/spec-compliance-reviewer.md`) is the single entry point for both vehicles — there is no separate plan-compliance-reviewer agent. The total deployed agent count is 8.
 
 # Inputs
 
@@ -71,7 +71,7 @@ as facts:
 
 # What NOT to flag
 
-- Code quality, naming, performance — out of scope (post-REQ-7: KISS / over-engineering coverage delegated to adversarial-reviewer; no dedicated code-quality reviewer remains).
+- Code quality, naming, performance — out of scope.
 - Security issues — out of scope (security-reviewer handles).
 - Edge cases / silent failures — out of scope (adversarial-reviewer handles).
 - Pre-existing AC violations from prior PRs / Waves. Set those to `severity: PRE_EXISTING` only if they materially block this Wave; otherwise omit.

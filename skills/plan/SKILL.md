@@ -146,7 +146,7 @@ fi
 In case C with the "no scratch" choice, or any case where `resolved_slug` is still empty after this step:
 
 - if vehicle ends up as **spec**: ask the user for a slug via `AskUserQuestion` (free-text "Other" path), then continue.
-- if vehicle ends up as **plan**: keep `resolved_slug` empty. The `pre-exitplan-guard.sh` hook will derive the slug from `~/.claude/plans/<auto-name>.md` basename when ExitPlanMode fires (REQ-9.34).
+- if vehicle ends up as **plan**: keep `resolved_slug` empty. The `pre-exitplan-guard.sh` hook will derive the slug from `~/.claude/plans/<auto-name>.md` basename when ExitPlanMode fires.
 
 ### Phase 0.2 — Vehicle picker (always asked for new features)
 
@@ -219,7 +219,7 @@ Tell the user — in plain conversational text — that they should now enter Cl
 
 State that gets carried into the hook:
 
-- if `resolved_slug` was decided in Phase 0.1 / 0.3, write it to `.mumei/current` so L-P1 reuses it instead of deriving from `planFilePath` basename. Otherwise leave `.mumei/current` untouched; L-P1 will pick a slug from the auto-name basename (REQ-9.34):
+- if `resolved_slug` was decided in Phase 0.1 / 0.3, write it to `.mumei/current` so L-P1 reuses it instead of deriving from `planFilePath` basename. Otherwise leave `.mumei/current` untouched; L-P1 will pick a slug from the auto-name basename:
 
   ```bash
   if [[ -n "$resolved_slug" ]]; then
@@ -231,11 +231,11 @@ State that gets carried into the hook:
 
 After Phase 0.5, exit the skill. Subsequent task tracking, session-end blocks, and review trigger are owned by the plan-vehicle hooks (`post-task-event.sh`, `stop-guard.sh` L-R1) and the `/mumei:review` skill.
 
-## Approval model (key change vs. earlier mumei versions)
+## Approval model
 
-Earlier mumei versions asked the user to approve each spec (requirements, design, tasks) one at a time. This version replaces those three approvals with a **single user approval gate** at the end of Phase 3. Each spec is gated instead by a dedicated independent reviewer agent that the orchestrator iterates against (up to 3 times automatically). The user is involved in clarification (Phase 1.1) and at the single approval gate (Phase 3.5). No other approvals during draft.
+Each spec (requirements, design, tasks) is gated by a dedicated independent reviewer agent that the orchestrator iterates against (up to 3 times automatically). The user is involved in clarification (Phase 1.1) and at the **single user approval gate** at the end of Phase 3 (Phase 3.5). No other approvals happen during draft.
 
-Rationale: the per-spec approvals turned every feature into 3 separate "is this OK?" loops, which fatigued the user without improving quality. The reviewer agents catch coverage gaps, hallucinations, and structural defects more reliably than a quick visual user review, and the user reviews the whole package once at the end.
+Rationale: the reviewer agents catch coverage gaps, hallucinations, and structural defects more reliably than a quick visual user review, so the user reviews the whole package once at the end.
 
 ## Phase 1 — Clarification + Requirements
 
@@ -375,26 +375,26 @@ echo "$reviewer_output" > ".mumei/specs/${feature}/spec-reviews/${ts}-requiremen
 Branch on `verdict`:
 
 - **`PASS`** → proceed to Phase 2.
-- **REQ-12.9 — `MUMEI_BYPASS=1` demotion of `examples_coverage` / `requirement_smell`**: when `${MUMEI_BYPASS:-0}` is `"1"`, `examples_coverage` and `requirement_smell` findings of any severity are demoted to informational only — they do NOT contribute to the blocking severity tally. Apply this demotion BEFORE the REQ-7.6 LOW-only check below so other categories (coverage_gap / hallucination / structural / vague / out_of_scope / style) still gate normally.
+- **`MUMEI_BYPASS=1` demotion of `examples_coverage` / `requirement_smell`**: when `${MUMEI_BYPASS:-0}` is `"1"`, `examples_coverage` and `requirement_smell` findings of any severity are demoted to informational only — they do NOT contribute to the blocking severity tally. Apply this demotion BEFORE the LOW-only PASS short-circuit below so other categories (coverage_gap / hallucination / structural / vague / out_of_scope / style) still gate normally.
 
   ```bash
   verdict="$(jq -r '.verdict' <<<"$reviewer_output")"
   if [[ "${MUMEI_BYPASS:-0}" == "1" ]]; then
     blocking="$(jq -r '[.findings[] | select(.category != "examples_coverage" and .category != "requirement_smell" and .severity != "LOW")] | length' <<<"$reviewer_output")"
     if [[ "$blocking" == "0" ]]; then
-      echo "MUMEI_BYPASS=1: examples_coverage / requirement_smell demoted to informational → PASS (REQ-12.9)"
+      echo "MUMEI_BYPASS=1: examples_coverage / requirement_smell demoted to informational → PASS"
       verdict="PASS"
     fi
   fi
   ```
 
-- **REQ-7.6 — LOW-only PASS short-circuit (iter >= 2)**: when `verdict == "NEEDS_IMPROVEMENT"` AND `current_iter >= 2` AND all surfaced findings have `severity == "LOW"`, treat as `PASS`, do NOT launch iter 3, and proceed to Phase 2.
+- **LOW-only PASS short-circuit (iter >= 2)**: when `verdict == "NEEDS_IMPROVEMENT"` AND `current_iter >= 2` AND all surfaced findings have `severity == "LOW"`, treat as `PASS`, do NOT launch iter 3, and proceed to Phase 2.
 
   ```bash
   if [[ "$verdict" == "NEEDS_IMPROVEMENT" && "$current_iter" -ge 2 ]]; then
     high_med="$(jq -r '[.findings[] | select(.severity != "LOW")] | length' <<<"$reviewer_output")"
     if [[ "$high_med" == "0" ]]; then
-      echo "iter ${current_iter} で LOW finding のみ → PASS short-circuit (REQ-7.6)"
+      echo "iter ${current_iter} で LOW finding のみ → PASS short-circuit"
       verdict="PASS"
     fi
   fi
@@ -527,7 +527,7 @@ Each task MUST have `_Files:_`, `_Depends:_`, `_Requirements:_`. Each Wave MUST 
 - The meta line ends with a single trailing underscore right before the newline. The Markdown emphasis spans the whole `_<Key>: <value>_` chunk.
 - `_Files:_` values are comma-separated **bare paths**, no backticks, no annotations: `- _Files: src/foo.ts, src/bar.ts_` not ``- _Files: `src/foo.ts`, `src/bar.ts` (legacy)_``.
 - `_Depends:_` values are comma-separated **bare task IDs** with no `T` prefix (`- _Depends: 1.1, 1.2_`), or a single literal `-` for "no dependencies" (`- _Depends: -_`). Em dashes (`—`) do not match.
-- `_Requirements:_` values are comma-separated `REQ-N.M` or `REQ-N.M.K` tokens (`- _Requirements: REQ-1.2, REQ-1.3_`).
+- `_Requirements:_` values are comma-separated `REQ-N.M` or `REQ-N.M.K` tokens (`- _Requirements: REQ-1.2_`).
 
 These constraints exist because the LLM occasionally drifts toward a "prettier" form (backticks around paths, `T` prefix on IDs, em dash for none). The drift is silent — `tasks-reviewer` may PASS the visually-correct draft, but `hooks/_lib/tasks.sh` then sees zero tasks and every downstream Hook misfires. Phase 3.2 below runs a deterministic parser self-check to catch this before the agent is launched.
 
@@ -637,7 +637,7 @@ When `phase=review`, run the 7-stage pipeline. Stage 0 produces deterministic
 detector findings that the LLM reviewers treat as ground truth.
 
 This phase relies on shared helpers in `hooks/_lib/review.sh` (extracted in
-Wave 3 of REQ-9 so the plan-vehicle `/mumei:review` skill can reuse them).
+this lib so the plan-vehicle `/mumei:review` skill can reuse them).
 Source the lib once at the top of Phase 5:
 
 ```bash
@@ -667,7 +667,7 @@ is not required** — the SubagentStop hook is the authoritative path.
 The aggregator dedupes (agent, ts) within a 1-second window so
 duplicate records from both paths merge cleanly.
 
-### Reviewer prompt structure (REQ-11.7)
+### Reviewer prompt structure
 
 `hooks/_lib/reviewer-prompt.sh` builds the reviewer Task prompt as
 **immutable prefix + variable suffix** so Anthropic's prompt cache (5-min TTL)
@@ -688,7 +688,7 @@ a 5-minute window — keep that contract intact. Variable values
 (`feature` / `wave` / `iter` / `diff` / `prior_findings` / detector
 findings injection) belong in the suffix so cache hits remain stable.
 
-### Iteration entry — REQ-7.7 iter-1-all-PASS short-circuit
+### Iteration entry — iter-1-all-PASS short-circuit
 
 Before entering Stage 0 for iter N (N >= 2) of the **current Wave**,
 check the previous iter's review JSON for the SAME Wave. If iter N-1
@@ -704,7 +704,7 @@ inherit Wave N's PASS verdict.
 ```bash
 # Hard gate: iter 1 always proceeds through full Stage 0 → Stage 6.
 if prev_review="$(mumei_review_should_short_circuit "$review_dir" "$current_wave" "$current_iter")"; then
-  echo "Wave ${current_wave} iter $((current_iter - 1)) was clean (verdict=PASS, HIGH=0). Skipping iter ${current_iter} via REQ-7.7."
+  echo "Wave ${current_wave} iter $((current_iter - 1)) was clean (verdict=PASS, HIGH=0). Skipping iter ${current_iter}."
   # Synthetic short-circuit JSON uses a `-shortcircuit` suffix so it
   # cannot collide with Stage 6's `<ts>.json` filename even when
   # iter-1 Stage 6 and iter-2 entry happen within the same UTC second
@@ -715,7 +715,7 @@ if prev_review="$(mumei_review_should_short_circuit "$review_dir" "$current_wave
     --argjson iteration "$current_iter" \
     --arg short_circuited_from "$prev_review" \
     '{feature: $feature, wave: $wave, iteration: $iteration, verdict: "PASS",
-      summary: "REQ-7.7 short-circuit — previous iter for this Wave was clean (verdict=PASS, HIGH=0).",
+      summary: "Short-circuit — previous iter for this Wave was clean (verdict=PASS, HIGH=0).",
       short_circuited_from: $short_circuited_from,
       findings_surfaced: [], findings_filtered: [],
       next_iter_reviewers: [], detector_skipped: true, detector_reused_from: null}' \
@@ -729,10 +729,10 @@ fi
 ### Stage 0 — Detector run (iter 1 mandatory, iter 2+ ext-diff conditional)
 
 Invoke the detector entry point as a single Bash call before any reviewer
-launches. This satisfies REQ-2.4 (run once, not per-reviewer) and gives the
+launches. This (run once, not per-reviewer) and gives the
 orchestrator a HIGH count to branch on.
 
-**REQ-7.5 — iter 2+ skip when no detector-relevant file changed:**
+**iter 2+ skip when no detector-relevant file changed:**
 
 On iter 1 the detector is unconditionally invoked. On iter N (N >= 2),
 the orchestrator first reads the previous review JSON's `iter_head`,
@@ -804,11 +804,11 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
 
 ### Stage 1 — Parallel reviewers (iter 1 baseline / iter 2+ focused)
 
-**REQ-7.3 / REQ-7.10 — Iter-aware launch logic:**
+**Iter-aware launch logic:**
 
-- **iter 1 (baseline, REQ-7.10)** — launch the full reviewer set (post-REQ-7,
-  this is the surviving 2 agents; `code-quality-reviewer` was removed in
-  REQ-7 — see Wave 1). Branch on `high_count` from Stage 0:
+- **iter 1 (baseline)** — launch `spec-compliance-reviewer` and
+  `security-reviewer` in Stage 1; `adversarial-reviewer` runs in
+  Stage 2 sequentially. Branch on `high_count` from Stage 0:
 
   - **`high_count == 0`** — launch both reviewers in parallel:
     - `Task(subagent_type: "spec-compliance-reviewer", ...)`
@@ -816,7 +816,7 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   - **`high_count > 0`** — skip `security-reviewer` (detector ground truth):
     - `Task(subagent_type: "spec-compliance-reviewer", ...)`
 
-- **iter 2+ (focused, REQ-7.3)** — read `next_iter_reviewers` from the
+- **iter 2+ (focused)** — read `next_iter_reviewers` from the
   previous review JSON for the **same Wave** and **iter N-1**, then
   launch only the listed reviewers. Wave + iter scoping is mandatory
   (review iter 1 fix for F-005): without it Stage 1 of Wave N+1 could
@@ -853,9 +853,9 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   done
   ```
 
-  `next_iter_reviewers` always contains `adversarial` (REQ-7.3 invariant);
+  `next_iter_reviewers` always contains `adversarial`;
   Stage 2 launches `adversarial-reviewer` regardless. The iter-1-all-PASS
-  short-circuit is handled at the iter-loop entry point (REQ-7.7), not
+  short-circuit is handled at the iter-loop entry point, not
   here — by the time Stage 1 of iter 2+ is reached, at least one reviewer
   in `next_iter_reviewers` is guaranteed to need launching.
 
@@ -872,7 +872,7 @@ Pass each reviewer:
   `.mumei/specs/${feature}/requirements.md`. Append this to the reviewer
   prompt as a literal `scope_source=<path>` suffix. The reviewer dispatches
   on this parameter to select spec-vehicle vs plan-vehicle scope-comparison
-  logic (REQ-17.5). Spec vehicle always uses requirements.md.
+  logic. Spec vehicle always uses requirements.md.
 - **HIGH detector findings** (only when `high_count > 0`) injected into the
   prompt as a `<detector_findings ground_truth="true">` block. The block
   contains the JSON array from `.findings.HIGH` of the detectors report.
@@ -903,11 +903,11 @@ vulnerability) without re-flagging them.
 
 ### Stage 3 — Aggregate findings
 
-Combine all 3 reviewers' `findings` arrays (spec-compliance + security + adversarial; post-REQ-7 code-quality was removed). Deduplicate by `location + category` if any cross-reviewer overlap exists (rare with prior_findings injection, but possible).
+Combine all 3 reviewers' `findings` arrays (spec-compliance + security + adversarial). Deduplicate by `location + category` if any cross-reviewer overlap exists (rare with prior_findings injection, but possible).
 
 ### Stage 4 — Per-issue validation (severity-conditional, parallel)
 
-**REQ-7.4 — Severity-conditional launch with sampling calibration:**
+**Severity-conditional launch with sampling calibration:**
 
 - `severity == "HIGH"` or `severity == "CRITICAL"` → validator is **mandatory**.
 - `severity == "MEDIUM"` or `severity == "LOW"` AND `confidence == "HIGH"` →
@@ -952,7 +952,7 @@ for finding in "${all_findings[@]}"; do
 done
 ```
 
-Stage 5 filter rule (post-REQ-7.4 sampling): treat both `"valid"` and
+Stage 5 filter rule: treat both `"valid"` and
 `"valid_by_assertion"` as keep-conditions for `findings_surfaced`. The
 `valid_by_assertion` label preserves audit trail so future analysis
 can compute reviewer-vs-validator agreement rate per reviewer.
@@ -963,7 +963,7 @@ findings reach a sample size where validator agreement rate (sampled
 reviewer, the orchestrator should flag this in `docs/mumei-decisions.md`
 and that reviewer's MEDIUM/LOW + confidence=HIGH path should revert to
 mandatory validation. Implementation of this metric tracking is
-deferred (out of REQ-7 scope, candidate for a future REQ).
+deferred (out of scope, candidate for a future REQ).
 
 These run in parallel (one validator per finding that triggered launch).
 Wait for all.
@@ -977,7 +977,7 @@ Keep only findings where `decision == "valid"`. Move `invalid` to `filtered_out`
 ### Stage 6 — Persist + verdict aggregation
 
 Write the result to `.mumei/specs/<feature>/reviews/<ISO-timestamp>.json`. The
-schema includes 4 REQ-7 fields (`iter_head`, `next_iter_reviewers`,
+schema includes 4 fields (`iter_head`, `next_iter_reviewers`,
 `detector_skipped`, `detector_reused_from`) used by Stage 0 / Stage 1 of
 the next iteration:
 
@@ -998,17 +998,17 @@ the next iteration:
 }
 ```
 
-**`iter_head` (REQ-7.5/7.8)**: capture `git rev-parse HEAD` at iter
+**`iter_head`**: capture `git rev-parse HEAD` at iter
 completion. The next iter's Stage 0 reads this to compute the diff
 since the last iter and decide whether to re-run the detector.
 
-**`next_iter_reviewers` (REQ-7.3/7.8)**: list of reviewer names that
+**`next_iter_reviewers`**: list of reviewer names that
 must launch in iter N+1. Use the helper:
 
 ```bash
 # surfaced_json is the findings_surfaced array built earlier in this stage.
 # prev_reviewers comes from the previous iter's review JSON next_iter_reviewers
-# (or "[]" on iter 1). REQ-11.8 rotation kicks in when the computed set is a
+# (or "[]" on iter 1). Rotation kicks in when the computed set is a
 # permutation of prev_reviewers — the helper appends a rotation candidate so
 # the runtime never re-launches an identical reviewer set two iterations
 # in a row.
@@ -1017,19 +1017,19 @@ next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
   "$surfaced_json" "$prev_reviewers" "$feature" "$current_iter")"
 ```
 
-The helper always includes `"adversarial"` (REQ-7.3 invariant) and
+The helper always includes `"adversarial"` and
 de-duplicates the HIGH/CRITICAL reviewer set across all surfaced
 findings. When `prev_reviewers` matches the freshly-computed set, the
 helper additionally injects a rotation candidate via
-`mumei_review_rotate_reviewers` (REQ-11.8) — `adversarial` is preserved
-in the rotation pool exclusion so the REQ-7.3 invariant is never
+`mumei_review_rotate_reviewers` — `adversarial` is preserved
+in the rotation pool exclusion so the adversarial invariant is never
 broken.
 
 If only `["adversarial"]` remains AND verdict=PASS AND HIGH count=0,
-the iter-1-all-PASS optimization (REQ-7.7) skips iter 2 entirely
+the iter-1-all-PASS optimization skips iter 2 entirely
 (see Phase 5 iter loop).
 
-**`detector_skipped` / `detector_reused_from` (REQ-7.5)**: set by Stage 0
+**`detector_skipped` / `detector_reused_from`**: set by Stage 0
 when the iter 2+ ext-diff check determines no detector-relevant file
 changed since the previous iter. `detector_reused_from` then points at
 the previous iter's detector report path that was reused as the
@@ -1053,7 +1053,7 @@ To persist the final review JSON atomically, pipe it through
 printf '%s\n' "$review_json" | mumei_review_persist "$review_dir" >/dev/null
 ```
 
-(Pass `"shortcircuit"` as the second arg only for REQ-7.7 synthetic
+(Pass `"shortcircuit"` as the second arg only for synthetic short-circuit
 records; Stage 6 leaves it empty.)
 
 The persisted JSON SHOULD include the detector report path under a
@@ -1064,7 +1064,7 @@ verify Stage 0 ran:
 { "detector_report": ".mumei/specs/<feature>/reviews/<ts>-detectors.json", ... }
 ```
 
-**Detector findings in `findings_surfaced`** (REQ-2.14): when `high_count > 0`
+**Detector findings in `findings_surfaced`**: when `high_count > 0`
 (security-reviewer was skipped), read `.findings.HIGH` from the detector
 report and prepend each entry to `findings_surfaced` before writing the
 review JSON. Preserve each entry's `source` field (`"semgrep"` /
@@ -1089,7 +1089,7 @@ the review JSON appears clean.
 
 After the review JSON is persisted (Stage 6) and before any phase transition,
 walk every reviewer's `memory_candidates` array and dispatch each candidate to
-`memory-curator` (sync invocation, REQ-10.10). The curator scores against the
+`memory-curator` (sync invocation). The curator scores against the
 7-axis rubric (>= 15/21 → ADD or UPDATE, else SKIP). The orchestrator validates
 the curator's strict JSON via `mumei_memory_validate_curator_output` and on
 validator pass applies the operation to `.claude/agent-memory/<reviewer>/MEMORY.md`
@@ -1183,14 +1183,13 @@ if [[ "$(jq 'length' <<<"$structural_findings")" -gt 0 ]]; then
         | .verdict = "MAJOR_ISSUES"' \
        <"$latest_review" >"${latest_review}.tmp"
   else
-    # MEDIUM only (e.g., REQ-17.8 missing script case) — warn, no escalate.
+    # MEDIUM only (e.g. missing script case) — warn, no escalate.
     jq --argjson sf "$structural_findings" \
        '.findings_surfaced = ($sf + (.findings_surfaced // []))' \
        <"$latest_review" >"${latest_review}.tmp"
     # Surface a stderr note so the user sees the degraded-mode signal even
     # when verdict stays PASS (MEDIUM finding alone would otherwise live in
-    # the JSON only and be invisible in the CLI message). REQ-17 review
-    # adv-F-002 fix.
+    # the JSON only and be invisible in the CLI message).
     medium_count="$(jq 'length' <<<"$structural_findings")"
     printf '[mumei] structural integrity check produced %d MEDIUM finding(s); see %s for details\n' \
       "$medium_count" "$latest_review" >&2
@@ -1200,7 +1199,7 @@ fi
 ```
 
 When a linter script is missing, the helper now emits a `severity: MEDIUM`
-finding instead of silently returning an empty array (REQ-17.8). The
+finding instead of silently returning an empty array. The
 Stage 6.6 caller above splits on severity: HIGH/CRITICAL findings still
 override the verdict to `MAJOR_ISSUES`; MEDIUM findings are surfaced in
 `findings_surfaced` but do not escalate the verdict.
@@ -1251,7 +1250,7 @@ Do NOT redo completed sub-phases unless the user explicitly says to.
 - Don't approve a phase yourself. Phase 4 entry requires `mumei_state_set ... .phase = implement`, but only after the user explicitly approves at Phase 3.5. Hooks would deny anyway.
 - Don't ask the user to approve specs individually. The model is: 3 reviewer-PASSed specs, then ONE user gate. Asking three times defeats the purpose of this redesign.
 - Don't proceed to review (Phase 5) if any task is still `[ ]`. Hook will block; the orchestrator should not propose it either.
-- Don't run Phase 5 reviewers serially. Stage 1's reviewers (post-REQ-7: 2 agents = spec-compliance + security; high_count > 0 reduces to 1 = spec-compliance only) MUST be parallel for performance.
+- Don't run Phase 5 reviewers serially. Stage 1's reviewers MUST be parallel for performance.
 - Don't run per-issue validators serially. Phase 5 Stage 4 MUST be parallel.
 - Don't skip the spec-reviewer iteration loop. Even if a reviewer returns NEEDS_IMPROVEMENT after iteration 3, escalate to the user — do NOT silently continue.
 - Don't write findings directly to `state.json`. Findings live in `spec-reviews/` (Phase 1-3) and `reviews/` (Phase 5).

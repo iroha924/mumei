@@ -2,7 +2,7 @@
 # Verify that mumei's primary documentation (ARCHITECTURE.md and README.md)
 # has not drifted away from the filesystem state. Catches the W-03 class of
 # regression where a hook / agent / skill / rule lands but its description
-# in the docs is stale (REQ-11.2).
+# in the docs is stale.
 #
 # Five pairs are checked. Any mismatch in any pair is a violation:
 #

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hook stats recorder (REQ-11.13). Each Hook decision (deny / warn / pass)
+# Hook stats recorder. Each Hook decision (deny / warn / pass)
 # is appended as one JSONL record to .mumei/.hook-stats.jsonl so the user
 # can observe which rules fire and how often.
 #

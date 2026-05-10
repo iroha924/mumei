@@ -8,10 +8,10 @@
 # leaves things alone. If a spec-vehicle state.json is active for the
 # same slug, the hook does nothing (don't disturb spec-mid-flow).
 #
-# This hook never blocks (REQ-9.11). Failures emit a warning to stderr
+# This hook never blocks. Failures emit a warning to stderr
 # and the hook exits 0 so plan mode is never broken by mumei.
 #
-# Slug derivation (REQ-9.34):
+# Slug derivation:
 #   - if .mumei/current exists, use its first line as slug
 #   - else, derive from basename of tool_input.planFilePath (stripping .md)
 
@@ -44,7 +44,7 @@ if [[ -f .mumei/current ]]; then
   SLUG="$(head -n1 .mumei/current | tr -d '[:space:]')"
 fi
 if [[ -z "$SLUG" ]] && [[ -n "$PLAN_FILE_PATH" ]]; then
-  # Derive from planFilePath basename, dropping .md (REQ-9.34)
+  # Derive from planFilePath basename, dropping .md
   SLUG="$(basename "$PLAN_FILE_PATH")"
   SLUG="${SLUG%.md}"
 fi
@@ -72,7 +72,7 @@ fi
 # Capture plan markdown into the plan-vehicle dir. Prefer copying the
 # planFilePath to preserve byte-for-byte fidelity; fall back to the
 # tool_input.plan markdown string when the file is missing or unreadable
-# (REQ-9.34 — Open Question U6 resolution).
+#.
 mkdir -p ".mumei/plans/${SLUG}"
 DEST=".mumei/plans/${SLUG}/plan.md"
 plan_written=0

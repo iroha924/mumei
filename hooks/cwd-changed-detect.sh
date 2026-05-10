@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CwdChanged (REQ-13.5): detect entry into / exit from a mumei-opted-in
+# CwdChanged: detect entry into / exit from a mumei-opted-in
 # project (presence of `.mumei/current` in the new cwd).
 #
 # Emits informational stderr noting the new project's active feature, if any.

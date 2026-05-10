@@ -39,7 +39,7 @@ FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.
 
 # Capture the actual tool name (Edit / Write / MultiEdit / NotebookEdit) so
 # hook-stats records can distinguish per-tool denials. Falls back to "Edit"
-# when the input does not name a tool (REQ-11.13 observability fix).
+# when the input does not name a tool.
 TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // "Edit"')"
 
 # Normalize to a path relative to CLAUDE_PROJECT_DIR
@@ -147,7 +147,7 @@ fi
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
 
-# REQ-9.36: spec-only hooks (P1/P2/P3, I1/I2, W1) must skip when plan
+# spec-only hooks (P1/P2/P3, I1/I2, W1) must skip when plan
 # vehicle is active. Resolution goes through mumei_state_active_vehicle
 # so dispatch is consistent with pre-bash-guard.sh and skills/archive
 # (spec wins on dual-state). All rules below assume spec-format
@@ -213,7 +213,7 @@ fi
 # system paths (e.g. ~/.claude/projects/<project>/memory/), tmp dirs, OS
 # caches, etc. are out of scope and must not be denied.
 #
-# Edge cases handled (REQ-6 review F-001 HIGH):
+# Edge cases handled:
 #   - trailing slash on CLAUDE_PROJECT_DIR (e.g. /tmp/foo/) → stripped before
 #     comparison so the inner glob does not produce a double-slash pattern
 #     that fails to match in-project paths.
@@ -340,7 +340,7 @@ if [[ -n "$TASK_WAVE" ]] && [[ "$TASK_WAVE" -gt "$CURRENT_WAVE" ]]; then
   fi
 fi
 
-# Byte-exact advisory (REQ-11.12) — non-blocking note when editing files
+# Byte-exact advisory — non-blocking note when editing files
 # whose extension is in MUMEI_BYTE_EXACT_EXTS and whose on-disk content
 # uses CRLF / tab indent.
 if [[ -f "${PLUGIN_ROOT}/hooks/_lib/byte-exact.sh" ]]; then

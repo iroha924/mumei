@@ -35,7 +35,7 @@ You will receive:
    - `.mumei/specs/<feature>/design.md` (already PASS)
    - `.mumei/specs/<feature>/tasks.md` (the draft you are reviewing)
 
-You also have `Bash` and `Glob` access for file existence checks (REQ-4.13-style: verify `_Files:_` paths exist when not gitignored).
+You also have `Bash` and `Glob` access for file existence checks.
 
 # What to flag
 

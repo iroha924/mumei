@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Aggregate the curator decision log written by hooks/_lib/memory.sh
-# (REQ-11.9). Reads `.mumei/.curator-log.jsonl` and prints a pivoted
+#. Reads `.mumei/.curator-log.jsonl` and prints a pivoted
 # view of (source_reviewer, operation) → count and average score_total.
 #
 # When the cumulative record count crosses 30, the script appends a

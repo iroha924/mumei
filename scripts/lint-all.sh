@@ -43,8 +43,8 @@ _mumei_run "verify mumei_ prefix" bash "$here/lint-bash-prefix.sh"
 _mumei_run "jq empty (manifest, hooks)" bash -c 'jq empty .claude-plugin/plugin.json && jq empty hooks/hooks.json'
 _mumei_run "frontmatter check (agents/skills)" bash "$here/lint-frontmatter.sh"
 _mumei_run "plan-vehicle hooks registration" bash "$here/lint-plan-vehicle-hooks.sh"
-_mumei_run "Hook ID consistency (REQ-11.1)" bash "$here/lint-hook-ids.sh"
-_mumei_run "docs ↔ filesystem drift (REQ-11.2)" bash "$here/lint-docs-drift.sh"
+_mumei_run "Hook ID consistency" bash "$here/lint-hook-ids.sh"
+_mumei_run "docs ↔ filesystem drift" bash "$here/lint-docs-drift.sh"
 
 printf '\n'
 if [[ "$fail" == "0" ]]; then

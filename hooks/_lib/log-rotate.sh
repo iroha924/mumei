@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Append-only JSONL size-based truncate helper for mumei (REQ-14.4 — REQ-14.12).
+# Append-only JSONL size-based truncate helper for mumei.
 #
 # Caller pattern:
 #
@@ -14,7 +14,7 @@
 # kuroko stance keeps mumei out of unrelated projects.
 #
 # `cost-log.jsonl` (per-feature, archived with the feature) is NOT a
-# target of this helper — see REQ-14.12.
+# target of this helper.
 
 set -u
 
@@ -70,9 +70,9 @@ _mumei_log_rotate_filemtime() {
 mumei_log_rotate_check_and_truncate() {
   local target="$1"
 
-  # REQ-14.7: MUMEI_BYPASS=1 silently skips.
+  # MUMEI_BYPASS=1 silently skips.
   [[ "${MUMEI_BYPASS:-0}" == "1" ]] && return 0
-  # REQ-14.9: kuroko stance — no-op when the project has not opted in.
+  # kuroko stance — no-op when the project has not opted in.
   [[ -d .mumei ]] || return 0
   # No file yet → nothing to rotate.
   [[ -f "$target" ]] || return 0
@@ -150,7 +150,7 @@ mumei_log_rotate_check_and_truncate() {
   kept_lines="$(wc -l <"$target" 2>/dev/null | tr -d ' ')"
   [[ -z "$kept_lines" ]] && kept_lines="$max_lines"
 
-  # REQ-14.5: informational stderr emit. mumei_log_info already routes
+  # informational stderr emit. mumei_log_info already routes
   # to stderr with the [mumei] prefix.
   mumei_log_info "auto-cleanup ${target} (size ${size_before_mb}MB → ${size_after_mb}MB, kept ${kept_lines} latest entries)"
   return 0

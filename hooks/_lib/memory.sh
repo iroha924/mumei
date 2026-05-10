@@ -15,7 +15,7 @@ fi
 # Update all three together if requirements change.
 readonly MUMEI_MEMORY_THRESHOLD=15
 readonly MUMEI_MEMORY_FINAL_TEXT_MAX_BYTES=1024
-# REQ-17.9 cap: 30 entries OR 8 KB whichever is reached first. LRU eviction
+# Cap: 30 entries OR 8 KB whichever is reached first. LRU eviction
 # fires inside the mumei_memory_apply_operation ADD branch when appending the
 # new entry would exceed either cap. The cap is 1/3 of the Anthropic 25 KB
 # subagent auto-inject limit, leaving margin for memory-curator runtime
@@ -198,7 +198,7 @@ mumei_memory_apply_operation() {
     }
     tmp=""
     mumei_log_info "memory ADD id=${id} reviewer=$(basename "$dir") bytes=$(printf '%s' "$final_text" | wc -c | tr -d ' ')"
-    # REQ-17.9 / REQ-17.10: LRU eviction. Run AFTER the ADD has been
+    # LRU eviction. Run AFTER the ADD has been
     # persisted so the new entry is part of the file; eviction then drops
     # the oldest entries (file-position order) until both caps are met.
     # Same mkdir-lock holds for this loop, so concurrent ADDs cannot race.
@@ -254,7 +254,7 @@ mumei_memory_apply_operation() {
 }
 
 # Append one record per curator decision to .mumei/.curator-log.jsonl
-# (REQ-11.9). Called from mumei_memory_apply_operation on every exit
+#. Called from mumei_memory_apply_operation on every exit
 # path: SKIP (applied=false), ADD/UPDATE (applied=true).
 # Args: dir input applied(true|false) candidate_json
 _mumei_memory_curator_log_append() {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SubagentStop hook (REQ-16): physically enforce cost-log recording for
+# SubagentStop hook: physically enforce cost-log recording for
 # the 8 mumei reviewer / validator / curator subagents by reverse-looking
 # up the subagent's own transcript jsonl from agent_id and summing every
 # assistant entry's usage. The orchestrator's mumei_cost_log_before /
@@ -16,21 +16,21 @@
 # 1:1 attribution key — no heuristics needed when subagents run in
 # parallel.
 #
-# REQ-16 iter 2 fixes:
-#   F-002 — feature pinned at launch via .mumei/in-flight-agents/<agent_id>
-#           sidecar (written by subagent-cost-log-start.sh on SubagentStart);
-#           fallback to .mumei/current only when sidecar absent.
-#   F-005 — no mkdir -p before append; if the feature dir vanished
-#           between resolution and write (archive race), exit 0 with
-#           stderr 'feature dir disappeared' instead of resurrecting it.
-#   F-006 — if usage totals are zero (interrupted subagent with no
-#           assistant turns), skip the record entirely; aligns with
-#           cost-backfill.sh's behaviour for empty subagent jsonls.
-#   F-007 — every failure / skip path records a hook-stats entry so
-#           silent rot is observable via .mumei/.hook-stats.jsonl and
-#           the dashboard hook-stats panel.
+# Feature attribution:
+#   - feature pinned at launch via .mumei/in-flight-agents/<agent_id>
+#     sidecar (written by subagent-cost-log-start.sh on SubagentStart);
+#     fallback to .mumei/current only when sidecar absent.
+#   - no mkdir -p before append; if the feature dir vanished
+#     between resolution and write (archive race), exit 0 with
+#     stderr 'feature dir disappeared' instead of resurrecting it.
+#   - if usage totals are zero (interrupted subagent with no
+#     assistant turns), skip the record entirely; aligns with
+#     cost-backfill.sh's behaviour for empty subagent jsonls.
+#   - every failure / skip path records a hook-stats entry so
+#     silent rot is observable via .mumei/.hook-stats.jsonl and
+#     the dashboard hook-stats panel.
 #
-# Failure handling (REQ-16.4): all non-fatal errors emit a single line
+# Failure handling: all non-fatal errors emit a single line
 # to stderr and exit 0. No placeholder records are written; an absent
 # record is more honest than a record with empty usage.
 #

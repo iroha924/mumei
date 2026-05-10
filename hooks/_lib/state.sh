@@ -244,7 +244,7 @@ mumei_state_reconcile() {
     phase="implement"
   fi
 
-  # REQ-12.1: seed last_observed_head when phase=implement and the field
+  # seed last_observed_head when phase=implement and the field
   # is missing. Without this, the X3 hook's lazy-init branch could treat
   # a stray observation (e.g. a failed git commit chain that leaves HEAD
   # at a pre-existing Conventional-Commits message) as a baseline AND

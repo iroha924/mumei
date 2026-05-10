@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reviewer prompt builder (REQ-11.7).
+# Reviewer prompt builder.
 #
 # Anthropic's prompt cache (5-minute TTL) hits when the prefix of a prompt
 # is byte-identical to a recent prior call. We exploit this by structuring
