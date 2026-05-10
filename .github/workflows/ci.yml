@@ -4,8 +4,13 @@ name: ci
 # ran in parallel on every push. scorecards.yml stays standalone because
 # the scorecard action rejects workflows with global env / defaults.
 #
-# Push main / PR (developer flow) → lint, lint-extra, bats, codeql
+# PR (developer flow) → lint, lint-extra, bats, codeql
+# Push main → codeql only (Security tab feed; lint/lint-extra/bats are
+#   PR-gated and skipped post-merge as redundant after squash-merge)
 # Schedule weekly (Mon 03:00 UTC) → codeql security audit
+# workflow_dispatch (manual) → lint, lint-extra, bats, codeql (recovery
+#   path for emergency direct-push to main; trigger via
+#   `gh workflow run ci.yml --ref main`)
 
 on:
   push:
@@ -15,6 +20,10 @@ on:
     # Mon 03:00 UTC — CodeQL weekly. Off-peak vs. scorecards (04:00) and
     # the gitleaks-weekly run (05:00) per scripts/check-workflow-cron.sh.
     - cron: "0 3 * * 1"
+  # Manual rerun path: `gh workflow run ci.yml --ref main`. Used to
+  # validate an emergency direct-push to main (CLAUDE.md "緊急時のみ"
+  # clause) without round-tripping through a PR.
+  workflow_dispatch:
 
 # Default least-privilege: every job below performs only read-only
 # inspection (shellcheck / bash -n / lint / typos / link check / SAST
@@ -32,7 +41,7 @@ env:
 
 jobs:
   lint:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -93,7 +102,7 @@ jobs:
   # hooks in CI would be redundant; instead we cover the gaps here.
   # ─────────────────────────────────────────
   lint-extra:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     # Minimum permissions per GitHub hardening guide
     # (https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication).
@@ -106,11 +115,12 @@ jobs:
           # makes its `--first-parent` walk fail with "stderr is not empty".
           fetch-depth: 0
 
-      # markdownlint / typos / shfmt / actionlint / gitleaks are required by
-      # REQ-5.6 to run on every PR / main push. They also live in
-      # .pre-commit-config.yaml for local-commit gating, but CI re-runs them
-      # so the SHALL-clause holds even if a contributor hasn't installed
-      # pre-commit (and required-status enforcement reaches branch protection).
+      # markdownlint / typos / shfmt / actionlint / gitleaks run on every
+      # PR. They also live in .pre-commit-config.yaml for local-commit
+      # gating, but CI re-runs them so coverage holds even if a contributor
+      # hasn't installed pre-commit (and required-status enforcement reaches
+      # branch protection). post-merge runs would re-validate the same tree
+      # already vetted at PR time and are intentionally skipped.
 
       - name: markdownlint-cli2
         uses: DavidAnson/markdownlint-cli2-action@ded1f9488f68a970bc66ea5619e13e9b52e601cd # v23
@@ -162,7 +172,8 @@ jobs:
 
       # trufflehog complements gitleaks: gitleaks rules-based, trufflehog
       # entropy-based + verified-only mode catches secrets the rules miss.
-      # Both run on every PR and push to main per REQ-8.5.3.
+      # Both run on every PR (lint-extra is PR-gated). Defense-in-depth is
+      # preserved by the weekly full-history rescan in gitleaks.yml.
       - name: trufflehog (secret scan)
         uses: trufflesecurity/trufflehog@17456f8c7d042d8c82c9a8ca9e937231f9f42e26 # v3.95.2
         with:
@@ -261,7 +272,7 @@ jobs:
   # bats のバージョンは pin して両 OS 間の挙動差を抑える。
   # ─────────────────────────────────────────
   bats:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:

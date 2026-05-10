@@ -59,6 +59,12 @@ exclude = [
   # documented and the page is real; transient network issue between
   # runners and the host. Pattern matches both / and ?uri= forms.
   "scorecard\\.dev/viewer",
+  # www.sigstore.dev is a CNAME to sigstore.netlify.app (AWS Singapore
+  # region IPs). Same flake pattern as slsa.dev and scorecard.dev:
+  # Connection failed from GitHub-hosted runners during Netlify CDN
+  # regional incidents. The page is real and stable; the runner ->
+  # Netlify path is the flake.
+  "www\\.sigstore\\.dev",
 ]
 
 # Local-only file:// or relative anchor checks. "none" focuses on http(s);
