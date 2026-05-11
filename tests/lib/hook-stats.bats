@@ -9,11 +9,14 @@ setup() {
   MUMEI_TEST_TMPDIR="$(mktemp -d -t mumei-test.XXXXXX)"
   export MUMEI_TEST_TMPDIR
   cd "$MUMEI_TEST_TMPDIR" || return 1
+  # mumei-aware project: .mumei/ already exists. Recording is a no-op
+  # without it (see "skips silently when .mumei/ is absent" below).
+  mkdir .mumei
   # shellcheck disable=SC1091
   source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/hook-stats.sh"
 }
 
-@test "record creates the log and writes one JSONL line" {
+@test "record writes one JSONL line into .mumei/.hook-stats.jsonl" {
   mumei_hook_stats_record "P1" "deny" "Edit" "phase=plan"
   [ -f .mumei/.hook-stats.jsonl ]
   lines="$(wc -l <.mumei/.hook-stats.jsonl)"
@@ -58,11 +61,12 @@ setup() {
   [ "$reason" = 'reason with "quotes" and \backslash' ]
 }
 
-@test "no permission to write -> silent (no error propagation)" {
-  # mkdir failure path. Force a tmpdir that cannot be made writable.
-  cd /
-  run mumei_hook_stats_record "P1" "deny" "Edit" "test"
-  # Helper must never raise; even when the cwd is unwritable the hook
-  # decision must not abort.
+@test "skips silently when .mumei/ is absent (no resurrection)" {
+  # Regression: mumei-unaware projects must not get a .mumei/ created
+  # just to log telemetry. cost-log fires on every SubagentStop, even
+  # when the host project never opted into mumei.
+  rmdir .mumei
+  run mumei_hook_stats_record "cost-log" "noop" "SubagentStop" "no active feature"
   [ "$status" -eq 0 ]
+  [ ! -e .mumei ]
 }

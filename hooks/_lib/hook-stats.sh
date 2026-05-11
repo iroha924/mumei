@@ -21,10 +21,14 @@ fi
 # Append a single record. Silent on success, never raises an error
 # (the hook's primary job is its decision; telemetry must not derail it).
 #
+# Skips silently when .mumei/ does not exist — mumei-unaware projects
+# (where hooks fire globally but the user never opted in) must not get
+# a .mumei/ directory created just to log telemetry.
+#
 # Args: hook_id decision tool_name reason
 mumei_hook_stats_record() {
   local hook_id="$1" decision="$2" tool_name="$3" reason="$4"
-  mkdir -p .mumei 2>/dev/null || return 0
+  [[ -d .mumei ]] || return 0
   mumei_log_rotate_check_and_truncate ".mumei/.hook-stats.jsonl"
   jq -nc \
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
