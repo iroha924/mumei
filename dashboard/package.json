@@ -1,6 +1,6 @@
 {
   "name": "mumei-dashboard",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Local dev dashboard for mumei: realtime visualisation of feature phases, Wave progress, review verdicts, token cost, and hook firing trends. Reads .mumei/ directly, no external service.",
   "type": "module",
   "private": false,
