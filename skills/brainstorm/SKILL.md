@@ -65,11 +65,13 @@ Do NOT use `AC-N.M`. It is silently dropped by the parser AND violates `feature-
 When hand-authoring mature spec form, determine the next REQ id first:
 
 ```bash
-find .mumei/specs .mumei/archive -name state.json -exec jq -r .id {} \; \
-  | grep -oE 'REQ-[0-9]+' | sort -V | tail -1
+max="$(find .mumei/specs .mumei/archive -name state.json 2>/dev/null \
+  -exec jq -r '.id // empty' {} \; 2>/dev/null \
+  | grep -oE 'REQ-[0-9]+' | sort -V | tail -1)"
+echo "${max:-REQ-0 (no prior REQ found)}"
 ```
 
-Then increment from the highest existing id.
+Then increment from the highest existing id. The `// empty` guard skips plan-vehicle `state.json` files (which have no `.id` field); the `2>/dev/null` redirections keep transient corruption / permission errors from polluting the output.
 
 ### Examples generation (during AC draft)
 
