@@ -288,40 +288,6 @@ tasks:
         fi
         gh run watch "$run_id" --exit-status
 
-  pr:copilot:
-    desc: "Fetch Copilot review comments (summary + inline) for the given PR"
-    preconditions:
-      - sh: command -v gh
-        msg: "gh CLI not installed"
-    env:
-      # Pass CLI_ARGS through an environment variable rather than
-      # interpolating into the script body. Bash parameter expansion
-      # (`$MUMEI_PR_ARG`) treats the value as data, so a malicious
-      # input like `'"; echo pwned; #'` is rejected by the integer
-      # check below instead of being parsed as shell code.
-      MUMEI_PR_ARG: "{{.CLI_ARGS}}"
-    cmds:
-      - |
-        pr="$MUMEI_PR_ARG"
-        if ! [[ "$pr" =~ ^[0-9]+$ ]]; then
-          echo "Usage: task pr:copilot -- <PR-number>"
-          [[ -n "$pr" ]] && echo "got: '$pr' (must be a single integer)"
-          exit 1
-        fi
-        echo "=== summary ==="
-        gh pr view "$pr" --comments | tail -40
-        echo
-        echo "=== inline ==="
-        # `--paginate` follows the GitHub API's `Link: rel=next` header
-        # so PRs with more than 30 review comments aren't silently
-        # truncated. `--slurp` collects all pages into a single JSON
-        # array which jq then iterates.
-        # Inline review comments arrive with `.user.login == "Copilot"`
-        # (reviews endpoint uses `copilot-pull-request-reviewer[bot]`,
-        # the comments endpoint uses the literal "Copilot").
-        gh api --paginate --slurp "repos/{owner}/{repo}/pulls/${pr}/comments" \
-          --jq '.[] | .[] | select(.user.login == "Copilot") | "[\(.path):\(.line // .original_line)] \(.body)"'
-
   pr:codex:
     desc: "Post a focused `@codex review <context>` comment (NOT for routine re-review — Codex Cloud auto-reviews on push)"
     preconditions:

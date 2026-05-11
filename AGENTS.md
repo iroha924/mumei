@@ -2,9 +2,9 @@
 
 This file follows the [AGENTS.md open standard](https://agents.md/) and
 is read automatically by AI coding / review agents that respect it
-(OpenAI Codex, GitHub Copilot, Anthropic Claude, Gemini CLI, Cursor,
-Aider, and others). It supplies project-specific context so the
-reviewer flags the right things and stays away from the wrong things.
+(OpenAI Codex, Anthropic Claude, Gemini CLI, Cursor, Aider, and
+others). It supplies project-specific context so the reviewer flags
+the right things and stays away from the wrong things.
 
 The same conventions are documented in `CONTRIBUTING.md` for human
 contributors. This file is the agent-side mirror.
