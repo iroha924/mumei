@@ -19,7 +19,10 @@ import { createInterface } from 'node:readline'
  */
 export async function* readJsonl<T = unknown>(
   filePath: string,
-  opts?: { validate?: (v: unknown) => boolean },
+  opts?: {
+    validate?: (v: unknown) => boolean
+    onSkip?: (info: { file: string; line: number; reason: 'shape' }) => void
+  },
 ): AsyncGenerator<T> {
   try {
     await access(filePath)
@@ -44,6 +47,7 @@ export async function* readJsonl<T = unknown>(
         process.stderr.write(
           `[mumei dashboard] JSONL shape violation, skipping: file=${filePath} line=${lineNumber}\n`,
         )
+        opts.onSkip?.({ file: filePath, line: lineNumber, reason: 'shape' })
         continue
       }
       yield parsed as T

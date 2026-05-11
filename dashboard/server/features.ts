@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import type { FeaturesResponse, FeatureWarnings } from '../src/schemas/feature-summary.ts'
 import type { State } from '../src/schemas/state.ts'
 import type { MumeiFeatureSummary } from '../src/types/feature-summary.ts'
 import { type CostLogEntry, readJsonl } from './lib/aggregator.ts'
@@ -93,9 +94,14 @@ const PHASE_NEXT: Record<MumeiFeatureSummary['phase'], MumeiFeatureSummary['next
 export async function listFeatures(args: {
   projectRoot: string
   now?: Date
-}): Promise<MumeiFeatureSummary[]> {
+}): Promise<FeaturesResponse> {
   const { projectRoot, now = new Date() } = args
   const summaries: MumeiFeatureSummary[] = []
+  const warnings: FeatureWarnings = {
+    skippedArchiveStates: 0,
+    skippedReviews: 0,
+    skippedCostLogLines: 0,
+  }
 
   for (const vehicle of ['spec', 'plan'] as const) {
     const dir = path.join(projectRoot, '.mumei', vehicle === 'spec' ? 'specs' : 'plans')
@@ -109,6 +115,7 @@ export async function listFeatures(args: {
         vehicle,
         archived: false,
         now,
+        warnings,
       })
       if (summary) summaries.push(summary)
     }
@@ -145,6 +152,7 @@ export async function listFeatures(args: {
         vehicle,
         archived: true,
         now,
+        warnings,
       })
       if (summary) summaries.push(summary)
     }
@@ -152,7 +160,7 @@ export async function listFeatures(args: {
 
   // Active first by lastActivityMin ascending (smaller = more recent).
   summaries.sort((a, b) => a.lastActivityMin - b.lastActivityMin)
-  return summaries
+  return { features: summaries, warnings }
 }
 
 async function summariseFeature(args: {
@@ -162,8 +170,9 @@ async function summariseFeature(args: {
   vehicle: 'spec' | 'plan'
   archived: boolean
   now: Date
+  warnings: FeatureWarnings
 }): Promise<MumeiFeatureSummary | null> {
-  const { projectRoot, featureDir, featureKey, vehicle, archived, now } = args
+  const { projectRoot, featureDir, featureKey, vehicle, archived, now, warnings } = args
   const stateRaw = await safeReadFile(path.join(featureDir, 'state.json'))
   if (!stateRaw) return null
   const stateFilePath = path.join(featureDir, 'state.json')
@@ -179,6 +188,7 @@ async function summariseFeature(args: {
         process.stderr.write(
           `[mumei dashboard] archive state.json shape drift, skipping: file=${stateFilePath}\n`,
         )
+        warnings.skippedArchiveStates += 1
         return null
       }
       state = parsed
@@ -186,6 +196,7 @@ async function summariseFeature(args: {
       process.stderr.write(
         `[mumei dashboard] archive state.json JSON.parse failed, skipping: file=${stateFilePath}\n`,
       )
+      warnings.skippedArchiveStates += 1
       return null
     }
   } else {
@@ -197,11 +208,12 @@ async function summariseFeature(args: {
   const tasksBody = await safeReadFile(path.join(featureDir, 'tasks.md'))
   const tasksWaveCount = tasksBody ? (tasksBody.match(/^## Wave \d+:/gm) ?? []).length : 0
 
-  const review = await latestReview(path.join(featureDir, 'reviews'))
+  const review = await latestReview(path.join(featureDir, 'reviews'), warnings)
   const cost = await loadCost({
     perFeatureFile: path.join(featureDir, 'cost-log.jsonl'),
     projectWideFile: path.join(projectRoot, '.mumei', 'cost-log.jsonl'),
     featureKey,
+    warnings,
   })
 
   const stateMtime = await safeMtime(path.join(featureDir, 'state.json'))
@@ -285,7 +297,10 @@ interface ReviewSummary {
   findings: { high: number; medium: number; low: number }
 }
 
-async function latestReview(reviewsDir: string): Promise<ReviewSummary | null> {
+async function latestReview(
+  reviewsDir: string,
+  warnings: FeatureWarnings,
+): Promise<ReviewSummary | null> {
   const entries = await safeReaddir(reviewsDir)
   const candidates = entries
     .filter((e) => e.isFile() && e.name.endsWith('.json') && !e.name.endsWith('-detectors.json'))
@@ -309,6 +324,7 @@ async function latestReview(reviewsDir: string): Promise<ReviewSummary | null> {
     process.stderr.write(
       `[mumei dashboard] review.json shape violation, skipping: file=${reviewPath}\n`,
     )
+    warnings.skippedReviews += 1
     return null
   }
   try {
@@ -334,6 +350,7 @@ async function loadCost(args: {
   perFeatureFile: string
   projectWideFile: string
   featureKey: string
+  warnings: FeatureWarnings
 }): Promise<{ tokens: number; cacheHit: number }> {
   // Dedup (agent, ts) by COALESCING records, not by first-wins. The
   // SubagentStop hook (REQ-16) writes wave/iteration as null while the
@@ -350,6 +367,9 @@ async function loadCost(args: {
   for (const file of [args.perFeatureFile, args.projectWideFile]) {
     for await (const e of readJsonl<CostLogEntry>(file, {
       validate: (v) => validateCostLogEntry.Check(v),
+      onSkip: () => {
+        args.warnings.skippedCostLogLines += 1
+      },
     })) {
       if (e.phase !== 'after') continue
       if (file === args.projectWideFile && e.feature !== args.featureKey) continue

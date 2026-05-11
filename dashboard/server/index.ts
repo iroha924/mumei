@@ -11,7 +11,7 @@ import Fastify from 'fastify'
 
 import { ActivityEventListSchema } from '../src/schemas/activity-event.ts'
 import { FeatureDetailSchema } from '../src/schemas/feature-detail.ts'
-import { FeatureSummaryListSchema } from '../src/schemas/feature-summary.ts'
+import { FeaturesResponseSchema } from '../src/schemas/feature-summary.ts'
 import { MetaSchema, MetaStatsSchema } from '../src/schemas/meta.ts'
 import { HooksTrendSchema, ReviewsTrendSchema, TokensTrendSchema } from '../src/schemas/trends.ts'
 import { buildActivity } from './activity.ts'
@@ -159,7 +159,7 @@ const FeatureQuery = Type.Object({
 // ---------------------------------------------------------------------------
 // REST: /api/features — full feature summary list, sorted active-first
 // ---------------------------------------------------------------------------
-app.get('/api/features', { schema: { response: { 200: FeatureSummaryListSchema } } }, async () => {
+app.get('/api/features', { schema: { response: { 200: FeaturesResponseSchema } } }, async () => {
   return listFeatures({ projectRoot: PROJECT_ROOT })
 })
 

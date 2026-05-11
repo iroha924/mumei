@@ -17,7 +17,12 @@ describe('listFeatures', () => {
 
   it('returns [] when .mumei/ is empty', async () => {
     const r = await listFeatures({ projectRoot, now: NOW })
-    expect(r).toEqual([])
+    expect(r.features).toEqual([])
+    expect(r.warnings).toEqual({
+      skippedArchiveStates: 0,
+      skippedReviews: 0,
+      skippedCostLogLines: 0,
+    })
   })
 
   it('builds spec-vehicle summary with current/total/progress waves', async () => {
@@ -48,8 +53,8 @@ describe('listFeatures', () => {
       ].join('\n'),
     )
     const r = await listFeatures({ projectRoot, now: NOW })
-    expect(r.length).toBe(1)
-    const f = r[0]
+    expect(r.features.length).toBe(1)
+    const f = r.features[0]
     expect(f).toMatchObject({
       id: 'REQ-1',
       slug: 'foo',
@@ -85,7 +90,7 @@ describe('listFeatures', () => {
       }),
     )
     const r = await listFeatures({ projectRoot, now: NOW })
-    const f = r[0]
+    const f = r.features[0]
     expect(f).toMatchObject({
       vehicle: 'plan',
       phase: 'implement',
@@ -124,7 +129,7 @@ describe('listFeatures', () => {
       ].join('\n'),
     )
     const r = await listFeatures({ projectRoot, now: NOW })
-    const f = r[0]
+    const f = r.features[0]
     expect(f?.tokens).toBe(1200)
     expect(f?.cacheHit).toBeCloseTo(0.8, 5)
   })
@@ -178,7 +183,7 @@ describe('listFeatures', () => {
       ].join('\n'),
     )
     const r = await listFeatures({ projectRoot, now: NOW })
-    const f = r[0]
+    const f = r.features[0]
     // Without dedup: 250 input + 130 output = 380 tokens.
     // With dedup: (100+50) + (50+30) = 230 tokens.
     expect(f?.tokens).toBe(230)
@@ -214,9 +219,80 @@ describe('listFeatures', () => {
       }),
     )
     const r = await listFeatures({ projectRoot, now: NOW })
-    expect(r[0]?.lastVerdict).toBe('NEEDS_IMPROVEMENT')
-    expect(r[0]?.lastIter).toBe(2)
-    expect(r[0]?.findings).toEqual({ high: 1, medium: 2, low: 1 })
+    expect(r.features[0]?.lastVerdict).toBe('NEEDS_IMPROVEMENT')
+    expect(r.features[0]?.lastIter).toBe(2)
+    expect(r.features[0]?.findings).toEqual({ high: 1, medium: 2, low: 1 })
+  })
+
+  it('counts warnings.skippedArchiveStates when archive state.json shape drifts', async () => {
+    const archiveDir = path.join(projectRoot, '.mumei', 'archive', '2026-04', 'old-feature')
+    await mkdir(archiveDir, { recursive: true })
+    // Shape-drifted: missing required `phase` field.
+    await writeFile(
+      path.join(archiveDir, 'state.json'),
+      JSON.stringify({ slug: 'old-feature', created_at: '2026-04-01T00:00:00Z' }),
+    )
+    const r = await listFeatures({ projectRoot, now: NOW })
+    expect(r.features).toEqual([])
+    expect(r.warnings.skippedArchiveStates).toBe(1)
+    expect(r.warnings.skippedReviews).toBe(0)
+    expect(r.warnings.skippedCostLogLines).toBe(0)
+  })
+
+  it('counts warnings.skippedReviews when latest review.json shape violates', async () => {
+    const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-1-foo')
+    await mkdir(path.join(featDir, 'reviews'), { recursive: true })
+    await writeFile(
+      path.join(featDir, 'state.json'),
+      JSON.stringify({
+        id: 'REQ-1',
+        slug: 'foo',
+        phase: 'review',
+        current_wave: 1,
+        created_at: '2026-05-01T00:00:00Z',
+        updated_at: '2026-05-08T11:00:00Z',
+      }),
+    )
+    // Missing required `verdict` field → shape violation.
+    await writeFile(
+      path.join(featDir, 'reviews', '20260508T120000Z.json'),
+      JSON.stringify({ feature: 'REQ-1-foo', iteration: 1 }),
+    )
+    const r = await listFeatures({ projectRoot, now: NOW })
+    expect(r.features.length).toBe(1)
+    expect(r.warnings.skippedReviews).toBe(1)
+  })
+
+  it('counts warnings.skippedCostLogLines when cost-log line shape violates', async () => {
+    const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-1-foo')
+    await mkdir(featDir, { recursive: true })
+    await writeFile(
+      path.join(featDir, 'state.json'),
+      JSON.stringify({
+        id: 'REQ-1',
+        slug: 'foo',
+        phase: 'plan',
+        current_wave: 0,
+        created_at: '2026-05-01T00:00:00Z',
+        updated_at: '2026-05-08T11:00:00Z',
+      }),
+    )
+    await writeFile(
+      path.join(featDir, 'cost-log.jsonl'),
+      [
+        // valid entry
+        JSON.stringify({
+          ts: '2026-05-08T01:00:00Z',
+          feature: 'REQ-1-foo',
+          phase: 'after',
+          input_tokens: 100,
+        }),
+        // shape-violating: phase=invalid not in enum
+        JSON.stringify({ ts: '2026-05-08T01:00:01Z', feature: 'REQ-1-foo', phase: 'invalid' }),
+      ].join('\n'),
+    )
+    const r = await listFeatures({ projectRoot, now: NOW })
+    expect(r.warnings.skippedCostLogLines).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -229,12 +305,15 @@ describe('Fastify response schema enforcement (REQ-19.9)', () => {
   // the FeatureSummary shape without updating the route schema.
   it('returns 500 when /api/features handler emits a schema-violating mock', async () => {
     const Fastify = (await import('fastify')).default
-    const { FeatureSummaryListSchema } = await import('../src/schemas/feature-summary.ts')
+    const { FeaturesResponseSchema } = await import('../src/schemas/feature-summary.ts')
     const app = Fastify({ logger: false })
     app.get(
       '/api/features',
-      { schema: { response: { 200: FeatureSummaryListSchema } } },
-      async () => [{ unexpected_field: true } as unknown as never],
+      { schema: { response: { 200: FeaturesResponseSchema } } },
+      async () => ({
+        features: [{ unexpected_field: true } as unknown as never],
+        warnings: { skippedArchiveStates: 0, skippedReviews: 0, skippedCostLogLines: 0 },
+      }),
     )
     const res = await app.inject({ method: 'GET', url: '/api/features' })
     expect(res.statusCode).toBe(500)
@@ -243,36 +322,44 @@ describe('Fastify response schema enforcement (REQ-19.9)', () => {
 
   it('returns 200 when /api/features handler emits a schema-conformant mock', async () => {
     const Fastify = (await import('fastify')).default
-    const { FeatureSummaryListSchema } = await import('../src/schemas/feature-summary.ts')
+    const { FeaturesResponseSchema } = await import('../src/schemas/feature-summary.ts')
     const app = Fastify({ logger: false })
     app.get(
       '/api/features',
-      { schema: { response: { 200: FeatureSummaryListSchema } } },
-      async () => [
-        {
-          id: 'REQ-1',
-          slug: 'foo',
-          vehicle: 'spec' as const,
-          phase: 'plan' as const,
-          nextPhase: 'implement' as const,
-          currentWave: 0,
-          totalWaves: 1,
-          waveProgress: 0,
-          lastVerdict: null,
-          lastIter: null,
-          tokens: 0,
-          cacheHit: 0,
-          lastActivityMin: 0,
-          pulse: 'active' as const,
-          findings: { high: 0, medium: 0, low: 0 },
-          archived: false,
-        },
-      ],
+      { schema: { response: { 200: FeaturesResponseSchema } } },
+      async () => ({
+        features: [
+          {
+            id: 'REQ-1',
+            slug: 'foo',
+            vehicle: 'spec' as const,
+            phase: 'plan' as const,
+            nextPhase: 'implement' as const,
+            currentWave: 0,
+            totalWaves: 1,
+            waveProgress: 0,
+            lastVerdict: null,
+            lastIter: null,
+            tokens: 0,
+            cacheHit: 0,
+            lastActivityMin: 0,
+            pulse: 'active' as const,
+            findings: { high: 0, medium: 0, low: 0 },
+            archived: false,
+          },
+        ],
+        warnings: { skippedArchiveStates: 0, skippedReviews: 0, skippedCostLogLines: 0 },
+      }),
     )
     const res = await app.inject({ method: 'GET', url: '/api/features' })
     expect(res.statusCode).toBe(200)
-    const body = JSON.parse(res.body) as unknown[]
-    expect(body).toHaveLength(1)
+    const body = JSON.parse(res.body) as { features: unknown[]; warnings: unknown }
+    expect(body.features).toHaveLength(1)
+    expect(body.warnings).toEqual({
+      skippedArchiveStates: 0,
+      skippedReviews: 0,
+      skippedCostLogLines: 0,
+    })
     await app.close()
   })
 })
