@@ -1,5 +1,9 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import type { MumeiFeatureSummary } from '@/types/feature-summary'
+import type {
+  FeaturesResponse,
+  FeatureWarnings,
+  MumeiFeatureSummary,
+} from '@/types/feature-summary'
 
 export interface FieldError {
   path: string
@@ -36,10 +40,13 @@ export class FeaturesFetchFailure extends Error {
   }
 }
 
-export function useFeatures(): { data: MumeiFeatureSummary[] } {
+export function useFeatures(): {
+  data: MumeiFeatureSummary[]
+  warnings: FeatureWarnings
+} {
   const q = useSuspenseQuery({
     queryKey: ['features'],
-    queryFn: async (): Promise<MumeiFeatureSummary[]> => {
+    queryFn: async (): Promise<FeaturesResponse> => {
       const res = await fetch('/api/features')
       if (!res.ok) {
         let payload: FeaturesFetchError = {}
@@ -50,9 +57,9 @@ export function useFeatures(): { data: MumeiFeatureSummary[] } {
         }
         throw new FeaturesFetchFailure(res.status, payload)
       }
-      return (await res.json()) as MumeiFeatureSummary[]
+      return (await res.json()) as FeaturesResponse
     },
     staleTime: 5_000,
   })
-  return { data: q.data }
+  return { data: q.data.features, warnings: q.data.warnings }
 }

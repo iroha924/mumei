@@ -255,7 +255,7 @@ function FeatureGrid({
   onSelect: (slug: string | null) => void
   slugFilter: string
 }): ReactElement {
-  const features = useFeatures().data
+  const { data: features, warnings } = useFeatures()
   const [showArchived, setShowArchived] = useState(false)
   if (features.length === 0) {
     return <EmptyState />
@@ -267,8 +267,27 @@ function FeatureGrid({
   }
   const active = features.filter((f) => !f.archived && matches(f))
   const archived = features.filter((f) => f.archived && matches(f))
+  const totalSkips =
+    warnings.skippedArchiveStates + warnings.skippedReviews + warnings.skippedCostLogLines
   return (
     <div className="p-3 space-y-3">
+      {totalSkips > 0 && (
+        <div
+          aria-live="polite"
+          className="rounded-md border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200"
+        >
+          <span className="font-mono">[mumei]</span> aggregation surfaced {totalSkips} skip
+          {totalSkips === 1 ? '' : 's'} during /api/features
+          {warnings.skippedArchiveStates > 0 && (
+            <> · {warnings.skippedArchiveStates} archive state.json</>
+          )}
+          {warnings.skippedReviews > 0 && <> · {warnings.skippedReviews} review.json</>}
+          {warnings.skippedCostLogLines > 0 && (
+            <> · {warnings.skippedCostLogLines} cost-log line(s)</>
+          )}
+          . Stderr of the dashboard server lists the file paths.
+        </div>
+      )}
       {active.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 auto-rows-fr">
           {active.map((f) => (

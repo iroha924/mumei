@@ -51,12 +51,37 @@ describe('Dashboard', () => {
   })
 
   it('renders feature cards when data is available', async () => {
-    server.use(http.get('/api/features', () => HttpResponse.json([sampleFeature])))
+    server.use(
+      http.get('/api/features', () =>
+        HttpResponse.json({
+          features: [sampleFeature],
+          warnings: { skippedArchiveStates: 0, skippedReviews: 0, skippedCostLogLines: 0 },
+        }),
+      ),
+    )
     renderWithProviders()
     await waitFor(() => {
       expect(screen.getByText('sample')).toBeInTheDocument()
     })
     expect(screen.getByText('REQ-1')).toBeInTheDocument()
+  })
+
+  it('renders the warning banner when /api/features warnings carry non-zero skip counts', async () => {
+    server.use(
+      http.get('/api/features', () =>
+        HttpResponse.json({
+          features: [sampleFeature],
+          warnings: { skippedArchiveStates: 2, skippedReviews: 1, skippedCostLogLines: 0 },
+        }),
+      ),
+    )
+    renderWithProviders()
+    await waitFor(() => {
+      expect(screen.getByText('sample')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/aggregation surfaced 3 skips/)).toBeInTheDocument()
+    expect(screen.getByText(/2 archive state.json/)).toBeInTheDocument()
+    expect(screen.getByText(/1 review.json/)).toBeInTheDocument()
   })
 
   it('renders the error banner when /api/features fails', async () => {

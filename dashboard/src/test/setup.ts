@@ -56,7 +56,12 @@ class EventSourceStub {
 ;(globalThis as unknown as { EventSource: typeof EventSourceStub }).EventSource = EventSourceStub
 
 const handlers = [
-  http.get('/api/features', () => HttpResponse.json([])),
+  http.get('/api/features', () =>
+    HttpResponse.json({
+      features: [],
+      warnings: { skippedArchiveStates: 0, skippedReviews: 0, skippedCostLogLines: 0 },
+    }),
+  ),
   http.get('/api/meta', () => HttpResponse.json({ projectLabel: '~/test-project' })),
   http.get('/api/meta/stats', () =>
     HttpResponse.json({
