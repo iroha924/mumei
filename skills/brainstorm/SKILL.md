@@ -51,6 +51,26 @@ Pick the axes from Round 1 that ended in `[ASSUMPTION]` or `[NEEDS CLARIFICATION
 
 Only if the user did not signal closure. 5 questions max.
 
+### AC format — canonical forms and what to avoid
+
+mumei's scratch parser recognizes exactly two AC line prefixes; anything else is silently dropped (`_mumei_scratch_count_acs` returns 0 for the AC, and `/mumei:plan` cannot compute a vehicle recommendation from the scratch).
+
+Use one of these forms:
+
+- **Brainstorm form**: `- [Event] WHEN ...` / `- [Unwanted] IF ...` / `- [State] WHILE ...` / `- [Optional] WHERE ...`
+- **Mature spec form**: `- REQ-N.M WHEN ...` (only when hand-authoring a scratch that imports into an existing spec; `M` is the AC index within that REQ)
+
+Do NOT use `AC-N.M`. It is silently dropped by the parser AND violates `feature-detail.schema.json` (AC `id` pattern is `^REQ-[0-9]+\.[0-9]+(\.[0-9]+)?$`). Both effects make the scratch invisible to downstream tooling.
+
+When hand-authoring mature spec form, determine the next REQ id first:
+
+```bash
+find .mumei/specs .mumei/archive -name state.json -exec jq -r .id {} \; \
+  | grep -oE 'REQ-[0-9]+' | sort -V | tail -1
+```
+
+Then increment from the highest existing id.
+
 ### Examples generation (during AC draft)
 
 When drafting Acceptance Criteria, emit an inline `Examples:` block beneath each AC:
