@@ -155,13 +155,17 @@ jobs:
           /tmp/shfmt/shfmt -d -i 2 hooks/_lib/*.sh hooks/*.sh scripts/*.sh
 
       - name: actionlint
-        # Pin the installer script to a tag (instead of `main` mutable ref)
-        # AND pass the explicit version arg, because the installer script at
-        # `tag v1.7.7` defaults to `version=1.7.6` if no arg is provided —
-        # script-tag pin alone leaves a 1-version drift vs. pre-commit which
-        # actually delivers 1.7.7. The pin is two-fold: tag + version arg.
+        # SHA-256 verify the installer script before running it. The tag pin
+        # alone leaves Scorecards' downloadThenRun check unsatisfied because
+        # `bash <(curl ...)` is treated as unpinned regardless of the tag.
+        # The script at v1.7.7 defaults to version=1.7.6 if no arg is
+        # provided, so we also pass `1.7.7` explicitly to match pre-commit.
         id: get_actionlint
-        run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+        run: |
+          INSTALLER_SHA="221d1d16c03e4e4fcd867de34104e8d479bdce20ccdfa553b9a5c0dc29bf6af2"
+          curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash" -o "${RUNNER_TEMP}/download-actionlint.bash"
+          echo "${INSTALLER_SHA}  ${RUNNER_TEMP}/download-actionlint.bash" | sha256sum -c
+          bash "${RUNNER_TEMP}/download-actionlint.bash" 1.7.7
         shell: bash
       - name: actionlint check
         run: ${{ steps.get_actionlint.outputs.executable }} -color
