@@ -52,6 +52,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.tag }}
+          persist-credentials: false
 
       - name: semgrep
         run: |
@@ -170,6 +171,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
 
       - name: Strict schema validation (vendored schema)
         # The release path validates against schemas/plugin.schema.json — a
@@ -232,6 +234,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.tag }}
+          persist-credentials: false
 
       - name: Create tarball + SHA256
         id: archive
@@ -268,6 +271,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
 
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
@@ -341,6 +345,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
 
       - name: Download tarball
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

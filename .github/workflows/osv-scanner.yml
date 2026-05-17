@@ -1,0 +1,28 @@
+name: osv-scanner
+
+# Cross-ecosystem vulnerability scanner from Google. Scans every
+# dependency manifest in the repo against the OSV database (npm,
+# pip, go, cargo, etc.). mumei has both shell (no manifest) and the
+# dashboard npm package, so OSV gives broader coverage than a single-
+# ecosystem tool would. CodeQL already runs from ci.yml; this
+# workflow specifically targets known CVEs in declared dependencies.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Wed 06:00 UTC — off-peak vs. CodeQL (Mon) / Scorecards (Mon) /
+    # gitleaks-weekly (Mon).
+    - cron: "0 6 * * 3"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  scan:
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
