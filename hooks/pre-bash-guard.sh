@@ -62,7 +62,8 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
 # catches the obvious Bash route (sed -i / redirect / tee / mv / rm / cp /
 # truncate writing to a golden path). Best-effort with a known ceiling —
 # obfuscated commands evade it. The real wall is the worktree clean-HEAD
-# measurement (hooks/_lib/worktree-verify.sh restores golden to HEAD) and G1.
+# measurement (hooks/_lib/worktree-verify.sh runs tests against golden's HEAD
+# content) and G1.
 # Fires before the active-feature check because golden protection is
 # project-wide and vehicle/feature independent.
 #
@@ -168,7 +169,7 @@ while IFS= read -r _tok; do
       mumei_hook_stats_record "G2" "deny" "Bash" "Bash-route mutation of golden path denied"
     fi
     jq -n --arg r "This command writes to a golden path ('${_tok}' matches .mumei/config.json golden_paths). Golden files are immutable specification / oracle files." \
-      --arg c "To restore the committed version: git checkout HEAD -- ${_tok}. To intentionally change the spec, edit .mumei/config.json's golden_paths first, or set MUMEI_BYPASS=1 for a one-off override. Note: this is best-effort; the authoritative protection is the clean-HEAD worktree measurement at commit time." \
+      --arg c "To restore the committed version: git checkout HEAD -- '${_tok}'. To intentionally change the spec, edit .mumei/config.json's golden_paths first, or set MUMEI_BYPASS=1 for a one-off override. Note: this is best-effort; the authoritative protection is the clean-HEAD worktree measurement at commit time." \
       '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
     exit 0
   fi

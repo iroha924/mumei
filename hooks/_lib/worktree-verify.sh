@@ -68,11 +68,15 @@ mumei_worktree_run_test() {
   # be a no-op here (and git pathspec globs would not expand a quoted pattern
   # anyway).
   #
-  # Initialize submodules in the linked worktree (best-effort). A fresh
-  # worktree has no submodule contents; tests that read submodule files would
-  # otherwise fail in the clean tree but pass in the working tree, raising a
-  # false I3 divergence. Failure / absence of submodules is a no-op.
-  git -C "$wt" submodule update --init --recursive >/dev/null 2>&1 || true
+  # Initialize submodules in the linked worktree (best-effort, OFFLINE). A
+  # fresh worktree has no submodule contents; tests that read submodule files
+  # would otherwise fail in the clean tree but pass in the working tree,
+  # raising a false I3 divergence. `--no-fetch` + `GIT_TERMINAL_PROMPT=0`
+  # populate only from objects already present locally (the superproject and
+  # the worktree share the same object store) and never reach the network or
+  # block on auth prompts — mumei initiates no outbound requests (PRIVACY.md).
+  # Absence / failure of submodules is a no-op.
+  GIT_TERMINAL_PROMPT=0 git -C "$wt" submodule update --init --recursive --no-fetch >/dev/null 2>&1 || true
 
   #
   # Run inside the worktree with a normalized, clean-tree-anchored environment:

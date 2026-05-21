@@ -7,7 +7,7 @@
   "type": "object",
   "properties": {
     "golden_paths": {
-      "description": "Path globs treated as immutable specification / oracle files. Backs G1 (Edit/Write deny), G2 (Bash-tamper deny), and the worktree HEAD-restore step. Single-level bash case globs only (* ? [...]); ** is not expanded — register multiple patterns for multi-level coverage.",
+      "description": "Path globs treated as immutable specification / oracle files. Backs G1 (Edit/Write deny) and G2 (Bash-tamper deny); the clean-HEAD worktree measurement runs tests against golden's committed content. Single-level bash case globs only (* ? [...]); ** is not expanded — register multiple patterns for multi-level coverage.",
       "type": "array",
       "items": {
         "type": "string"

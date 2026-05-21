@@ -142,7 +142,7 @@ if mumei_config_path_is_golden "$FILE_PATH" || mumei_config_path_is_golden "$_GO
     mumei_hook_stats_record "G1" "deny" "${TOOL_NAME:-Edit}" "Edit/Write to golden path denied"
   fi
   jq -n --arg r "Edit/Write to ${FILE_PATH} is denied: it is a golden path (immutable specification / oracle) in .mumei/config.json." \
-    --arg c "Golden files pin expected behaviour so generated code cannot quietly redefine the test of record. To restore the committed version: git checkout HEAD -- ${FILE_PATH}. To intentionally change the spec, edit .mumei/config.json's golden_paths first, or set MUMEI_BYPASS=1 for a one-off override." \
+    --arg c "Golden files pin expected behaviour so generated code cannot quietly redefine the test of record. To restore the committed version: git checkout HEAD -- '${FILE_PATH}'. To intentionally change the spec, edit .mumei/config.json's golden_paths first, or set MUMEI_BYPASS=1 for a one-off override." \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
   exit 0
 fi
