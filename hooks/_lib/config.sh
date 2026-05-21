@@ -46,10 +46,11 @@ mumei_config_path_is_golden() {
   [[ -n "$path" ]] || return 1
   while IFS= read -r pat; do
     [[ -n "$pat" ]] || continue
-    # shellcheck disable=SC2254
-    case "$path" in
-    $pat) return 0 ;;
-    esac
+    # `[[ == ]]` glob-matches the RHS pattern without word-splitting it, so a
+    # golden pattern containing whitespace is honored verbatim (a `case`
+    # pattern would word-split the unquoted expansion).
+    # shellcheck disable=SC2053
+    [[ "$path" == $pat ]] && return 0
   done < <(mumei_config_golden_paths)
   return 1
 }

@@ -80,6 +80,12 @@ _write_config() {
   [ "$status" -eq 1 ]
 }
 
+@test "mumei_config_path_is_golden honors a pattern containing whitespace" {
+  _write_config '{"golden_paths": ["my golden/*"]}'
+  run mumei_config_path_is_golden "my golden/snap.json"
+  [ "$status" -eq 0 ]
+}
+
 @test "mumei_config_dir_holds_golden_glob matches a dir holding a wildcard golden" {
   _write_config '{"golden_paths": ["tests/golden/*"]}'
   run mumei_config_dir_holds_golden_glob "tests/golden"
