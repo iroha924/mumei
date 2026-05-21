@@ -136,6 +136,27 @@ _write_config() {
   [ -z "$output" ]
 }
 
+@test "G2: a quoted golden path with spaces around > does not false-deny" {
+  _write_config '{"golden_paths": ["tests/golden/*"]}'
+  _run_hook "$(_bash_input "echo 'note > tests/golden/snap.json'")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "G2: clobber redirect (>|) to a golden path is denied" {
+  _write_config '{"golden_paths": ["conftest.py"]}'
+  _run_hook "$(_bash_input "echo hacked >| conftest.py")"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
+}
+
+@test "G2: cp -t into a golden directory is denied" {
+  _write_config '{"golden_paths": ["tests/golden*"]}'
+  _run_hook "$(_bash_input "cp -t tests/golden payload")"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
+}
+
 @test "G2: MUMEI_BYPASS=1 allows mutating a golden path" {
   _write_config '{"golden_paths": ["tests/golden/*"]}'
   local input_file

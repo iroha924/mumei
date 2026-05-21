@@ -78,13 +78,15 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
 # as input) from false-denying, while still enforcing leading-wildcard globs.
 mumei_command_target_tokens() {
   local cmd="$1" seg
-  # Redirect targets: the token following > or >>. Require start-of-string or
-  # whitespace before the operator so a quoted literal `>` (e.g.
-  # `echo '> conftest.py'`) is not mistaken for a redirection. Best-effort:
-  # a quoted ` > ` with surrounding spaces can still match — the clean-HEAD
-  # worktree measurement is the authoritative guard.
-  printf '%s' "$cmd" | grep -oE '(^|[[:space:]])>>?[[:space:]]*[^[:space:];|&<>]+' |
-    sed -E 's/^[[:space:]]*>>?[[:space:]]*//'
+  # Redirect targets: the token following > / >> / >| (clobber). Strip quoted
+  # spans first so a quoted literal `>` (e.g. `echo 'note > golden'`) is not
+  # mistaken for a redirection, and require start-of-string or whitespace
+  # before the operator. Best-effort: nested / escaped quotes are not parsed —
+  # the clean-HEAD worktree measurement is the authoritative guard.
+  local unquoted
+  unquoted="$(printf '%s' "$cmd" | sed -e "s/'[^']*'//g" -e 's/"[^"]*"//g')"
+  printf '%s' "$unquoted" | grep -oE '(^|[[:space:]])>>?\|?[[:space:]]*[^[:space:];|&<>]+' |
+    sed -E 's/^[[:space:]]*>>?\|?[[:space:]]*//'
   # Mutating-command write targets, per separator-delimited segment.
   # printf adds a trailing newline so `read` does not drop the final
   # (unterminated) segment.
@@ -104,13 +106,28 @@ mumei_command_target_tokens() {
       done
       ;;
     cp)
-      # destination = last non-flag argument
+      # destination = -t/--target-directory DIR if present (GNU), else the
+      # last non-flag argument; sources are reads.
       local dest=""
       for ((i = 1; i < ${#words[@]}; i++)); do
-        a="${words[i]}"
-        case "$a" in -*) continue ;; esac
-        dest="$a"
+        case "${words[i]}" in
+        -t | --target-directory)
+          dest="${words[i + 1]:-}"
+          break
+          ;;
+        --target-directory=*)
+          dest="${words[i]#--target-directory=}"
+          break
+          ;;
+        esac
       done
+      if [[ -z "$dest" ]]; then
+        for ((i = 1; i < ${#words[@]}; i++)); do
+          a="${words[i]}"
+          case "$a" in -*) continue ;; esac
+          dest="$a"
+        done
+      fi
       [[ -n "$dest" ]] && printf '%s\n' "$dest"
       ;;
     sed)
