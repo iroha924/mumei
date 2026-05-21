@@ -89,3 +89,65 @@ mumei_gencontrol_oq_unresolved() {
   # Section present but empty / prose-only without `None` -> unresolved.
   return 0
 }
+
+# Echo the body of the `## Acceptance Test` section. No output when absent.
+mumei_gencontrol_at_section() {
+  local artifact="$1"
+  [[ -f "$artifact" ]] || return 0
+  awk '
+    /^##[[:space:]]+Acceptance Test/ { flag = 1; next }
+    flag && /^##[[:space:]]/ { flag = 0 }
+    flag { print }
+  ' "$artifact"
+}
+
+# Echo each declared pinned-test path (one per line). Paths are the list
+# items under `## Acceptance Test`: bare `- <path>` lines, comma-splittable
+# within a line. Leading `./` is stripped so matches are canonical. Prose
+# (non-list) lines are ignored.
+mumei_gencontrol_pinned_tests() {
+  local artifact="$1" line tok
+  local -a toks
+  [[ -f "$artifact" ]] || return 0
+  while IFS= read -r line; do
+    # Only list items carry paths; skip prose / blank lines.
+    printf '%s' "$line" | grep -qE '^[[:space:]]*-[[:space:]]+' || continue
+    line="$(printf '%s' "$line" | sed -E 's/^[[:space:]]*-[[:space:]]*//')"
+    # Split on commas via a quoted array read (keeps shellharden happy and
+    # avoids an unquoted word-split expansion).
+    IFS=',' read -ra toks <<<"$line"
+    for tok in "${toks[@]}"; do
+      tok="$(printf '%s' "$tok" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s#^\./##')"
+      [[ -n "$tok" ]] && printf '%s\n' "$tok"
+    done
+  done < <(mumei_gencontrol_at_section "$artifact")
+}
+
+# Exit 0 when $1 (a project-relative path) is one of the declared pinned
+# tests in $2 (the artifact), exit 1 otherwise. Leading `./` is normalised
+# on both sides.
+mumei_gencontrol_is_test_path() {
+  local path="${1#./}" artifact="$2" t
+  [[ -n "$path" ]] || return 1
+  while IFS= read -r t; do
+    [[ "$t" == "$path" ]] && return 0
+  done < <(mumei_gencontrol_pinned_tests "$artifact")
+  return 1
+}
+
+# Exit 0 when the artifact pins at least one acceptance test AND every
+# declared test path exists and is non-empty (has a non-whitespace byte;
+# a 0-byte or whitespace-only file does NOT count). Exit 1 otherwise:
+# section absent, no path declared, or any declared path missing/empty.
+mumei_gencontrol_tests_satisfied() {
+  local artifact="$1" t found=0
+  [[ -f "$artifact" ]] || return 1
+  grep -qE '^##[[:space:]]+Acceptance Test[[:space:]]*$' "$artifact" || return 1
+  while IFS= read -r t; do
+    found=1
+    [[ -f "$t" ]] || return 1
+    grep -qE '[^[:space:]]' "$t" 2>/dev/null || return 1
+  done < <(mumei_gencontrol_pinned_tests "$artifact")
+  [[ "$found" == "1" ]] || return 1
+  return 0
+}

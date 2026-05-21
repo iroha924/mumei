@@ -284,20 +284,39 @@ mumei_is_meta_path() {
 
 # R3 was relocated above (vehicle/feature-independent gate); see line ~45.
 
-# --- E1: Open Questions block (pillar E, BOTH vehicles) ---
-# In implement phase, refuse edits to production (non-meta) files while the
-# active feature's artifact still has unresolved Open Questions. The artifact
-# and all .mumei/ paths are meta-exempt, so resolving the questions (editing
-# requirements.md / plan.md) is never blocked. Phase is read vehicle-agnostic
-# because mumei_state_phase resolves the spec-only path.
+# --- E1 / E2: generation-time gates (pillar E, BOTH vehicles) ---
+# In implement phase, gate edits to production files. "Production" means
+# non-meta AND not a declared pinned acceptance test: the artifact, all
+# .mumei/ paths, and the acceptance tests themselves are exempt, so resolving
+# Open Questions and authoring the pinned test are never blocked.
+#   E1 — block while the artifact's Open Questions are unresolved.
+#   E2 — block until every pinned acceptance test exists and is non-empty;
+#        editing a pinned test itself is allowed with an advisory warning.
+# Phase is read vehicle-agnostic because mumei_state_phase resolves the
+# spec-only path.
 GENCTRL_PHASE="$(mumei_state_read_any "$FEATURE" '.phase' 2>/dev/null || true)"
 if [[ "$GENCTRL_PHASE" == "implement" ]] && ! mumei_is_meta_path "$FILE_PATH"; then
   GENCTRL_ARTIFACT="$(mumei_gencontrol_artifact_path "$FEATURE" 2>/dev/null || true)"
-  if [[ -n "$GENCTRL_ARTIFACT" ]] && mumei_gencontrol_oq_unresolved "$GENCTRL_ARTIFACT"; then
-    mumei_deny \
-      "Cannot edit ${FILE_PATH}: ${GENCTRL_ARTIFACT} has unresolved Open Questions. Mark each '- [x]' or set the section body to the literal 'None' before editing production files." \
-      "phase=implement gate (pillar E.1). The '## Open Questions' section must exist and contain only resolved '- [x]' items or the literal 'None'. Set MUMEI_BYPASS=1 to override." \
-      "E1"
+  if [[ -n "$GENCTRL_ARTIFACT" ]]; then
+    if mumei_gencontrol_is_test_path "$FILE_PATH" "$GENCTRL_ARTIFACT"; then
+      # E2: editing a pinned acceptance test is allowed; warn it is the
+      # frozen oracle so it is not weakened to pass.
+      mumei_log_warn "[mumei] ${FILE_PATH} is a pinned acceptance test (pillar E.2): edits are allowed, but this test is your frozen oracle — do not weaken it to make production pass."
+    else
+      # Production file: E1 (Open Questions) then E2 (test-first) must pass.
+      if mumei_gencontrol_oq_unresolved "$GENCTRL_ARTIFACT"; then
+        mumei_deny \
+          "Cannot edit ${FILE_PATH}: ${GENCTRL_ARTIFACT} has unresolved Open Questions. Mark each '- [x]' or set the section body to the literal 'None' before editing production files." \
+          "phase=implement gate (pillar E.1). The '## Open Questions' section must exist and contain only resolved '- [x]' items or the literal 'None'. Set MUMEI_BYPASS=1 to override." \
+          "E1"
+      fi
+      if ! mumei_gencontrol_tests_satisfied "$GENCTRL_ARTIFACT"; then
+        mumei_deny \
+          "Cannot edit ${FILE_PATH}: no acceptance test is pinned and present. Declare test path(s) under a '## Acceptance Test' section in ${GENCTRL_ARTIFACT} and create the file(s) first." \
+          "phase=implement gate (pillar E.2, test-first). Every declared '## Acceptance Test' path must exist and be non-empty. Editing a declared test path itself is allowed. Set MUMEI_BYPASS=1 to override." \
+          "E2"
+      fi
+    fi
   fi
 fi
 

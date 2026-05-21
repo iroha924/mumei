@@ -123,3 +123,101 @@ teardown() {
   [[ "$output" == *"q2"* ]]
   [[ "$output" != *"ignored"* ]]
 }
+
+# ─── mumei_gencontrol_pinned_tests ───────────────────────────
+
+@test "pinned_tests lists declared paths and strips leading ./" {
+  printf '## Acceptance Test\n- tests/a.bats\n- ./tests/b.bats\n' >art.md
+  run mumei_gencontrol_pinned_tests art.md
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"tests/a.bats"* ]]
+  [[ "$output" == *"tests/b.bats"* ]]
+  [[ "$output" != *"./tests/b.bats"* ]]
+}
+
+@test "pinned_tests splits comma-separated paths on one line" {
+  printf '## Acceptance Test\n- tests/a.bats, tests/b.bats\n' >art.md
+  run mumei_gencontrol_pinned_tests art.md
+  [ "${#lines[@]}" -eq 2 ]
+  [ "${lines[0]}" = "tests/a.bats" ]
+  [ "${lines[1]}" = "tests/b.bats" ]
+}
+
+@test "pinned_tests ignores prose (non-list) lines" {
+  printf '## Acceptance Test\nsome prose here\n- tests/a.bats\n' >art.md
+  run mumei_gencontrol_pinned_tests art.md
+  [ "${#lines[@]}" -eq 1 ]
+  [ "${lines[0]}" = "tests/a.bats" ]
+}
+
+@test "pinned_tests emits nothing when the section is absent" {
+  printf '# T\n## Open Questions\nNone\n' >art.md
+  run mumei_gencontrol_pinned_tests art.md
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# ─── mumei_gencontrol_is_test_path ───────────────────────────
+
+@test "is_test_path matches a declared path" {
+  printf '## Acceptance Test\n- tests/a.bats\n' >art.md
+  run mumei_gencontrol_is_test_path tests/a.bats art.md
+  [ "$status" -eq 0 ]
+}
+
+@test "is_test_path normalises a leading ./ on the queried path" {
+  printf '## Acceptance Test\n- tests/a.bats\n' >art.md
+  run mumei_gencontrol_is_test_path ./tests/a.bats art.md
+  [ "$status" -eq 0 ]
+}
+
+@test "is_test_path rejects a non-declared path" {
+  printf '## Acceptance Test\n- tests/a.bats\n' >art.md
+  run mumei_gencontrol_is_test_path src/app.js art.md
+  [ "$status" -eq 1 ]
+}
+
+# ─── mumei_gencontrol_tests_satisfied ────────────────────────
+# return 0 = satisfied (allow) ; return 1 = not satisfied (block)
+
+@test "tests_satisfied is true when every declared test exists and is non-empty" {
+  printf '## Acceptance Test\n- tests/a.bats\n' >art.md
+  mkdir -p tests
+  printf 'content\n' >tests/a.bats
+  run mumei_gencontrol_tests_satisfied art.md
+  [ "$status" -eq 0 ]
+}
+
+@test "tests_satisfied is false when a declared test file is missing" {
+  printf '## Acceptance Test\n- tests/a.bats\n' >art.md
+  run mumei_gencontrol_tests_satisfied art.md
+  [ "$status" -eq 1 ]
+}
+
+@test "tests_satisfied is false when a declared test is whitespace-only" {
+  printf '## Acceptance Test\n- tests/a.bats\n' >art.md
+  mkdir -p tests
+  printf '   \n\t\n' >tests/a.bats
+  run mumei_gencontrol_tests_satisfied art.md
+  [ "$status" -eq 1 ]
+}
+
+@test "tests_satisfied is false when a declared test is 0 bytes" {
+  printf '## Acceptance Test\n- tests/a.bats\n' >art.md
+  mkdir -p tests
+  : >tests/a.bats
+  run mumei_gencontrol_tests_satisfied art.md
+  [ "$status" -eq 1 ]
+}
+
+@test "tests_satisfied is false when the section is absent" {
+  printf '# T\n## Open Questions\nNone\n' >art.md
+  run mumei_gencontrol_tests_satisfied art.md
+  [ "$status" -eq 1 ]
+}
+
+@test "tests_satisfied is false when the section declares no path" {
+  printf '## Acceptance Test\n\n## Open Questions\nNone\n' >art.md
+  run mumei_gencontrol_tests_satisfied art.md
+  [ "$status" -eq 1 ]
+}
