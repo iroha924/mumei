@@ -64,6 +64,14 @@ EOF
 EOF
 }
 
+_init_feature_plan() {
+  local slug="fix-login"
+  mkdir -p ".mumei/plans/${slug}"
+  echo "${slug}" >.mumei/current
+  jq -n '{vehicle:"plan",slug:"fix-login",phase:"implement",task_created_count:0,task_completed_count:0,pending_review:false}' \
+    >".mumei/plans/${slug}/state.json"
+}
+
 # ─── happy paths (no warning) ────────────────────────────────
 
 @test "no output when no active feature" {
@@ -343,4 +351,42 @@ EOF
   [ "$(mumei_state_get 'REQ-1-foo' '.current_wave')" = "2" ]
   # last_observed_head must be set to the post-commit HEAD.
   [ "$(mumei_state_get 'REQ-1-foo' '.last_observed_head')" = "$(git rev-parse HEAD)" ]
+}
+
+# ─── X5: agent-run verify-log record (both vehicles) ─────────
+
+@test "X5: spec vehicle records agent-run test exit code" {
+  _init_feature_implement
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"npm test"},"tool_response":{"exit_code":0}}'
+  [ "$status" -eq 0 ]
+  rec="$(cat .mumei/specs/REQ-1-foo/verify-log.jsonl)"
+  [ "$(jq -r '.source' <<<"$rec")" = "agent-run" ]
+  [ "$(jq -r '.exit_code' <<<"$rec")" = "0" ]
+  [ "$(jq -r '.command' <<<"$rec")" = "npm test" ]
+}
+
+@test "X5: plan vehicle records agent-run despite spec-only X1/X3 guard" {
+  _init_feature_plan
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"pytest -q"},"tool_response":{"exit_code":1}}'
+  [ "$status" -eq 0 ]
+  rec="$(cat .mumei/plans/fix-login/verify-log.jsonl)"
+  [ "$(jq -r '.source' <<<"$rec")" = "agent-run" ]
+  [ "$(jq -r '.vehicle' <<<"$rec")" = "plan" ]
+  [ "$(jq -r '.exit_code' <<<"$rec")" = "1" ]
+}
+
+@test "X5: non-test command produces no verify-log record" {
+  _init_feature_implement
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"ls -la"},"tool_response":{"exit_code":0}}'
+  [ "$status" -eq 0 ]
+  [ ! -f .mumei/specs/REQ-1-foo/verify-log.jsonl ]
+}
+
+@test "X5: MUMEI_TEST_CMD match records agent-run" {
+  _init_feature_plan
+  MUMEI_TEST_CMD="bats -r tests/" _run_hook '{"tool_name":"Bash","tool_input":{"command":"bats -r tests/"},"tool_response":{"exit_code":0}}'
+  [ "$status" -eq 0 ]
+  rec="$(cat .mumei/plans/fix-login/verify-log.jsonl)"
+  [ "$(jq -r '.source' <<<"$rec")" = "agent-run" ]
+  [ "$(jq -r '.exit_code' <<<"$rec")" = "0" ]
 }

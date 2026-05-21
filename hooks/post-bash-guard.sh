@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse Bash hook.
 # Rules covered:
+#   X5: Record agent-run test exit code to verify-log (both vehicles, no block)
 #   X1: Bash modified files outside the current scope -> warn only (do not block)
 #   X3: After a successful `git commit`, advance current_wave if every
 #       task in the current Wave is now complete. Transition phase=review
@@ -46,6 +47,8 @@ source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/tasks.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/safe-grep.sh"
+# shellcheck disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/verify-log.sh"
 
 # Read the input JSON. tool_input.command lets X3 detect when *this* Bash
 # invocation actually executed `git commit` (reflog HEAD@{0} alone is
@@ -56,6 +59,22 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/nu
 
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
+
+# --- X5: record agent-run test exit code to verify-log (both vehicles) ---
+# Runs BEFORE the spec-only guard below: the AI may run tests under either
+# vehicle, so the audit trail must capture plan-vehicle runs too. No block.
+mumei_is_test_command() {
+  local cmd="$1"
+  if [[ -n "${MUMEI_TEST_CMD:-}" ]] && [[ "$cmd" == *"${MUMEI_TEST_CMD}"* ]]; then
+    return 0
+  fi
+  printf '%s' "$cmd" |
+    grep -qE '(^|[[:space:];|&])(npm[[:space:]]+test|pytest|cargo[[:space:]]+test|go[[:space:]]+test|bats)([[:space:]]|$)'
+}
+if [[ -n "$COMMAND" ]] && mumei_is_test_command "$COMMAND"; then
+  AGENT_EXIT="$(printf '%s' "$INPUT" | jq -r '.tool_response.exit_code // .tool_response.stdout_exit_code // 0' 2>/dev/null || echo 0)"
+  mumei_verify_log_append "$FEATURE" "agent-run" "$COMMAND" "$AGENT_EXIT" || true
+fi
 
 # X1/X3 are spec-only — Wave/current_wave concept is absent
 # in plan vehicle, and tasks.md _Files: meta is absent too. Unified
