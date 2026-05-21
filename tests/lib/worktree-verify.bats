@@ -156,6 +156,21 @@ _git_repo_with_commit() {
   [ "$MUMEI_WT_RAN" -eq 1 ]
 }
 
+@test "stale sweep does not remove a user worktree lacking the owner marker (no data loss)" {
+  _git_repo_with_commit
+  # A user's own worktree whose path happens to contain 'mumei-wt.' but is NOT
+  # one of ours (no .mumei-wt-owner marker). It must survive the sweep.
+  local victim="$MUMEI_TEST_TMPDIR/mumei-wt.userland/wt"
+  git worktree add --detach "$victim" HEAD >/dev/null 2>&1
+  # Age it past the 10-min window so only the owner-marker guard protects it.
+  touch -t 202001010000 "$victim" 2>/dev/null || true
+  # Trigger a sweep via a normal run.
+  mumei_worktree_run_test "true" >/dev/null 2>&1
+  # The unowned worktree must still be registered.
+  run git worktree list
+  [[ "$output" == *"mumei-wt.userland"* ]]
+}
+
 @test "run_test leaves no worktree registered after completion" {
   _git_repo_with_commit
   mumei_worktree_run_test "true"

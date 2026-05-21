@@ -48,23 +48,32 @@ mumei_worktree_run_test() {
   git rev-parse --verify HEAD >/dev/null 2>&1 || return 0
 
   # Best-effort sweep of stale mumei worktrees leaked by an earlier run that
-  # was killed (e.g. hook timeout) between `worktree add` and cleanup. Targets
-  # ONLY mumei's own temp worktrees (path contains mumei-wt.) so no unrelated
-  # worktree is touched; bounds .git/worktrees/ growth without a global prune.
-  # Skip any whose backing dir was modified within the last 10 minutes (well
-  # beyond the 30s hook timeout) so a CONCURRENT session's live worktree is
-  # never removed mid-run; a stale entry whose dir is gone is still cleaned.
-  # The age check needs `find -mmin`; if this platform's find lacks it, skip
-  # the sweep entirely (fail-safe: never risk deleting a live peer worktree).
-  local _wt_stale
+  # was killed (e.g. hook timeout) between `worktree add` and cleanup. Removal
+  # is gated on an OWNER MARKER (.mumei-wt-owner, written only by this helper),
+  # so a user's worktree whose path merely contains `mumei-wt.` is never
+  # force-removed (no data loss). For owned worktrees, skip when the owner
+  # process is still alive (an in-flight concurrent run, even a long read-only
+  # test) and otherwise when modified within the last 10 minutes. The age check
+  # needs `find -mmin`; if this platform's find lacks it, skip the sweep
+  # entirely (fail-safe). Porcelain paths are read with the `worktree ` prefix
+  # stripped so paths containing spaces are preserved.
+  local _wt_p _wt_base _wt_owner
   if find . -maxdepth 0 -mmin +0 >/dev/null 2>&1; then
-    while IFS= read -r _wt_stale; do
-      [[ "$_wt_stale" == *"/mumei-wt."* ]] || continue
-      if [[ -d "$_wt_stale" ]] && [[ -n "$(find "$_wt_stale" -maxdepth 0 -mmin -10 2>/dev/null)" ]]; then
+    while IFS= read -r _wt_p; do
+      _wt_p="${_wt_p#worktree }"
+      [[ "$_wt_p" == *"/mumei-wt."* ]] || continue
+      _wt_base="$(dirname "$_wt_p")"
+      [[ -f "$_wt_base/.mumei-wt-owner" ]] || continue
+      _wt_owner="$(cat "$_wt_base/.mumei-wt-owner" 2>/dev/null)"
+      if [[ -n "$_wt_owner" ]] && kill -0 "$_wt_owner" 2>/dev/null; then
         continue
       fi
-      git worktree remove --force "$_wt_stale" >/dev/null 2>&1 || true
-    done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+      if [[ -d "$_wt_p" ]] && [[ -n "$(find "$_wt_p" -maxdepth 0 -mmin -10 2>/dev/null)" ]]; then
+        continue
+      fi
+      git worktree remove --force "$_wt_p" >/dev/null 2>&1 || true
+      rm -rf "$_wt_base" 2>/dev/null || true
+    done < <(git worktree list --porcelain 2>/dev/null | grep '^worktree ')
   fi
 
   # git worktree add requires a non-existent target path, so create a temp
@@ -72,6 +81,11 @@ mumei_worktree_run_test() {
   local wtbase wt
   wtbase="$(mktemp -d -t mumei-wt.XXXXXX)" || return 0
   wt="$wtbase/wt"
+
+  # Owner marker: records this hook process's PID so a later sweep can tell our
+  # leaked temp worktrees from an unrelated user worktree (never force-remove
+  # the latter) and from an in-flight peer (owner still alive).
+  printf '%s' "$$" >"$wtbase/.mumei-wt-owner" 2>/dev/null || true
 
   if ! git worktree add --detach "$wt" HEAD >/dev/null 2>&1; then
     rm -rf "$wtbase"
