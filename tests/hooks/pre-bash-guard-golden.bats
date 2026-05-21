@@ -220,6 +220,34 @@ _write_config() {
   [ -z "$output" ]
 }
 
+@test "G2: a wrapped mutator (sudo rm) is denied" {
+  _write_config '{"golden_paths": ["tests/golden/*"]}'
+  _run_hook "$(_bash_input "sudo rm tests/golden/snap.json")"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
+}
+
+@test "G2: an absolute-path mutator (/bin/rm) is denied" {
+  _write_config '{"golden_paths": ["tests/golden/*"]}'
+  _run_hook "$(_bash_input "/bin/rm tests/golden/snap.json")"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
+}
+
+@test "G2: env VAR=1 wrapper before a mutator is denied" {
+  _write_config '{"golden_paths": ["conftest.py"]}'
+  _run_hook "$(_bash_input "env FOO=1 rm conftest.py")"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
+}
+
+@test "G2: sed -i -f reading a golden script does not false-deny a non-golden target" {
+  _write_config '{"golden_paths": ["tests/golden/*"]}'
+  _run_hook "$(_bash_input "sed -i -f tests/golden/rules.sed src/app.py")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "G2: MUMEI_BYPASS=1 allows mutating a golden path" {
   _write_config '{"golden_paths": ["tests/golden/*"]}'
   local input_file

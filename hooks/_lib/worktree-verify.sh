@@ -54,14 +54,18 @@ mumei_worktree_run_test() {
   # Skip any whose backing dir was modified within the last 10 minutes (well
   # beyond the 30s hook timeout) so a CONCURRENT session's live worktree is
   # never removed mid-run; a stale entry whose dir is gone is still cleaned.
+  # The age check needs `find -mmin`; if this platform's find lacks it, skip
+  # the sweep entirely (fail-safe: never risk deleting a live peer worktree).
   local _wt_stale
-  while IFS= read -r _wt_stale; do
-    [[ "$_wt_stale" == *"/mumei-wt."* ]] || continue
-    if [[ -d "$_wt_stale" ]] && [[ -n "$(find "$_wt_stale" -maxdepth 0 -mmin -10 2>/dev/null)" ]]; then
-      continue
-    fi
-    git worktree remove --force "$_wt_stale" >/dev/null 2>&1 || true
-  done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+  if find . -maxdepth 0 -mmin +0 >/dev/null 2>&1; then
+    while IFS= read -r _wt_stale; do
+      [[ "$_wt_stale" == *"/mumei-wt."* ]] || continue
+      if [[ -d "$_wt_stale" ]] && [[ -n "$(find "$_wt_stale" -maxdepth 0 -mmin -10 2>/dev/null)" ]]; then
+        continue
+      fi
+      git worktree remove --force "$_wt_stale" >/dev/null 2>&1 || true
+    done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+  fi
 
   # git worktree add requires a non-existent target path, so create a temp
   # PARENT dir and point the worktree at a not-yet-created subdir within it.

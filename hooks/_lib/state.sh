@@ -365,11 +365,20 @@ mumei_state_canonicalize_path() {
   if command -v python3 >/dev/null 2>&1; then
     python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$p" 2>/dev/null && return 0
   fi
-  # Fallback: parent-only canonicalise (best-effort; leaf symlink check
-  # depends on realpath/python3 availability — if neither is on PATH we log a
-  # warn but still produce a useful result so the hook can match at least the
-  # literal path).
-  mumei_log_warn "path canonicalization leaf-symlink check skipped: realpath / python3 missing on PATH"
+  # Fallback (realpath AND python3 both absent). Resolve a leaf symlink chain
+  # via plain `readlink` (POSIX, on BSD + GNU) so a symlink-to-golden still
+  # cannot bypass G1/G2 in this degraded environment, then parent-only
+  # canonicalise the result.
+  mumei_log_warn "path canonicalization using readlink fallback: realpath / python3 missing on PATH"
+  local _depth=0 _t
+  while [[ -L "$p" && "$_depth" -lt 10 ]]; do
+    _t="$(readlink "$p" 2>/dev/null)" || break
+    case "$_t" in
+    /*) p="$_t" ;;
+    *) p="$(dirname "$p")/$_t" ;;
+    esac
+    _depth=$((_depth + 1))
+  done
   case "$p" in
   /*)
     local p_dir p_base

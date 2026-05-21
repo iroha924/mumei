@@ -106,6 +106,24 @@ mumei_command_target_tokens() {
     local words=()
     read -ra words <<<"$seg"
     [[ "${#words[@]}" -gt 0 ]] || continue
+    # Strip leading command wrappers so `sudo rm golden`, `command rm …`,
+    # `env VAR=1 rm …`, `/bin/rm …` are still recognized as mutators.
+    local _ci=0
+    while [[ "$_ci" -lt "${#words[@]}" ]]; do
+      case "${words[$_ci]}" in
+      sudo | doas | command | exec | builtin | nohup | setsid) _ci=$((_ci + 1)) ;;
+      env)
+        _ci=$((_ci + 1))
+        while [[ "$_ci" -lt "${#words[@]}" ]]; do
+          case "${words[$_ci]}" in -* | [A-Za-z_]*=*) _ci=$((_ci + 1)) ;; *) break ;; esac
+        done
+        ;;
+      *) break ;;
+      esac
+    done
+    words=("${words[@]:$_ci}")
+    [[ "${#words[@]}" -gt 0 ]] || continue
+    words[0]="${words[0]##*/}" # /bin/rm -> rm
     local i a
     case "${words[0]}" in
     rm | truncate | tee)
@@ -168,9 +186,22 @@ mumei_command_target_tokens() {
         case "${words[i]}" in -i | -i* | --in-place | --in-place=*) inplace=1 ;; esac
       done
       if [[ "$inplace" == "1" ]]; then
+        local _skip=0
         for ((i = 1; i < ${#words[@]}; i++)); do
           a="${words[i]}"
-          case "$a" in -*) continue ;; esac
+          if [[ "$_skip" == 1 ]]; then
+            _skip=0
+            continue
+          fi
+          # -e SCRIPT / -f SCRIPTFILE consume the next token as a (read-only)
+          # script, not a write target.
+          case "$a" in
+          -e | -f)
+            _skip=1
+            continue
+            ;;
+          -*) continue ;;
+          esac
           printf '%s\n' "$a"
         done
       fi
