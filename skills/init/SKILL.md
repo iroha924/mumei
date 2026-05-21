@@ -50,8 +50,10 @@ Generate `.mumei/.gitignore` so team-shared spec content (requirements / design 
 ```bash
 if [[ ! -f .mumei/.gitignore ]]; then
   cat > .mumei/.gitignore <<'EOF'
-# mumei: per-developer state only. Everything else (specs/*/{requirements,design,tasks}.md,
-# spec-reviews/, reviews/, scratch/, archive/) is tracked for team handoff.
+# mumei: per-developer state only. Everything else (config.json,
+# specs/*/{requirements,design,tasks}.md, spec-reviews/, reviews/, scratch/,
+# archive/) is tracked for team handoff — config.json carries golden_paths, so
+# it MUST be committed for G1/G2 to behave the same across teammates / CI.
 current
 specs/*/state.json
 EOF

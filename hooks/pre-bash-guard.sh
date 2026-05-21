@@ -106,18 +106,42 @@ mumei_command_target_tokens() {
     local words=()
     read -ra words <<<"$seg"
     [[ "${#words[@]}" -gt 0 ]] || continue
-    # Strip leading command wrappers so `sudo rm golden`, `command rm …`,
-    # `env VAR=1 rm …`, `/bin/rm …` are still recognized as mutators.
+    # Strip leading command wrappers so `sudo rm golden`, `sudo -u root rm …`,
+    # `env -u FOO rm …`, `env VAR=1 rm …`, `command rm …`, `/bin/rm …` are
+    # still recognized as mutators. Option-taking wrapper flags consume their
+    # operand (so the operand is not mistaken for the command name).
     local _ci=0
     while [[ "$_ci" -lt "${#words[@]}" ]]; do
       case "${words[$_ci]}" in
-      sudo | doas | command | exec | builtin | nohup | setsid) _ci=$((_ci + 1)) ;;
+      sudo | doas)
+        _ci=$((_ci + 1))
+        while [[ "$_ci" -lt "${#words[@]}" ]]; do
+          case "${words[$_ci]}" in
+          -u | -g | -C | -p | -r | -t | -T | -h | -U | -R | -D) _ci=$((_ci + 2)) ;;
+          --)
+            _ci=$((_ci + 1))
+            break
+            ;;
+          -*) _ci=$((_ci + 1)) ;;
+          *) break ;;
+          esac
+        done
+        ;;
       env)
         _ci=$((_ci + 1))
         while [[ "$_ci" -lt "${#words[@]}" ]]; do
-          case "${words[$_ci]}" in -* | [A-Za-z_]*=*) _ci=$((_ci + 1)) ;; *) break ;; esac
+          case "${words[$_ci]}" in
+          -u | -S | -C) _ci=$((_ci + 2)) ;;
+          --)
+            _ci=$((_ci + 1))
+            break
+            ;;
+          -* | [A-Za-z_]*=*) _ci=$((_ci + 1)) ;;
+          *) break ;;
+          esac
         done
         ;;
+      command | exec | builtin | nohup | setsid) _ci=$((_ci + 1)) ;;
       *) break ;;
       esac
     done
