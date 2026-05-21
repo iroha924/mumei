@@ -57,14 +57,26 @@ mumei_worktree_run_test() {
   # needs `find -mmin`; if this platform's find lacks it, skip the sweep
   # entirely (fail-safe). Porcelain paths are read with the `worktree ` prefix
   # stripped so paths containing spaces are preserved.
-  local _wt_p _wt_base _wt_owner
-  if find . -maxdepth 0 -mmin +0 >/dev/null 2>&1; then
+  # Ownership is validated by a STRONG signature, not just a path substring:
+  #   1. exact layout — the worktree path is `<base>/wt` and base is `mumei-wt.*`
+  #   2. marker present at `<base>/.mumei-wt-owner`
+  #   3. marker line 2 names THIS repo's git-dir (so a stray marker from another
+  #      repo / a user file never authorizes removal)
+  #   4. owner PID (line 1) is dead, and the dir is older than the 10-min window
+  # Only then do we `remove --force` + `rm -rf`. This makes accidental or
+  # malicious data loss on an unrelated worktree implausible.
+  local _wt_p _wt_base _wt_owner _wt_repo _wt_self
+  _wt_self="$(git rev-parse --absolute-git-dir 2>/dev/null)"
+  if [[ -n "$_wt_self" ]] && find . -maxdepth 0 -mmin +0 >/dev/null 2>&1; then
     while IFS= read -r _wt_p; do
       _wt_p="${_wt_p#worktree }"
-      [[ "$_wt_p" == *"/mumei-wt."* ]] || continue
+      [[ "$_wt_p" == *"/mumei-wt."*"/wt" ]] || continue
       _wt_base="$(dirname "$_wt_p")"
+      [[ "$(basename "$_wt_base")" == mumei-wt.* ]] || continue
       [[ -f "$_wt_base/.mumei-wt-owner" ]] || continue
-      _wt_owner="$(cat "$_wt_base/.mumei-wt-owner" 2>/dev/null)"
+      _wt_owner="$(sed -n 1p "$_wt_base/.mumei-wt-owner" 2>/dev/null)"
+      _wt_repo="$(sed -n 2p "$_wt_base/.mumei-wt-owner" 2>/dev/null)"
+      [[ -n "$_wt_repo" && "$_wt_repo" == "$_wt_self" ]] || continue
       if [[ -n "$_wt_owner" ]] && kill -0 "$_wt_owner" 2>/dev/null; then
         continue
       fi
@@ -82,10 +94,14 @@ mumei_worktree_run_test() {
   wtbase="$(mktemp -d -t mumei-wt.XXXXXX)" || return 0
   wt="$wtbase/wt"
 
-  # Owner marker: records this hook process's PID so a later sweep can tell our
-  # leaked temp worktrees from an unrelated user worktree (never force-remove
-  # the latter) and from an in-flight peer (owner still alive).
-  printf '%s' "$$" >"$wtbase/.mumei-wt-owner" 2>/dev/null || true
+  # Owner marker: line 1 = this hook process's PID (liveness), line 2 = this
+  # repo's absolute git-dir (strong ownership signature). A later sweep removes
+  # a leaked temp worktree only when the marker names THIS repo, so an
+  # unrelated user worktree is never force-removed.
+  {
+    printf '%s\n' "$$"
+    git rev-parse --absolute-git-dir 2>/dev/null
+  } >"$wtbase/.mumei-wt-owner" 2>/dev/null || true
 
   if ! git worktree add --detach "$wt" HEAD >/dev/null 2>&1; then
     rm -rf "$wtbase"

@@ -171,6 +171,18 @@ _git_repo_with_commit() {
   [[ "$output" == *"mumei-wt.userland"* ]]
 }
 
+@test "stale sweep does not remove a worktree whose owner marker names a different repo" {
+  _git_repo_with_commit
+  local other="$MUMEI_TEST_TMPDIR/mumei-wt.other/wt"
+  git worktree add --detach "$other" HEAD >/dev/null 2>&1
+  # Marker present but line 2 points at a DIFFERENT repo + a dead PID.
+  printf '%s\n%s\n' 999999 /some/other/repo/.git >"$MUMEI_TEST_TMPDIR/mumei-wt.other/.mumei-wt-owner"
+  touch -t 202001010000 "$other" 2>/dev/null || true
+  mumei_worktree_run_test "true" >/dev/null 2>&1
+  run git worktree list
+  [[ "$output" == *"mumei-wt.other"* ]]
+}
+
 @test "run_test leaves no worktree registered after completion" {
   _git_repo_with_commit
   mumei_worktree_run_test "true"
