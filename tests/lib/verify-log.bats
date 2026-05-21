@@ -75,14 +75,14 @@ _plan_state() {
   [ "$(jq -r '.exit_code' <<<"$rec")" = "null" ]
 }
 
-@test "head is omitted when empty and present when provided" {
+@test "excerpt is omitted when empty and present when provided" {
   _spec_state
   mumei_verify_log_append "REQ-1-foo" "commit-gate" "npm test" "0"
   rec="$(cat .mumei/specs/REQ-1-foo/verify-log.jsonl)"
-  [ "$(jq 'has("head")' <<<"$rec")" = "false" ]
+  [ "$(jq 'has("excerpt")' <<<"$rec")" = "false" ]
   mumei_verify_log_append "REQ-1-foo" "commit-gate" "npm test" "1" "FAIL: boom"
   rec="$(tail -n1 .mumei/specs/REQ-1-foo/verify-log.jsonl)"
-  [ "$(jq -r '.head' <<<"$rec")" = "FAIL: boom" ]
+  [ "$(jq -r '.excerpt' <<<"$rec")" = "FAIL: boom" ]
 }
 
 @test "empty feature is a no-op (no crash, no dir)" {
@@ -129,19 +129,27 @@ _plan_state() {
   [ "$status" -ne 0 ]
 }
 
-@test "mumei_is_test_command: chains are NOT classified (I), env prefix is (G)" {
-  # Chains: the overall exit code may not reflect the test segment, so a chain
-  # is not recorded (would risk a fabricated green).
+@test "mumei_is_test_command: control operators are NOT classified (I/P/N), env prefix is (G)" {
+  # Chains / pipes / background: overall exit may not reflect the test segment.
   run mumei_is_test_command "npm test && git status"
   [ "$status" -ne 0 ]
   run mumei_is_test_command "pytest -q ; git add ."
   [ "$status" -ne 0 ]
   run mumei_is_test_command "pytest | tee out"
   [ "$status" -ne 0 ]
+  # P: single background operator
+  run mumei_is_test_command "npm test &"
+  [ "$status" -ne 0 ]
+  # N: quoted operator conservatively skipped (no parser; audit gap accepted)
+  run mumei_is_test_command "go test -run 'A|B' ./..."
+  [ "$status" -ne 0 ]
+  # M: quoted env value conservatively skipped (audit gap accepted)
+  run mumei_is_test_command "PYTEST_ADDOPTS='-q -k smoke' pytest"
+  [ "$status" -ne 0 ]
   # git commit with a runner name in the message is not a test run.
   run mumei_is_test_command "git commit -m 'wire up go test'"
   [ "$status" -ne 0 ]
-  # Leading env assignments are stripped; the wrapped runner still matches.
+  # G: leading (unquoted) env assignments are stripped; runner still matches.
   run mumei_is_test_command "CI=1 npm test"
   [ "$status" -eq 0 ]
   run mumei_is_test_command "PYTEST_ADDOPTS=-q pytest tests/"

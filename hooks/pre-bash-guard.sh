@@ -121,8 +121,8 @@ if mumei_is_git_commit "$COMMAND"; then
   # is operator-controlled (same trust boundary as MUMEI_BYPASS), so warn
   # rather than block — but make the risk visible.
   case "$TEST_CMD" in
-  *";"* | *"||"*)
-    mumei_log_warn "MUMEI_TEST_CMD contains ';' or '||'; a failing test exit may be masked, weakening the I3 commit gate"
+  *";"* | *"|"* | *"&"*)
+    mumei_log_warn "MUMEI_TEST_CMD contains ';', '|', or '&'; a failing test exit may be masked (sequence/pipeline/background), weakening the I3 commit gate"
     ;;
   esac
   if [[ -z "$TEST_CMD" ]]; then
@@ -143,7 +143,13 @@ if mumei_is_git_commit "$COMMAND"; then
 
   if [[ -n "$TEST_CMD" ]]; then
     mumei_log_info "running tests before commit: ${TEST_CMD}"
-    TEST_OUTPUT="$(eval "$TEST_CMD" 2>&1)"
+    # set -o pipefail in a subshell so a failing stage in a piped test command
+    # (e.g. `pytest | tee log`) propagates to the exit code instead of being
+    # masked by the last stage. The subshell scopes pipefail to this eval only.
+    TEST_OUTPUT="$(
+      set -o pipefail
+      eval "$TEST_CMD" 2>&1
+    )"
     TEST_EXIT=$?
     # On failure capture the last 30 lines for both the verify-log record and
     # the deny reason; empty on success (head is omitted from the record).

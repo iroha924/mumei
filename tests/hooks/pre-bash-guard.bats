@@ -200,7 +200,7 @@ _complete_wave1() {
   [ "$(jq -r '.command' <<<"$rec")" = "true" ]
 }
 
-@test "MUMEI_TEST_CMD fail records commit-gate non-zero exit + head, and denies (I3 + X4)" {
+@test "MUMEI_TEST_CMD fail records commit-gate non-zero exit + excerpt, and denies (I3 + X4)" {
   _init_feature_with_tasks
   _complete_wave1
   MUMEI_TEST_CMD="sh -c 'echo TESTFAIL; exit 3'" _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m foo"}}'
@@ -212,7 +212,7 @@ _complete_wave1() {
   rec="$(cat .mumei/specs/REQ-1-foo/verify-log.jsonl)"
   [ "$(jq -r '.source' <<<"$rec")" = "commit-gate" ]
   [ "$(jq -r '.exit_code' <<<"$rec")" = "3" ]
-  [[ "$(jq -r '.head' <<<"$rec")" == *"TESTFAIL"* ]]
+  [[ "$(jq -r '.excerpt' <<<"$rec")" == *"TESTFAIL"* ]]
 }
 
 @test "no test runner and no MUMEI_TEST_CMD → no spurious verify-log record" {
@@ -222,4 +222,15 @@ _complete_wave1() {
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
   [ ! -f .mumei/specs/REQ-1-foo/verify-log.jsonl ]
+}
+
+@test "MUMEI_TEST_CMD pipeline failure is caught via pipefail (J)" {
+  _init_feature_with_tasks
+  _complete_wave1
+  # `false | cat` exits 0 without pipefail; with pipefail the failing stage
+  # propagates, so I3 must deny the commit.
+  MUMEI_TEST_CMD="false | cat" _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m foo"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
 }
