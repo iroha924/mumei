@@ -82,3 +82,19 @@ mumei_verify_log_append() {
      + (if $head == "" then {} else {head: $head} end)' \
     >>"$path"
 }
+
+# Return 0 when cmd looks like a test invocation: a known runner
+# (npm test / pytest / cargo test / go test / bats), or a substring match
+# against MUMEI_TEST_CMD when that env var is set.
+mumei_is_test_command() {
+  local cmd="$1"
+  case "$cmd" in
+  *"npm test"* | *pytest* | *"cargo test"* | *"go test"* | *bats*) return 0 ;;
+  esac
+  if [[ -n "${MUMEI_TEST_CMD:-}" ]]; then
+    case "$cmd" in
+    *"$MUMEI_TEST_CMD"*) return 0 ;;
+    esac
+  fi
+  return 1
+}

@@ -63,14 +63,7 @@ FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 # --- X5: record agent-run test exit code to verify-log (both vehicles) ---
 # Runs BEFORE the spec-only guard below: the AI may run tests under either
 # vehicle, so the audit trail must capture plan-vehicle runs too. No block.
-mumei_is_test_command() {
-  local cmd="$1"
-  if [[ -n "${MUMEI_TEST_CMD:-}" ]] && [[ "$cmd" == *"${MUMEI_TEST_CMD}"* ]]; then
-    return 0
-  fi
-  printf '%s' "$cmd" |
-    grep -qE '(^|[[:space:];|&])(npm[[:space:]]+test|pytest|cargo[[:space:]]+test|go[[:space:]]+test|bats)([[:space:]]|$)'
-}
+# mumei_is_test_command is defined in verify-log.sh (sourced above).
 if [[ -n "$COMMAND" ]] && mumei_is_test_command "$COMMAND"; then
   AGENT_EXIT="$(printf '%s' "$INPUT" | jq -r '.tool_response.exit_code // .tool_response.stdout_exit_code // 0' 2>/dev/null || echo 0)"
   mumei_verify_log_append "$FEATURE" "agent-run" "$COMMAND" "$AGENT_EXIT" || true

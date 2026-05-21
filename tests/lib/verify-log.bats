@@ -83,3 +83,25 @@ teardown() {
     echo "$line" | jq -e 'type == "object"' >/dev/null
   done <".mumei/specs/REQ-1-foo/verify-log.jsonl"
 }
+
+@test "mumei_is_test_command: known runners return 0, others non-zero" {
+  run mumei_is_test_command "npm test"
+  [ "$status" -eq 0 ]
+  run mumei_is_test_command "pytest -q"
+  [ "$status" -eq 0 ]
+  run mumei_is_test_command "bats -r tests/"
+  [ "$status" -eq 0 ]
+  run mumei_is_test_command "go test ./..."
+  [ "$status" -eq 0 ]
+  run mumei_is_test_command "ls -la"
+  [ "$status" -ne 0 ]
+}
+
+@test "mumei_is_test_command: MUMEI_TEST_CMD substring match only when set" {
+  # "task check-all" matches none of the built-in runner patterns, so it is
+  # a test command ONLY when MUMEI_TEST_CMD names it.
+  MUMEI_TEST_CMD="task check-all" run mumei_is_test_command "task check-all"
+  [ "$status" -eq 0 ]
+  run mumei_is_test_command "task check-all"
+  [ "$status" -ne 0 ]
+}
