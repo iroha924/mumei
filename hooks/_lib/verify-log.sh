@@ -44,7 +44,10 @@ fi
 # than fabricate a record under a stale/deleted feature. No mkdir.
 mumei_verify_log_path() {
   local feature="$1" vehicle
-  vehicle="$(mumei_state_active_vehicle "$feature" 2>/dev/null)"
+  # Do NOT suppress stderr: mumei_state_active_vehicle emits the dual-state
+  # warning (and sets its one-shot sentinel) as a side effect. Swallowing it
+  # here would hide the only drift signal from later callers.
+  vehicle="$(mumei_state_active_vehicle "$feature")"
   case "$vehicle" in
   plan) printf '.mumei/plans/%s/verify-log.jsonl' "$feature" ;;
   spec) printf '.mumei/specs/%s/verify-log.jsonl' "$feature" ;;
@@ -125,12 +128,17 @@ mumei_is_test_command() {
   done
   rest="${rest#"${rest%%[![:space:]]*}"}"
   # Match a known runner at the command start (boundary, not free substring).
+  # npm's official `t` / `tst` aliases for `test` are included; broader runner
+  # coverage (yarn / pnpm / bun) is left to MUMEI_TEST_CMD by design.
   case "$rest" in
-  "npm test" | "npm test "* | pytest | "pytest "* | "cargo test" | "cargo test "* | "go test" | "go test "* | bats | "bats "*) return 0 ;;
+  "npm test" | "npm test "* | "npm t" | "npm t "* | "npm tst" | "npm tst "* | pytest | "pytest "* | "cargo test" | "cargo test "* | "go test" | "go test "* | bats | "bats "*) return 0 ;;
   esac
-  # Literal prefix match of MUMEI_TEST_CMD (no glob interpretation).
-  if [[ -n "${MUMEI_TEST_CMD:-}" ]] && [[ "${rest:0:${#MUMEI_TEST_CMD}}" == "$MUMEI_TEST_CMD" ]]; then
-    return 0
+  # Literal match of MUMEI_TEST_CMD with a word boundary (exact, or followed by
+  # whitespace) so `task check` does not match `task checkmate`. No glob.
+  if [[ -n "${MUMEI_TEST_CMD:-}" ]]; then
+    if [[ "$rest" == "$MUMEI_TEST_CMD" ]] || [[ "$rest" == "$MUMEI_TEST_CMD "* ]]; then
+      return 0
+    fi
   fi
   return 1
 }

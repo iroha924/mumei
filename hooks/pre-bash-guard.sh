@@ -125,6 +125,9 @@ if mumei_is_git_commit "$COMMAND"; then
     mumei_log_warn "MUMEI_TEST_CMD contains ';', '|', or '&'; a failing test exit may be masked (sequence/pipeline/background), weakening the I3 commit gate"
     ;;
   esac
+  if [[ "$TEST_CMD" == *$'\n'* ]]; then
+    mumei_log_warn "MUMEI_TEST_CMD contains a newline; eval treats it as a command separator that can mask a failing test exit"
+  fi
   if [[ -z "$TEST_CMD" ]]; then
     if [[ -f "package.json" ]]; then
       if jq -e '.scripts.test // empty' package.json >/dev/null 2>&1; then

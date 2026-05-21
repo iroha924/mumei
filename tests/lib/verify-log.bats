@@ -107,7 +107,7 @@ _plan_state() {
   done <".mumei/specs/REQ-1-foo/verify-log.jsonl"
 }
 
-@test "mumei_is_test_command: known runners at segment start return 0" {
+@test "mumei_is_test_command: known runners at command start return 0" {
   run mumei_is_test_command "npm test"
   [ "$status" -eq 0 ]
   run mumei_is_test_command "pytest -q"
@@ -115,6 +115,11 @@ _plan_state() {
   run mumei_is_test_command "bats -r tests/"
   [ "$status" -eq 0 ]
   run mumei_is_test_command "go test ./..."
+  [ "$status" -eq 0 ]
+  # T: npm official aliases for `test`
+  run mumei_is_test_command "npm t"
+  [ "$status" -eq 0 ]
+  run mumei_is_test_command "npm tst"
   [ "$status" -eq 0 ]
 }
 
@@ -156,10 +161,15 @@ _plan_state() {
   [ "$status" -eq 0 ]
 }
 
-@test "mumei_is_test_command: MUMEI_TEST_CMD matches as a literal prefix (C)" {
+@test "mumei_is_test_command: MUMEI_TEST_CMD matches literally with a word boundary (C/Q)" {
   MUMEI_TEST_CMD="task check" run mumei_is_test_command "task check ./..."
   [ "$status" -eq 0 ]
+  MUMEI_TEST_CMD="task check" run mumei_is_test_command "task check"
+  [ "$status" -eq 0 ]
   run mumei_is_test_command "task check ./..."
+  [ "$status" -ne 0 ]
+  # Q: word boundary — must not match when only a prefix of a longer token
+  MUMEI_TEST_CMD="task check" run mumei_is_test_command "task checkmate"
   [ "$status" -ne 0 ]
   # glob metacharacters are literal, not pattern
   MUMEI_TEST_CMD="a*b" run mumei_is_test_command "axxb run"
