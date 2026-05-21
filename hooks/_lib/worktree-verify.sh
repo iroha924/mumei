@@ -48,23 +48,44 @@ mumei_worktree_run_test() {
   git rev-parse --verify HEAD >/dev/null 2>&1 || return 0
 
   # Best-effort sweep of stale mumei worktrees leaked by an earlier run that
-  # was killed (e.g. hook timeout) between `worktree add` and cleanup. Targets
-  # ONLY mumei's own temp worktrees (path contains mumei-wt.) so no unrelated
-  # worktree is touched; bounds .git/worktrees/ growth without a global prune.
-  # Skip any whose backing dir was modified within the last 10 minutes (well
-  # beyond the 30s hook timeout) so a CONCURRENT session's live worktree is
-  # never removed mid-run; a stale entry whose dir is gone is still cleaned.
-  # The age check needs `find -mmin`; if this platform's find lacks it, skip
-  # the sweep entirely (fail-safe: never risk deleting a live peer worktree).
-  local _wt_stale
-  if find . -maxdepth 0 -mmin +0 >/dev/null 2>&1; then
-    while IFS= read -r _wt_stale; do
-      [[ "$_wt_stale" == *"/mumei-wt."* ]] || continue
-      if [[ -d "$_wt_stale" ]] && [[ -n "$(find "$_wt_stale" -maxdepth 0 -mmin -10 2>/dev/null)" ]]; then
+  # was killed (e.g. hook timeout) between `worktree add` and cleanup. Removal
+  # is gated on an OWNER MARKER (.mumei-wt-owner, written only by this helper),
+  # so a user's worktree whose path merely contains `mumei-wt.` is never
+  # force-removed (no data loss). For owned worktrees, skip when the owner
+  # process is still alive (an in-flight concurrent run, even a long read-only
+  # test) and otherwise when modified within the last 10 minutes. The age check
+  # needs `find -mmin`; if this platform's find lacks it, skip the sweep
+  # entirely (fail-safe). Porcelain paths are read with the `worktree ` prefix
+  # stripped so paths containing spaces are preserved.
+  # Ownership is validated by a STRONG signature, not just a path substring:
+  #   1. exact layout — the worktree path is `<base>/wt` and base is `mumei-wt.*`
+  #   2. marker present at `<base>/.mumei-wt-owner`
+  #   3. marker line 2 names THIS repo's git-dir (so a stray marker from another
+  #      repo / a user file never authorizes removal)
+  #   4. owner PID (line 1) is dead, and the dir is older than the 10-min window
+  # Only then do we `remove --force` + `rm -rf`. This makes accidental or
+  # malicious data loss on an unrelated worktree implausible.
+  local _wt_p _wt_base _wt_owner _wt_repo _wt_self
+  _wt_self="$(git rev-parse --absolute-git-dir 2>/dev/null)"
+  if [[ -n "$_wt_self" ]] && find . -maxdepth 0 -mmin +0 >/dev/null 2>&1; then
+    while IFS= read -r _wt_p; do
+      _wt_p="${_wt_p#worktree }"
+      [[ "$_wt_p" == *"/mumei-wt."*"/wt" ]] || continue
+      _wt_base="$(dirname "$_wt_p")"
+      [[ "$(basename "$_wt_base")" == mumei-wt.* ]] || continue
+      [[ -f "$_wt_base/.mumei-wt-owner" ]] || continue
+      _wt_owner="$(sed -n 1p "$_wt_base/.mumei-wt-owner" 2>/dev/null)"
+      _wt_repo="$(sed -n 2p "$_wt_base/.mumei-wt-owner" 2>/dev/null)"
+      [[ -n "$_wt_repo" && "$_wt_repo" == "$_wt_self" ]] || continue
+      if [[ -n "$_wt_owner" ]] && kill -0 "$_wt_owner" 2>/dev/null; then
         continue
       fi
-      git worktree remove --force "$_wt_stale" >/dev/null 2>&1 || true
-    done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+      if [[ -d "$_wt_p" ]] && [[ -n "$(find "$_wt_p" -maxdepth 0 -mmin -10 2>/dev/null)" ]]; then
+        continue
+      fi
+      git worktree remove --force "$_wt_p" >/dev/null 2>&1 || true
+      rm -rf "$_wt_base" 2>/dev/null || true
+    done < <(git worktree list --porcelain 2>/dev/null | grep '^worktree ')
   fi
 
   # git worktree add requires a non-existent target path, so create a temp
@@ -72,6 +93,15 @@ mumei_worktree_run_test() {
   local wtbase wt
   wtbase="$(mktemp -d -t mumei-wt.XXXXXX)" || return 0
   wt="$wtbase/wt"
+
+  # Owner marker: line 1 = this hook process's PID (liveness), line 2 = this
+  # repo's absolute git-dir (strong ownership signature). A later sweep removes
+  # a leaked temp worktree only when the marker names THIS repo, so an
+  # unrelated user worktree is never force-removed.
+  {
+    printf '%s\n' "$$"
+    git rev-parse --absolute-git-dir 2>/dev/null
+  } >"$wtbase/.mumei-wt-owner" 2>/dev/null || true
 
   if ! git worktree add --detach "$wt" HEAD >/dev/null 2>&1; then
     rm -rf "$wtbase"

@@ -114,7 +114,9 @@ mumei_command_target_tokens() {
     # operand (so the operand is not mistaken for the command name).
     local _ci=0
     while [[ "$_ci" -lt "${#words[@]}" ]]; do
-      case "${words[$_ci]}" in
+      # Basename the candidate so absolute-path wrappers (/usr/bin/env,
+      # /usr/bin/time) match their keyword too.
+      case "${words[$_ci]##*/}" in
       sudo | doas)
         # Short and long option forms that take a SEPARATE operand
         # (`-u root` / `--user root`). The `=` form (`--user=root`) is one
@@ -151,7 +153,37 @@ mumei_command_target_tokens() {
           esac
         done
         ;;
-      command | exec | builtin | nohup | setsid | time) _ci=$((_ci + 1)) ;;
+      exec)
+        # `exec -a NAME` takes an operand; other exec/-flags are bare.
+        _ci=$((_ci + 1))
+        while [[ "$_ci" -lt "${#words[@]}" ]]; do
+          case "${words[$_ci]}" in
+          -a) _ci=$((_ci + 2)) ;;
+          --)
+            _ci=$((_ci + 1))
+            break
+            ;;
+          -*) _ci=$((_ci + 1)) ;;
+          *) break ;;
+          esac
+        done
+        ;;
+      time | command)
+        # Consume the wrapper plus its leading bare flags (`time -p`,
+        # `command -p` / `-v` / `-V`).
+        _ci=$((_ci + 1))
+        while [[ "$_ci" -lt "${#words[@]}" ]]; do
+          case "${words[$_ci]}" in
+          --)
+            _ci=$((_ci + 1))
+            break
+            ;;
+          -*) _ci=$((_ci + 1)) ;;
+          *) break ;;
+          esac
+        done
+        ;;
+      builtin | nohup | setsid) _ci=$((_ci + 1)) ;;
       *) break ;;
       esac
     done
@@ -248,10 +280,11 @@ mumei_command_target_tokens() {
             _skip=0
             continue
           fi
-          # -e SCRIPT / -f SCRIPTFILE consume the next token as a (read-only)
-          # script, not a write target.
+          # -e SCRIPT / -f SCRIPTFILE (and GNU long forms --expression /
+          # --file) consume the next token as a (read-only) script, not a
+          # write target.
           case "$a" in
-          -e | -f)
+          -e | -f | --expression | --file)
             _skip=1
             continue
             ;;
