@@ -43,7 +43,9 @@ mumei/
 │   │   ├── review.sh       # shared Phase 5 / /mumei:review pipeline helpers
 │   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
 │   │   ├── cost-log.sh     # optional pre/post wrap helpers; SubagentStop hook is authoritative
-│   │   ├── verify-log.sh   # test-run audit trail (commit-gate / agent-run exit codes)
+│   │   ├── verify-log.sh   # test-run audit trail (commit-gate / worktree-clean / agent-run exit codes)
+│   │   ├── worktree-verify.sh # clean-HEAD double-measurement (reward-hacking defense)
+│   │   ├── config.sh       # .mumei/config.json reader + golden-path glob matcher
 │   │   ├── reviewer-prompt.sh # immutable prefix + variable suffix builder for cache-friendly prompts
 │   │   ├── byte-exact.sh   # CRLF / tab advisory for byte-exact-prone file types
 │   │   ├── hook-stats.sh   # hook decision recorder (.mumei/.hook-stats.jsonl)
@@ -52,8 +54,8 @@ mumei/
 │   │   ├── scratch-parser.sh # brainstorm scratch parser → vehicle recommend
 │   │   ├── dependencies.sh # cross-feature `**Depends-Feature**:` queries (Phase D)
 │   │   └── log.sh          # mumei_log_info / warn / error / debug
-│   ├── pre-edit-guard.sh   # P1 / P2 / P3 / I1 / I2 / W1 / M1 / S1
-│   ├── pre-bash-guard.sh   # I3 / R2 / W2
+│   ├── pre-edit-guard.sh   # P1 / P2 / P3 / I1 / I2 / W1 / M1 / S1 / G1
+│   ├── pre-bash-guard.sh   # I3 / R2 / W2 / G2 / G3
 │   ├── post-edit-guard.sh  # I4 (phantom completion)
 │   ├── post-bash-guard.sh  # X1 (advisory: out-of-scope Bash writes) + X3 (Wave auto-advance on git commit, internal)
 │   ├── stop-guard.sh       # R1 / R3 + detector defense line
@@ -119,7 +121,7 @@ spec-vehicle rules.
 | P3   | plan         | PreToolUse(Write)        | `tasks.md` without `design.md`                                                                                                                                                             | `hooks/pre-edit-guard.sh`     |
 | I1   | implement    | PreToolUse(Edit)         | Owning task's `_Depends:_` not complete                                                                                                                                                    | `hooks/pre-edit-guard.sh`     |
 | I2   | implement    | PreToolUse(Edit)         | File outside any task's `_Files:_` (scope creep)                                                                                                                                           | `hooks/pre-edit-guard.sh`     |
-| I3   | implement    | PreToolUse(Bash)         | `git commit` with failing tests                                                                                                                                                            | `hooks/pre-bash-guard.sh`     |
+| I3   | implement    | PreToolUse(Bash)         | `git commit` with failing tests, OR working-tree green but a clean-HEAD worktree fails (uncommitted-tampering divergence)                                                                  | `hooks/pre-bash-guard.sh`     |
 | I4   | implement    | PostToolUse(Edit)        | Marking `[x]` without an implementation diff                                                                                                                                               | `hooks/post-edit-guard.sh`    |
 | W1   | implement    | PreToolUse(Edit)         | Editing Wave N+1 file before Wave N committed                                                                                                                                              | `hooks/pre-edit-guard.sh`     |
 | W2   | implement    | PreToolUse(Bash)         | `git commit` while current Wave has `[ ]` tasks                                                                                                                                            | `hooks/pre-bash-guard.sh`     |
@@ -128,6 +130,9 @@ spec-vehicle rules.
 | R3   | done         | Stop                     | `phase=done` but feature still in `.mumei/current`                                                                                                                                         | `hooks/stop-guard.sh`         |
 | M1   | any          | PreToolUse(Edit)         | LLM-driven Edit/Write on `.claude/agent-memory/<reviewer>/MEMORY.md` (curator pipeline only)                                                                                               | `hooks/pre-edit-guard.sh`     |
 | S1   | any          | PreToolUse(Edit)         | LLM-driven Edit/Write on mumei harness state: `.mumei/current` / state.json / spec-reviews/_.json / reviews/_.json (orchestrator helpers only)                                             | `hooks/pre-edit-guard.sh`     |
+| G1   | any          | PreToolUse(Edit)         | Edit/Write on a golden path from `.mumei/config.json` `golden_paths` (project-wide, immutable spec/oracle files)                                                                           | `hooks/pre-edit-guard.sh`     |
+| G2   | any          | PreToolUse(Bash)         | Bash-route mutation (`sed -i` / redirect / `tee` / `mv` / `rm` / `cp` / `truncate`) of a golden path — best-effort grep; clean-HEAD worktree restore is authoritative                      | `hooks/pre-bash-guard.sh`     |
+| G3   | any          | PreToolUse(Bash)         | Test-tampering signature (`__eq__`→True / `sys.exit(0)` / `TestReport`) in a Bash command — advisory warn only, no deny                                                                    | `hooks/pre-bash-guard.sh`     |
 | X1   | any          | PostToolUse(Bash)        | Bash modified files outside scope (advisory)                                                                                                                                               | `hooks/post-bash-guard.sh`    |
 | X2   | any          | PostToolUse(Edit)        | tasks.md format violation (advisory)                                                                                                                                                       | `scripts/lint-tasks.sh`       |
 | X3   | implement    | PostToolUse(Bash)        | Wave auto-advance after a `git commit` that passes a triple gate (`tool_response.exit_code == 0` + HEAD moved + Conventional-Commits or `[wave-N]` subject — state mutation, not blocking) | `hooks/post-bash-guard.sh`    |
@@ -206,6 +211,7 @@ mumei stores zero state outside the project tree. Everything lives under
 ```text
 .mumei/
 ├── current                       # active feature slug (1 line, gitignored)
+├── config.json                   # project-wide config: golden_paths (tracked, hand-editable)
 ├── specs/<feature>/
 │   ├── requirements.md           # User Story + EARS ACs (each with inline Examples block)
 │   ├── design.md                 # Architecture + Wave Plan

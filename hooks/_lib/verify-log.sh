@@ -7,15 +7,21 @@
 # so dual-state (both dirs present) lands in the spec dir, matching the
 # repo-wide active-vehicle precedence.
 #
-# Two observation sources record the same invariant (tests green) from
+# Observation sources record the same invariant (tests green) from
 # different angles, distinguished by the `source` field:
-#   - commit-gate : the I3 gate ran the canonical test at the git-commit
-#                   boundary (hooks/pre-bash-guard.sh). Authoritative.
-#   - agent-run   : the AI itself ran a test-like command via Bash
-#                   (hooks/post-bash-guard.sh). A best-effort "claimed green";
-#                   the commit-gate source is the authoritative check.
-# A divergence (agent-run exit 0 followed by commit-gate exit != 0) is
-# already blocked by the I3 deny and is self-evident in this log; no
+#   - commit-gate   : the I3 gate ran the canonical test in the working tree
+#                     at the git-commit boundary (hooks/pre-bash-guard.sh).
+#                     Authoritative.
+#   - worktree-clean: the I3 gate re-ran the same test against a detached
+#                     worktree checked out at HEAD (hooks/_lib/worktree-verify.sh),
+#                     so uncommitted tampering cannot mask a failure. A
+#                     divergence (commit-gate exit 0, worktree-clean exit != 0)
+#                     is denied under I3 as suspected uncommitted manipulation.
+#   - agent-run     : the AI itself ran a test-like command via Bash
+#                     (hooks/post-bash-guard.sh). A best-effort "claimed green";
+#                     the commit-gate / worktree-clean sources are authoritative.
+# Divergences are blocked by the I3 deny and are self-evident in this log
+# (the commit-gate / worktree-clean pair sits on adjacent lines); no
 # cross-record comparator is computed here.
 #
 # Like cost-log.jsonl, verify-log.jsonl travels with the feature into
@@ -58,7 +64,7 @@ mumei_verify_log_path() {
 # Append one observed test run to the verify-log. Silent on success.
 # No-op when feature is empty or no active vehicle state exists.
 # Args: feature source command exit_code [excerpt]
-#   source    : "commit-gate" | "agent-run"
+#   source    : "commit-gate" | "worktree-clean" | "agent-run"
 #   exit_code : observed integer exit code (non-numeric / empty -> JSON null)
 #   excerpt   : optional tail of test output (omitted from record when empty)
 mumei_verify_log_append() {

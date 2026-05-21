@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mumei.dev/schemas/config.schema.json",
+  "title": "mumei project configuration",
+  "description": "Contents of .mumei/config.json: project-wide mumei settings, vehicle/feature independent. Read by hooks/_lib/config.sh. Validation only — not consumed by the dashboard.",
+  "additionalProperties": false,
+  "type": "object",
+  "properties": {
+    "golden_paths": {
+      "description": "Path globs treated as immutable specification / oracle files. Backs G1 (Edit/Write deny), G2 (Bash-tamper deny), and the worktree HEAD-restore step. Single-level bash case globs only (* ? [...]); ** is not expanded — register multiple patterns for multi-level coverage.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

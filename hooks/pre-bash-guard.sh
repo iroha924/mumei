@@ -7,6 +7,9 @@
 #       (checks both .mumei/specs/<key>/reviews/ and .mumei/plans/<key>/reviews/)
 #   W2: git commit while the current Wave still has unchecked [ ] tasks -> deny
 #       (spec vehicle only — plan vehicle has no Wave concept)
+#   G2: Bash-route mutation of a golden path (sed -i / > / tee / mv / rm) -> deny
+#       (project-wide, best-effort grep; worktree HEAD-restore is the real wall)
+#   G3: test-tampering signature in a Bash command -> warn only (advisory)
 #
 # Design principles:
 #   - escape: MUMEI_BYPASS=1 -> exit 0 immediately
@@ -44,10 +47,56 @@ source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/tasks.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/verify-log.sh"
+# shellcheck disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/worktree-verify.sh"
+# shellcheck disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/config.sh"
 
 INPUT="$(cat)"
 COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
 [[ -n "$COMMAND" ]] || exit 0
+
+# --- G2: deny Bash-route tampering of a golden path (project-wide, best-effort) ---
+# golden_paths in .mumei/config.json are immutable. G1 blocks Edit/Write; G2
+# catches the obvious Bash route (sed -i / redirect / tee / mv / rm / cp /
+# truncate referencing a golden path). This is a cheap supplementary grep with
+# a known ceiling — obfuscated commands evade it. The real wall is the worktree
+# clean-HEAD measurement (hooks/_lib/worktree-verify.sh restores golden to HEAD)
+# and G1. Fires before the active-feature check because golden protection is
+# project-wide and vehicle/feature independent.
+mumei_command_mutates_path() {
+  printf '%s' "$1" | grep -qE '(sed[[:space:]]+-i|>>?|[[:space:]]tee([[:space:]]|$)|(^|[[:space:];|&])(mv|rm|cp|truncate)[[:space:]])'
+}
+if mumei_command_mutates_path "$COMMAND"; then
+  while IFS= read -r _g_pat; do
+    [[ -n "$_g_pat" ]] || continue
+    # Anchor = the literal leading component before the first glob metachar,
+    # so `tests/golden/*` matches commands referencing `tests/golden/...`.
+    _g_anchor="${_g_pat%%[\*\?\[]*}"
+    [[ -n "$_g_anchor" ]] || continue
+    case "$COMMAND" in
+    *"$_g_anchor"*)
+      if [[ -f "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh" ]]; then
+        # shellcheck disable=SC1091
+        source "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh"
+        mumei_hook_stats_record "G2" "deny" "Bash" "Bash-route mutation of golden path denied"
+      fi
+      jq -n --arg r "This command mutates a golden path (matched .mumei/config.json golden_paths anchor '${_g_anchor}'). Golden files are immutable specification / oracle files." \
+        --arg c "To restore the committed version: git checkout HEAD -- <path>. To intentionally change the spec, edit .mumei/config.json's golden_paths first, or set MUMEI_BYPASS=1 for a one-off override. Note: this grep is best-effort; the authoritative protection is the clean-HEAD worktree measurement at commit time." \
+        '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
+      exit 0
+      ;;
+    esac
+  done < <(mumei_config_golden_paths)
+fi
+
+# --- G3: warn on test-tampering signatures in a Bash command (advisory) ---
+# Not a block: denylist grep is easy to evade and would false-positive on
+# legitimate code. The worktree clean-HEAD measurement is the real check; G3
+# just surfaces the obvious reward-hacking signatures for visibility.
+if printf '%s' "$COMMAND" | grep -qE '__eq__.*return True|sys\.exit\(0\)|TestReport'; then
+  mumei_log_warn "G3: command contains a test-tampering signature (__eq__→True / sys.exit(0) / TestReport). Advisory only; the clean-HEAD worktree measurement at commit time is the authoritative check."
+fi
 
 KEY="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$KEY" ]] || exit 0
@@ -170,6 +219,26 @@ if mumei_is_git_commit "$COMMAND"; then
         "Tests failing. Fix before committing." \
         "Test command: ${TEST_CMD}\n\n${TEST_TAIL}" \
         "I3"
+    fi
+
+    # --- I3 (worktree double-measurement + divergence flag) ---
+    # The working-tree run passed. Re-run the SAME test against a detached
+    # worktree checked out at HEAD, so uncommitted tampering (rigged
+    # conftest.py / monkeypatched TestReport / edited bytecode) cannot mask a
+    # real failure. A divergence — working-tree green but clean-HEAD red — is
+    # strong evidence of uncommitted manipulation and is denied under I3.
+    # Records the clean-HEAD result to verify-log as source="worktree-clean",
+    # forming a two-angle audit pair with the commit-gate record above.
+    mumei_worktree_run_test "$TEST_CMD"
+    WT_EXIT=$?
+    if [[ "${MUMEI_WT_RAN:-0}" == "1" ]]; then
+      mumei_verify_log_append "$FEATURE" "worktree-clean" "$TEST_CMD" "$WT_EXIT" "${MUMEI_WT_TAIL:-}" || true
+      if [[ "$WT_EXIT" -ne 0 ]]; then
+        mumei_deny \
+          "Working-tree tests pass but a clean HEAD worktree fails — uncommitted tampering suspected." \
+          "Test command: ${TEST_CMD}\n\nThe test was re-run against a detached worktree at HEAD (no uncommitted changes). It failed there but passed in your working tree, which usually means uncommitted edits (e.g. a rigged conftest.py or monkeypatched TestReport) are masking a real failure. Commit the genuine fix, or set MUMEI_BYPASS=1 if this is a false positive.\n\n${MUMEI_WT_TAIL:-}" \
+          "I3"
+      fi
     fi
   fi
 fi

@@ -184,6 +184,29 @@ timeout を調整できます。
 実行するよう設定してください。例: `MUMEI_TEST_CMD="bats -r tests/"`。
 各 test 実行の exit code は監査用に `verify-log.jsonl` に記録されます。
 
+commit 時には同じ test を `HEAD` checkout した detached worktree でも再実行します。
+未 commit の改ざん (rig した `conftest.py`、monkeypatch した `TestReport`、いじった
+bytecode) では pass を偽装できません。working-tree pass・clean-HEAD fail の食い違いは
+改ざん疑いとして deny されます (I3)。両結果は `verify-log.jsonl` に `commit-gate` /
+`worktree-clean` として記録されます。
+
+## golden paths
+
+`/mumei:init` は `.mumei/config.json` を作成し `golden_paths` 配列を持たせます。
+不可侵にしたいファイル (snapshot fixture、`conftest.py`、locked な test data) の
+path glob を指定します。golden ファイルは「正典の test」を pin し、生成コードが
+それを勝手に書き換えないようにします: Edit/Write を block (G1)、明白な Bash 改ざん
+経路 (`sed -i` / redirect / `tee` / `mv` / `rm`) を block (G2)、clean-HEAD worktree
+実行で `git checkout HEAD --` により強制復元します。
+
+```json
+{ "golden_paths": ["tests/golden/*", "conftest.py", "src/crypto/*.py"] }
+```
+
+単層 glob のみ (`*` `?` `[...]`)。多層は複数 entry で対応します。`.mumei/config.json`
+は tracked (チーム共有)・手編集可能で、`golden_paths` を直接編集して golden を
+追加・撤回できます。一回限りの override は `MUMEI_BYPASS=1` を使います。
+
 ## プロジェクト構成 (`/mumei:init` 後)
 
 ```text
@@ -193,6 +216,7 @@ your-project/
 └── .mumei/
     ├── .gitignore    # 開発者個別 state (`current`, `specs/*/state.json`) を ignore
     ├── current       # active feature slug (初回 /mumei:plan まで空)
+    ├── config.json   # プロジェクト全体設定: golden_paths (tracked, 手編集可)
     ├── specs/        # /mumei:plan が作成: requirements.md, design.md, tasks.md, state.json, spec-reviews/, reviews/
     ├── archive/      # /mumei:archive が移動: <YYYY-MM>/<feature>/
     └── scratch/      # /mumei:brainstorm の出力。チーム共有のため git 管理

@@ -27,7 +27,7 @@
 set -u
 
 ROOT="${1:-.}"
-ID_RE='[PIWRMSX][0-9]+'
+ID_RE='[PIWRMSXG][0-9]+'
 
 violations=0
 _mumei_emit() {
@@ -45,7 +45,7 @@ if [[ -f "$arch_file" ]]; then
       /^## Hook rules/ { flag = 1; next }
       flag && /^## / { flag = 0 }
       flag {
-        if (match($0, /^\|[[:space:]]+[PIWRMSX][0-9]+[[:space:]]+\|/)) {
+        if (match($0, /^\|[[:space:]]+[PIWRMSXG][0-9]+[[:space:]]+\|/)) {
           chunk = substr($0, RSTART, RLENGTH)
           gsub(/[|[:space:]]/, "", chunk)
           print chunk
@@ -80,7 +80,7 @@ if ((${#formal_glob[@]} > 0)); then
           rest = $0
           sub(/^[^:]+:[0-9]+:/, "", rest)
           sub(/^[[:space:]]*/, "", rest)
-          if (match(rest, /^# --- [PIWRMSX][0-9]+:/)) {
+          if (match(rest, /^# --- [PIWRMSXG][0-9]+:/)) {
             chunk = substr(rest, RSTART, RLENGTH)
             sub(/^# --- /, "", chunk)
             sub(/:.*/, "", chunk)
@@ -104,8 +104,8 @@ done <<<"$formal_dups"
 # ---------------------------------------------------------------------------
 test_ids_sorted=""
 if compgen -G "${ROOT}/tests/hooks/*.bats" >/dev/null; then
-  test_ids_sorted="$(grep -hE '^@test "[PIWRMSX][0-9]+:' "$ROOT"/tests/hooks/*.bats 2>/dev/null |
-    grep -oE '[PIWRMSX][0-9]+' | sort -u)"
+  test_ids_sorted="$(grep -hE '^@test "[PIWRMSXG][0-9]+:' "$ROOT"/tests/hooks/*.bats 2>/dev/null |
+    grep -oE '[PIWRMSXG][0-9]+' | sort -u)"
 fi
 
 # Check 3: C orphan — only when the canonical set is non-empty.
@@ -132,7 +132,7 @@ doc_files=()
 if ((${#doc_files[@]} > 0)); then
   # Strip ~~ ... ~~ inline strikethrough before extracting IDs.
   doc_text="$(cat "${doc_files[@]}" | sed 's/~~[^~]*~~//g')"
-  doc_ids_sorted="$(printf '%s\n' "$doc_text" | grep -oE '[PIWRMSX][0-9]+' | sort -u)"
+  doc_ids_sorted="$(printf '%s\n' "$doc_text" | grep -oE '[PIWRMSXG][0-9]+' | sort -u)"
 fi
 
 # Check 4: D orphan (only when the canonical set is non-empty — otherwise

@@ -1,0 +1,81 @@
+#!/usr/bin/env bats
+# Tests for hooks/_lib/config.sh — project-wide config reader + golden glob.
+
+bats_require_minimum_version 1.5.0
+
+load '../test_helper'
+
+setup() {
+  MUMEI_TEST_TMPDIR="$(mktemp -d -t mumei-test.XXXXXX)"
+  export MUMEI_TEST_TMPDIR
+  cd "$MUMEI_TEST_TMPDIR" || return 1
+  # shellcheck disable=SC1091
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/config.sh"
+}
+
+teardown() {
+  rm -rf "$MUMEI_TEST_TMPDIR"
+}
+
+_write_config() {
+  mkdir -p .mumei
+  printf '%s' "$1" >.mumei/config.json
+}
+
+@test "mumei_config_golden_paths emits nothing when config.json is absent" {
+  run mumei_config_golden_paths
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "mumei_config_golden_paths emits nothing on malformed JSON" {
+  _write_config '{ this is not json'
+  run mumei_config_golden_paths
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "mumei_config_golden_paths emits nothing when golden_paths key is absent" {
+  _write_config '{"other": true}'
+  run mumei_config_golden_paths
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "mumei_config_golden_paths emits one glob per line" {
+  _write_config '{"golden_paths": ["tests/golden/*", "conftest.py"]}'
+  run mumei_config_golden_paths
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "tests/golden/*" ]
+  [ "${lines[1]}" = "conftest.py" ]
+}
+
+@test "mumei_config_path_is_golden matches a single-level glob" {
+  _write_config '{"golden_paths": ["tests/golden/*"]}'
+  run mumei_config_path_is_golden "tests/golden/foo.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "mumei_config_path_is_golden matches an exact path" {
+  _write_config '{"golden_paths": ["conftest.py"]}'
+  run mumei_config_path_is_golden "conftest.py"
+  [ "$status" -eq 0 ]
+}
+
+@test "mumei_config_path_is_golden does not match a non-golden path" {
+  _write_config '{"golden_paths": ["tests/golden/*"]}'
+  run mumei_config_path_is_golden "src/app.py"
+  [ "$status" -eq 1 ]
+}
+
+@test "mumei_config_path_is_golden returns 1 on empty golden_paths" {
+  _write_config '{"golden_paths": []}'
+  run mumei_config_path_is_golden "anything"
+  [ "$status" -eq 1 ]
+}
+
+@test "mumei_config_path_is_golden returns 1 for an empty path argument" {
+  _write_config '{"golden_paths": ["*"]}'
+  run mumei_config_path_is_golden ""
+  [ "$status" -eq 1 ]
+}

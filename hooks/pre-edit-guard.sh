@@ -7,6 +7,7 @@
 #   I1: edit a task whose dependencies are not yet complete -> deny
 #   I2: edit a file not listed in any task's _Files: meta (scope creep) -> deny
 #   W1: edit files for the next Wave while the current Wave is uncommitted -> deny
+#   G1: edit/write a golden path from .mumei/config.json (project-wide) -> deny
 #
 # Design principles:
 #   - escape: MUMEI_BYPASS=1 -> exit 0 immediately
@@ -48,6 +49,8 @@ source "${PLUGIN_ROOT}/hooks/_lib/log.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/tasks.sh"
+# shellcheck disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/config.sh"
 
 # Read JSON from stdin
 INPUT="$(cat)"
@@ -158,6 +161,25 @@ if [[ "$CANON_PATH" =~ /\.mumei/current$ ]] ||
   fi
   jq -n --arg r "Direct write to ${FILE_PATH} is denied. mumei harness internal state (current pointer / state.json / spec-reviews / reviews) flows through orchestrator helpers in hooks/_lib/state.sh and hooks/_lib/review.sh." \
     --arg c "Use /mumei:plan or /mumei:review to mutate state legitimately. Edits to requirements.md / design.md / tasks.md are not covered by this rule. Set MUMEI_BYPASS=1 only for emergency manual edits." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
+  exit 0
+fi
+
+# --- G1: deny Edit/Write to a configured golden path (project-wide) ---
+# golden_paths in .mumei/config.json mark immutable specification / oracle
+# files. Placed BEFORE the FEATURE check like M1/S1 because golden protection
+# is project-wide and vehicle/feature independent. Matched against the
+# project-relative FILE_PATH (golden globs are project-relative). The worktree
+# HEAD-restore (hooks/_lib/worktree-verify.sh) is the deeper wall for Bash-route
+# tampering; G1 is the direct Edit/Write block.
+if mumei_config_path_is_golden "$FILE_PATH"; then
+  if [[ -f "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh"
+    mumei_hook_stats_record "G1" "deny" "${TOOL_NAME:-Edit}" "Edit/Write to golden path denied"
+  fi
+  jq -n --arg r "Edit/Write to ${FILE_PATH} is denied: it is a golden path (immutable specification / oracle) in .mumei/config.json." \
+    --arg c "Golden files pin expected behaviour so generated code cannot quietly redefine the test of record. To restore the committed version: git checkout HEAD -- ${FILE_PATH}. To intentionally change the spec, edit .mumei/config.json's golden_paths first, or set MUMEI_BYPASS=1 for a one-off override." \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
   exit 0
 fi

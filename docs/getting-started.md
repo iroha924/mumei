@@ -196,6 +196,30 @@ your project uses a non-standard runner so the pre-commit test gate runs the
 right command, e.g. `MUMEI_TEST_CMD="bats -r tests/"`. The observed exit code
 of each test run is recorded to `verify-log.jsonl` for audit.
 
+At commit time the same test is also re-run against a detached worktree
+checked out at `HEAD`, so uncommitted tampering (rigged `conftest.py`,
+monkeypatched `TestReport`, edited bytecode) cannot fake a pass. A working-tree
+pass with a clean-HEAD failure is denied as suspected tampering (I3); both
+results are recorded to `verify-log.jsonl` as `commit-gate` and `worktree-clean`.
+
+## Golden paths
+
+`/mumei:init` creates `.mumei/config.json` with a `golden_paths` array — path
+globs for files that must stay immutable (snapshot fixtures, `conftest.py`,
+locked test data). Golden files pin the test of record so generated code cannot
+quietly redefine them: Edit/Write is blocked (G1), the obvious Bash mutation
+route (`sed -i` / redirect / `tee` / `mv` / `rm`) is blocked (G2), and the
+clean-HEAD worktree run force-restores them with `git checkout HEAD --`.
+
+```json
+{ "golden_paths": ["tests/golden/*", "conftest.py", "src/crypto/*.py"] }
+```
+
+Single-level globs only (`*` `?` `[...]`); register multiple entries for
+multi-level coverage. `.mumei/config.json` is tracked (team-shared) and
+hand-editable — update `golden_paths` directly to add or retire a golden file.
+Use `MUMEI_BYPASS=1` for a one-off override.
+
 ## Project layout (after `/mumei:init`)
 
 ```text
@@ -205,6 +229,7 @@ your-project/
 └── .mumei/
     ├── .gitignore    # ignores per-developer state (`current`, `specs/*/state.json`)
     ├── current       # active feature slug (empty until first /mumei:plan)
+    ├── config.json   # project-wide config: golden_paths (tracked, hand-editable)
     ├── specs/        # per /mumei:plan: requirements.md, design.md, tasks.md, state.json, spec-reviews/, reviews/
     ├── archive/      # per /mumei:archive: moved under <YYYY-MM>/<feature>/
     └── scratch/      # per /mumei:brainstorm; tracked intentionally so brainstorm history is shared

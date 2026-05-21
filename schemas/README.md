@@ -21,6 +21,7 @@ producer and consumer.
 | `review.schema.json`            | `hooks/_lib/review.sh`, `pre-review-detector.sh` | dashboard, `/mumei:retro`                              |
 | `cost-log.schema.json`          | `hooks/_lib/cost-log.sh`, `subagent-cost-log.sh` | dashboard, `/mumei:retro`, `scripts/aggregate-cost.sh` |
 | `plugin.schema.json`            | maintained by hand (Claude Code plugin manifest) | `release-reusable.yml` validate-manifest job           |
+| `config.schema.json`            | `hooks/_lib/config.sh` (`.mumei/config.json`)    | validation only (not consumed by the dashboard)        |
 | `feature-summary.schema.json`   | `dashboard/server/features.ts`                   | dashboard frontend (CompactDashboard)                  |
 | `meta.schema.json`              | `dashboard/server/meta.ts`                       | dashboard frontend (TopBar)                            |
 | `trends.schema.json`            | `dashboard/server/trends.ts`                     | dashboard frontend (TrendBar)                          |
