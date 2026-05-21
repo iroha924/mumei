@@ -51,6 +51,8 @@ source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/tasks.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/config.sh"
+# shellcheck disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/gen-control.sh"
 
 # Read JSON from stdin
 INPUT="$(cat)"
@@ -156,15 +158,16 @@ fi
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
 
-# spec-only hooks (P1/P2/P3, I1/I2, W1) must skip when plan
-# vehicle is active. Resolution goes through mumei_state_active_vehicle
-# so dispatch is consistent with pre-bash-guard.sh and skills/archive
-# (spec wins on dual-state). All rules below assume spec-format
-# artifacts (requirements.md, design.md, tasks.md with _Files: meta)
-# which plan vehicle does not have.
-case "$(mumei_state_active_vehicle "$FEATURE")" in
-plan) exit 0 ;;
-spec) ;;
+# Resolve the active vehicle once. The generation-time gates E1/E2 run for
+# BOTH vehicles, so they sit before the spec-only exit further down. The
+# spec-only hooks (P1/P2/P3, I1/I2, W1) assume spec-format artifacts
+# (requirements.md, design.md, tasks.md with _Files: meta) which plan vehicle
+# does not have, so they are skipped for plan after E1/E2 have run.
+# Resolution goes through mumei_state_active_vehicle so dispatch is consistent
+# with pre-bash-guard.sh and skills/archive (spec wins on dual-state).
+VEHICLE="$(mumei_state_active_vehicle "$FEATURE")"
+case "$VEHICLE" in
+spec | plan) ;;
 *) exit 0 ;; # neither vehicle has state.json — not a mumei session
 esac
 
@@ -280,6 +283,30 @@ mumei_is_meta_path() {
 }
 
 # R3 was relocated above (vehicle/feature-independent gate); see line ~45.
+
+# --- E1: Open Questions block (pillar E, BOTH vehicles) ---
+# In implement phase, refuse edits to production (non-meta) files while the
+# active feature's artifact still has unresolved Open Questions. The artifact
+# and all .mumei/ paths are meta-exempt, so resolving the questions (editing
+# requirements.md / plan.md) is never blocked. Phase is read vehicle-agnostic
+# because mumei_state_phase resolves the spec-only path.
+GENCTRL_PHASE="$(mumei_state_read_any "$FEATURE" '.phase' 2>/dev/null || true)"
+if [[ "$GENCTRL_PHASE" == "implement" ]] && ! mumei_is_meta_path "$FILE_PATH"; then
+  GENCTRL_ARTIFACT="$(mumei_gencontrol_artifact_path "$FEATURE" 2>/dev/null || true)"
+  if [[ -n "$GENCTRL_ARTIFACT" ]] && mumei_gencontrol_oq_unresolved "$GENCTRL_ARTIFACT"; then
+    mumei_deny \
+      "Cannot edit ${FILE_PATH}: ${GENCTRL_ARTIFACT} has unresolved Open Questions. Mark each '- [x]' or set the section body to the literal 'None' before editing production files." \
+      "phase=implement gate (pillar E.1). The '## Open Questions' section must exist and contain only resolved '- [x]' items or the literal 'None'. Set MUMEI_BYPASS=1 to override." \
+      "E1"
+  fi
+fi
+
+# spec-only rules below (P1/I2/I1/W1) assume spec-format artifacts (tasks.md
+# _Files: meta, design.md). Plan vehicle has none, so exit here — E1 above
+# already ran for both vehicles.
+if [[ "$VEHICLE" == "plan" ]]; then
+  exit 0
+fi
 
 # --- P1: editing src/ etc. before the spec is complete ---
 # Allow meta files. For everything else, deny while phase=plan.

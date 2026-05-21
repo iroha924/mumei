@@ -46,6 +46,7 @@ mumei/
 │   │   ├── verify-log.sh   # test-run audit trail (commit-gate / worktree-clean / agent-run exit codes)
 │   │   ├── worktree-verify.sh # clean-HEAD double-measurement (reward-hacking defense)
 │   │   ├── config.sh       # .mumei/config.json reader + golden-path glob matcher
+│   │   ├── gen-control.sh  # pillar E parsing: artifact path + Open Questions / Acceptance Test sections
 │   │   ├── reviewer-prompt.sh # immutable prefix + variable suffix builder for cache-friendly prompts
 │   │   ├── byte-exact.sh   # CRLF / tab advisory for byte-exact-prone file types
 │   │   ├── hook-stats.sh   # hook decision recorder (.mumei/.hook-stats.jsonl)
@@ -125,6 +126,7 @@ spec-vehicle rules.
 | I4   | implement    | PostToolUse(Edit)        | Marking `[x]` without an implementation diff                                                                                                                                               | `hooks/post-edit-guard.sh`    |
 | W1   | implement    | PreToolUse(Edit)         | Editing Wave N+1 file before Wave N committed                                                                                                                                              | `hooks/pre-edit-guard.sh`     |
 | W2   | implement    | PreToolUse(Bash)         | `git commit` while current Wave has `[ ]` tasks                                                                                                                                            | `hooks/pre-bash-guard.sh`     |
+| E1   | implement    | PreToolUse(Edit)         | Editing a production file (both vehicles) while the artifact's `## Open Questions` section is absent, has an unchecked `- [ ]`, or is empty without the literal `None`                     | `hooks/pre-edit-guard.sh`     |
 | R1   | review       | Stop                     | Session ends with all tasks done but review skipped                                                                                                                                        | `hooks/stop-guard.sh`         |
 | R2   | review       | PreToolUse(Bash)         | `git push` while latest review verdict is `MAJOR_ISSUES`                                                                                                                                   | `hooks/pre-bash-guard.sh`     |
 | R3   | done         | Stop                     | `phase=done` but feature still in `.mumei/current`                                                                                                                                         | `hooks/stop-guard.sh`         |
