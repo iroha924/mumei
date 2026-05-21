@@ -129,13 +129,23 @@ _plan_state() {
   [ "$status" -ne 0 ]
 }
 
-@test "mumei_is_test_command: runner in a chain segment matches, git commit does not (A)" {
+@test "mumei_is_test_command: chains are NOT classified (I), env prefix is (G)" {
+  # Chains: the overall exit code may not reflect the test segment, so a chain
+  # is not recorded (would risk a fabricated green).
   run mumei_is_test_command "npm test && git status"
-  [ "$status" -eq 0 ]
+  [ "$status" -ne 0 ]
   run mumei_is_test_command "pytest -q ; git add ."
-  [ "$status" -eq 0 ]
+  [ "$status" -ne 0 ]
+  run mumei_is_test_command "pytest | tee out"
+  [ "$status" -ne 0 ]
+  # git commit with a runner name in the message is not a test run.
   run mumei_is_test_command "git commit -m 'wire up go test'"
   [ "$status" -ne 0 ]
+  # Leading env assignments are stripped; the wrapped runner still matches.
+  run mumei_is_test_command "CI=1 npm test"
+  [ "$status" -eq 0 ]
+  run mumei_is_test_command "PYTEST_ADDOPTS=-q pytest tests/"
+  [ "$status" -eq 0 ]
 }
 
 @test "mumei_is_test_command: MUMEI_TEST_CMD matches as a literal prefix (C)" {

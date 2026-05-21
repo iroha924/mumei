@@ -106,16 +106,27 @@ mumei_verify_log_append() {
 # do not false-positive and `npm test && git status` is still detected.
 # A non-empty MUMEI_TEST_CMD matches as a literal prefix (no glob semantics).
 mumei_is_test_command() {
-  local cmd="$1" seg normalized
-  normalized="$(printf '%s' "$cmd" | awk '{gsub(/&&|\|\||;|\|/, "\n"); print}')"
-  while IFS= read -r seg; do
-    seg="${seg#"${seg%%[![:space:]]*}"}"
-    case "$seg" in
-    "npm test" | "npm test "* | pytest | "pytest "* | "cargo test" | "cargo test "* | "go test" | "go test "* | bats | "bats "*) return 0 ;;
-    esac
-    if [[ -n "${MUMEI_TEST_CMD:-}" ]] && [[ "${seg:0:${#MUMEI_TEST_CMD}}" == "$MUMEI_TEST_CMD" ]]; then
-      return 0
-    fi
-  done <<<"$normalized"
+  local cmd="$1"
+  # Reject chained / piped commands. X5 records the shell's overall exit code,
+  # which need not reflect the test segment's status (e.g. `pytest; git add .`
+  # exits 0 even when pytest failed), so a chain would fabricate a green row.
+  case "$cmd" in
+  *"&&"* | *"||"* | *";"* | *"|"*) return 1 ;;
+  esac
+  # Strip leading NAME=VALUE env assignments so `CI=1 npm test` /
+  # `PYTEST_ADDOPTS=-q pytest` are still classified as the wrapped runner.
+  local rest="$cmd"
+  while [[ "$rest" =~ ^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do
+    rest="${rest#"${BASH_REMATCH[0]}"}"
+  done
+  rest="${rest#"${rest%%[![:space:]]*}"}"
+  # Match a known runner at the command start (boundary, not free substring).
+  case "$rest" in
+  "npm test" | "npm test "* | pytest | "pytest "* | "cargo test" | "cargo test "* | "go test" | "go test "* | bats | "bats "*) return 0 ;;
+  esac
+  # Literal prefix match of MUMEI_TEST_CMD (no glob interpretation).
+  if [[ -n "${MUMEI_TEST_CMD:-}" ]] && [[ "${rest:0:${#MUMEI_TEST_CMD}}" == "$MUMEI_TEST_CMD" ]]; then
+    return 0
+  fi
   return 1
 }

@@ -116,6 +116,15 @@ if mumei_is_git_commit "$COMMAND"; then
   # mumei's own bats suite, which auto-detect cannot find). Otherwise detect
   # the project's test runner. Deny if it exits non-zero.
   TEST_CMD="${MUMEI_TEST_CMD:-}"
+  # A ';' or '||' in MUMEI_TEST_CMD can mask a failing test exit (the gate
+  # would observe the trailing command's status), weakening I3. MUMEI_TEST_CMD
+  # is operator-controlled (same trust boundary as MUMEI_BYPASS), so warn
+  # rather than block — but make the risk visible.
+  case "$TEST_CMD" in
+  *";"* | *"||"*)
+    mumei_log_warn "MUMEI_TEST_CMD contains ';' or '||'; a failing test exit may be masked, weakening the I3 commit gate"
+    ;;
+  esac
   if [[ -z "$TEST_CMD" ]]; then
     if [[ -f "package.json" ]]; then
       if jq -e '.scripts.test // empty' package.json >/dev/null 2>&1; then
