@@ -89,9 +89,12 @@ mumei_command_target_tokens() {
   # the need for a whitespace anchor, so no-space forms like `echo x>golden`
   # are still caught. Best-effort: nested / escaped quotes are not parsed —
   # the clean-HEAD worktree measurement is the authoritative guard.
+  # Also drop backslash-escaped `\>` / `\<`: those are never redirections
+  # (a literal `>` to echo, or a POSIX `[ a \> b ]` string comparison), so
+  # leaving them in would false-flag a non-mutating conditional as a write.
   local unquoted
   unquoted="$(printf '%s' "$cmd" |
-    sed -e "s/'[^']*>[^']*'//g" -e 's/"[^"]*>[^"]*"//g' -e 's/\[\[[^]]*\]\]//g' -e 's/(([^)]*))//g')"
+    sed -e 's/\\[<>]//g' -e "s/'[^']*>[^']*'//g" -e 's/"[^"]*>[^"]*"//g' -e 's/\[\[[^]]*\]\]//g' -e 's/(([^)]*))//g')"
   printf '%s' "$unquoted" | grep -oE '([0-9]+|&)?>>?\|?[[:space:]]*[^[:space:];|&<>]+' |
     sed -E 's/^([0-9]+|&)?>>?\|?[[:space:]]*//'
   # Mutating-command write targets, per separator-delimited segment.

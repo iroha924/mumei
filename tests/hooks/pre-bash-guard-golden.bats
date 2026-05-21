@@ -213,6 +213,13 @@ _write_config() {
   [ -z "$output" ]
 }
 
+@test "G2: an escaped \\> POSIX test comparison is not misread as a redirect" {
+  _write_config '{"golden_paths": ["conftest.py"]}'
+  _run_hook "$(_bash_input "[ \"\$a\" \\> conftest.py ] && echo ok")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "G2: MUMEI_BYPASS=1 allows mutating a golden path" {
   _write_config '{"golden_paths": ["tests/golden/*"]}'
   local input_file
