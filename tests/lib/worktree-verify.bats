@@ -131,6 +131,21 @@ _git_repo_with_commit() {
   [ "$MUMEI_WT_RAN" -eq 1 ]
 }
 
+@test "run_test does NOT symlink a gitignored loose file (e.g. conftest) into the worktree (F-006)" {
+  _git_repo_with_commit
+  printf 'node_modules/\nconftest.py\n' >.gitignore
+  git add .gitignore && git commit -qm gitignore
+  mkdir -p node_modules && echo ok >node_modules/marker
+  echo 'rigged' >conftest.py
+  # The clean-HEAD worktree must have node_modules (dir, linked) but NOT the
+  # loose gitignored conftest.py (which a runner would auto-collect). A test
+  # asserting conftest.py is absent passes only if the loose file was skipped.
+  mumei_worktree_run_test "test -d node_modules && test ! -e conftest.py"
+  rc=$?
+  [ "$rc" -eq 0 ]
+  [ "$MUMEI_WT_RAN" -eq 1 ]
+}
+
 @test "run_test does not mangle a chained test command (no string rewrite)" {
   _git_repo_with_commit
   # A chained command must run verbatim in the worktree; pytest flag handling

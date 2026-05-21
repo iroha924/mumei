@@ -51,9 +51,15 @@ mumei_worktree_run_test() {
   # was killed (e.g. hook timeout) between `worktree add` and cleanup. Targets
   # ONLY mumei's own temp worktrees (path contains mumei-wt.) so no unrelated
   # worktree is touched; bounds .git/worktrees/ growth without a global prune.
+  # Skip any whose backing dir was modified within the last 10 minutes (well
+  # beyond the 30s hook timeout) so a CONCURRENT session's live worktree is
+  # never removed mid-run; a stale entry whose dir is gone is still cleaned.
   local _wt_stale
   while IFS= read -r _wt_stale; do
     [[ "$_wt_stale" == *"/mumei-wt."* ]] || continue
+    if [[ -d "$_wt_stale" ]] && [[ -n "$(find "$_wt_stale" -maxdepth 0 -mmin -10 2>/dev/null)" ]]; then
+      continue
+    fi
     git worktree remove --force "$_wt_stale" >/dev/null 2>&1 || true
   done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
 
@@ -86,13 +92,23 @@ mumei_worktree_run_test() {
   # tampering. Linking these makes uncommitted TRACKED changes the only
   # difference between the trees, so a divergence isolates to the actual
   # reward-hacking surface. Skip mumei/git internal state. Best-effort.
+  # Link only gitignored DIRECTORIES (trailing slash in --directory output),
+  # never loose ignored files: a test runner auto-collects loose config
+  # (a gitignored conftest.py is loaded by pytest), so symlinking those would
+  # inject working-tree tampering into the clean-HEAD run and defeat the
+  # divergence check. Runtime deps are directories (node_modules/, .venv/,
+  # target/, dist/). Skip caches that can carry stale state across the trees,
+  # and mumei/git internals.
   local _wt_main _wt_entry
   _wt_main="$(pwd -P)"
   while IFS= read -r _wt_entry; do
-    [[ -n "$_wt_entry" ]] || continue
+    [[ "$_wt_entry" == */ ]] || continue
     _wt_entry="${_wt_entry%/}"
-    case "$_wt_entry" in .git | .git/* | .mumei | .mumei/*) continue ;; esac
-    [[ -e "$_wt_main/$_wt_entry" ]] || continue
+    case "$_wt_entry" in
+    .git | .git/* | .mumei | .mumei/*) continue ;;
+    __pycache__ | */__pycache__ | .pytest_cache | .mypy_cache | .ruff_cache | */.pytest_cache) continue ;;
+    esac
+    [[ -d "$_wt_main/$_wt_entry" ]] || continue
     [[ -e "$wt/$_wt_entry" ]] && continue
     mkdir -p "$wt/$(dirname "$_wt_entry")" 2>/dev/null || true
     ln -s "$_wt_main/$_wt_entry" "$wt/$_wt_entry" 2>/dev/null || true
