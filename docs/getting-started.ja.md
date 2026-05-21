@@ -178,6 +178,12 @@ mumei の review pipeline は 2 つの決定論的 detector を ground-truth と
 `MUMEI_DETECTOR_TIMEOUT` (デフォルト `600` 秒) で per-detector の wall-clock
 timeout を調整できます。
 
+`MUMEI_TEST_CMD` は commit-gate の test runner auto-detect
+(`package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod`) を override します。
+非標準 runner を使うプロジェクトでは、commit 前 test gate が正しいコマンドを
+実行するよう設定してください。例: `MUMEI_TEST_CMD="bats -r tests/"`。
+各 test 実行の exit code は監査用に `verify-log.jsonl` に記録されます。
+
 ## プロジェクト構成 (`/mumei:init` 後)
 
 ```text

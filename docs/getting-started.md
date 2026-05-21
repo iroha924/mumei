@@ -190,6 +190,12 @@ review-phase Hook fails closed when either is missing.
 `MUMEI_DETECTOR_TIMEOUT` (default `600` seconds) tunes the per-detector
 wall-clock timeout; raise for very large repos.
 
+`MUMEI_TEST_CMD` overrides the commit-gate test-runner auto-detect
+(`package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod`). Set it when
+your project uses a non-standard runner so the pre-commit test gate runs the
+right command, e.g. `MUMEI_TEST_CMD="bats -r tests/"`. The observed exit code
+of each test run is recorded to `verify-log.jsonl` for audit.
+
 ## Project layout (after `/mumei:init`)
 
 ```text
