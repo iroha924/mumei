@@ -347,8 +347,8 @@ if mumei_is_git_commit "$COMMAND"; then
       mumei_verify_log_append "$FEATURE" "worktree-clean" "$TEST_CMD" "$WT_EXIT" "${MUMEI_WT_TAIL:-}" || true
       if [[ "$WT_EXIT" -ne 0 ]]; then
         mumei_deny \
-          "Working-tree tests pass but a clean HEAD worktree fails — uncommitted tampering suspected." \
-          "Test command: ${TEST_CMD}\n\nThe test was re-run against a detached worktree at HEAD (no uncommitted changes). It failed there but passed in your working tree, which usually means uncommitted edits (e.g. a rigged conftest.py or monkeypatched TestReport) are masking a real failure. Commit the genuine fix, or set MUMEI_BYPASS=1 if this is a false positive.\n\n${MUMEI_WT_TAIL:-}" \
+          "Working-tree tests pass but a clean HEAD worktree fails — uncommitted tampering OR an environment difference." \
+          "Test command: ${TEST_CMD}\n\nThe test was re-run against a detached worktree at HEAD. Gitignored runtime artifacts (node_modules / build output / venvs) are symlinked in and submodules are initialized offline, so the usual cause is uncommitted edits to TRACKED files masking a real failure (e.g. a rigged conftest.py or monkeypatched TestReport) — commit the genuine fix. If instead the clean-HEAD run failed for an environment reason the worktree could not reproduce (a build step, fetched-but-uncommitted submodule objects, or an absolute path in MUMEI_TEST_CMD pointing outside the repo), set MUMEI_BYPASS=1 for this commit.\n\n${MUMEI_WT_TAIL:-}" \
           "I3"
       fi
     fi

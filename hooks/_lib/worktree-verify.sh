@@ -47,6 +47,16 @@ mumei_worktree_run_test() {
   # No commit yet -> no HEAD to check out a clean tree from.
   git rev-parse --verify HEAD >/dev/null 2>&1 || return 0
 
+  # Best-effort sweep of stale mumei worktrees leaked by an earlier run that
+  # was killed (e.g. hook timeout) between `worktree add` and cleanup. Targets
+  # ONLY mumei's own temp worktrees (path contains mumei-wt.) so no unrelated
+  # worktree is touched; bounds .git/worktrees/ growth without a global prune.
+  local _wt_stale
+  while IFS= read -r _wt_stale; do
+    [[ "$_wt_stale" == *"/mumei-wt."* ]] || continue
+    git worktree remove --force "$_wt_stale" >/dev/null 2>&1 || true
+  done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+
   # git worktree add requires a non-existent target path, so create a temp
   # PARENT dir and point the worktree at a not-yet-created subdir within it.
   local wtbase wt
@@ -68,6 +78,26 @@ mumei_worktree_run_test() {
   # be a no-op here (and git pathspec globs would not expand a quoted pattern
   # anyway).
   #
+  # Link gitignored RUNTIME artifacts (node_modules, build output, venvs) from
+  # the working tree into the worktree. A fresh checkout has only TRACKED files,
+  # so a project that installs/builds before testing (node_modules etc. are
+  # gitignored) cannot even START its runner in the worktree — the working-tree
+  # pass / clean-HEAD fail would be a FALSE divergence (missing deps), not real
+  # tampering. Linking these makes uncommitted TRACKED changes the only
+  # difference between the trees, so a divergence isolates to the actual
+  # reward-hacking surface. Skip mumei/git internal state. Best-effort.
+  local _wt_main _wt_entry
+  _wt_main="$(pwd -P)"
+  while IFS= read -r _wt_entry; do
+    [[ -n "$_wt_entry" ]] || continue
+    _wt_entry="${_wt_entry%/}"
+    case "$_wt_entry" in .git | .git/* | .mumei | .mumei/*) continue ;; esac
+    [[ -e "$_wt_main/$_wt_entry" ]] || continue
+    [[ -e "$wt/$_wt_entry" ]] && continue
+    mkdir -p "$wt/$(dirname "$_wt_entry")" 2>/dev/null || true
+    ln -s "$_wt_main/$_wt_entry" "$wt/$_wt_entry" 2>/dev/null || true
+  done < <(git -C "$_wt_main" ls-files --others --ignored --exclude-standard --directory 2>/dev/null)
+
   # Initialize submodules in the linked worktree (best-effort, OFFLINE). A
   # fresh worktree has no submodule contents; tests that read submodule files
   # would otherwise fail in the clean tree but pass in the working tree,
@@ -75,8 +105,11 @@ mumei_worktree_run_test() {
   # populate only from objects already present locally (the superproject and
   # the worktree share the same object store) and never reach the network or
   # block on auth prompts — mumei initiates no outbound requests (PRIVACY.md).
-  # Absence / failure of submodules is a no-op.
-  GIT_TERMINAL_PROMPT=0 git -C "$wt" submodule update --init --recursive --no-fetch >/dev/null 2>&1 || true
+  # When HEAD references submodule objects not present locally this cannot
+  # populate them; the divergence may then be a false positive, so warn.
+  if ! GIT_TERMINAL_PROMPT=0 git -C "$wt" submodule update --init --recursive --no-fetch >/dev/null 2>&1; then
+    mumei_log_warn "worktree-verify: offline submodule init incomplete; a clean-HEAD divergence may be a false positive (missing submodule objects)"
+  fi
 
   #
   # Run inside the worktree with a normalized, clean-tree-anchored environment:
@@ -106,13 +139,19 @@ mumei_worktree_run_test() {
     # shellcheck disable=SC2034  # read by the caller (I3) after this returns
     MUMEI_WT_TAIL="$(printf '%s' "$out" | tail -n 30)"
   fi
+  # Positive audit signal that the deeper wall actually executed (so an
+  # operator can tell enforcement did NOT silently degrade to working-tree-only).
+  mumei_log_info "worktree-verify: clean-HEAD measurement ran (rc=${rc})"
 
   # Explicit cleanup on the normal path (set -e is off, so this always runs).
   # A `trap ... RETURN` is deliberately NOT used: a RETURN trap fires on every
   # nested function return, which in an earlier version removed the worktree
-  # before the test ran.
-  git worktree remove --force "$wt" >/dev/null 2>&1
-  git worktree prune >/dev/null 2>&1
+  # before the test ran. `git worktree remove --force` removes only THIS
+  # worktree's admin entry; a repo-global `git worktree prune` is deliberately
+  # avoided — it would also detach unrelated worktrees whose backing dir is
+  # temporarily unmounted.
+  git worktree remove --force "$wt" >/dev/null 2>&1 ||
+    mumei_log_warn "worktree-verify: failed to remove worktree ${wt} (leaked)"
   rm -rf "$wtbase"
   return "$rc"
 }

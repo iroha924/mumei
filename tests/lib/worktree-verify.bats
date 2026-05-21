@@ -100,6 +100,37 @@ _git_repo_with_commit() {
   [ "$MUMEI_WT_RAN" -eq 1 ]
 }
 
+@test "run_test links a gitignored dependency dir so the runner can start (F-001)" {
+  _git_repo_with_commit
+  # Simulate a gitignored dependency dir present only in the working tree.
+  echo 'node_modules/' >.gitignore
+  git add .gitignore && git commit -qm gitignore
+  mkdir -p node_modules
+  echo 'ok' >node_modules/marker
+  # Test reads a file that lives only in the gitignored dir; it would fail in a
+  # bare HEAD checkout but passes because the dir is symlinked in.
+  mumei_worktree_run_test "test -f node_modules/marker"
+  rc=$?
+  [ "$rc" -eq 0 ]
+  [ "$MUMEI_WT_RAN" -eq 1 ]
+}
+
+@test "run_test still detects a genuine tracked-file divergence after linking deps" {
+  _git_repo_with_commit v1
+  echo 'node_modules/' >.gitignore
+  git add .gitignore && git commit -qm gitignore
+  mkdir -p node_modules && echo ok >node_modules/marker
+  # Tamper a TRACKED file in the working tree (not committed).
+  echo v2 >data.txt
+  # HEAD has data.txt=v1; worktree (HEAD) keeps v1, so this passes against HEAD
+  # while a working-tree run of the same assertion would fail — proving tracked
+  # changes are still isolated even with deps linked.
+  mumei_worktree_run_test "grep -q v1 data.txt"
+  rc=$?
+  [ "$rc" -eq 0 ]
+  [ "$MUMEI_WT_RAN" -eq 1 ]
+}
+
 @test "run_test does not mangle a chained test command (no string rewrite)" {
   _git_repo_with_commit
   # A chained command must run verbatim in the worktree; pytest flag handling
