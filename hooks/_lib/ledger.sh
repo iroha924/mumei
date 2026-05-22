@@ -151,8 +151,11 @@ mumei_ledger_prior_fp_count() {
   # `jq -s` parse-erroring over the WHOLE file (which would silently return
   # 0 and disable FP annotation feature-wide). Reading line by line also
   # avoids slurping the entire cross-feature ledger into memory per call.
+  # `objects` drops valid-but-non-object lines (a bare number / string /
+  # array) so `.fingerprint` indexing never type-errors mid-stream and
+  # truncates the count — `fromjson?` alone only guards syntax errors.
   count="$(jq -cR --arg fp "$fp" \
-    'fromjson? // empty | select(.fingerprint == $fp and .decision == "invalid")' \
+    'fromjson? | objects | select(.fingerprint == $fp and .decision == "invalid")' \
     "$ledger" 2>/dev/null | wc -l | tr -d ' ')"
   printf '%s' "${count:-0}"
 }

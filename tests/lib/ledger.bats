@@ -130,10 +130,13 @@ teardown() {
   f='{"category":"injection","location":"src/db.ts:42","evidence":"x"}'
   fp="$(mumei_ledger_fingerprint "$f")"
   mumei_ledger_append "$f" "REQ-1-foo" "security" "invalid" "HIGH"
-  # inject a garbage line that would break a `jq -s` slurp of the whole file
+  # inject a syntactically-broken line AND a valid-but-non-object line
+  # (number) — both must be skipped without truncating the count stream.
   printf 'this is not json{{{\n' >>"$MUMEI_LEDGER_PATH"
+  printf '42\n' >>"$MUMEI_LEDGER_PATH"
+  printf '"a bare string"\n' >>"$MUMEI_LEDGER_PATH"
   mumei_ledger_append "$f" "REQ-2-bar" "security" "invalid" "HIGH"
-  # both valid invalid entries must still be counted despite the bad line
+  # both valid invalid entries must still be counted despite the bad lines
   [ "$(mumei_ledger_prior_fp_count "$fp")" = "2" ]
 }
 
