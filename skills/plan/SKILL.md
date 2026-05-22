@@ -1109,6 +1109,10 @@ findings are structurally excluded (REQ-23.7), and always appends one
 or count-based KPI field (REQ-23.10).
 
 ```bash
+# Each Bash invocation is a fresh shell — source the helpers this block uses
+# rather than relying on the Phase 5 bootstrap persisting here.
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
 reviewer_filtered_out="$(
   for r in spec-compliance security adversarial; do
     jq -c --arg r "$r" '(.filtered_out // [])[] | . + {reviewer: $r}' \

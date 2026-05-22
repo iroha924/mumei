@@ -251,6 +251,11 @@ fi
 ### Step 8 — Aggregate verdict + persist
 
 ```bash
+# Re-source the helpers this block uses — each Bash invocation is a fresh
+# shell, so functions sourced in Step 1 do not persist here.
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
+
 # surfaced_json and filtered_json are JSON arrays produced by Step 7.
 # reviewer_verdicts is the per-reviewer status object the reviewers returned.
 
