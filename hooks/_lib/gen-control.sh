@@ -24,21 +24,27 @@ if ! declare -F mumei_log_warn >/dev/null 2>&1; then
   # shellcheck disable=SC1091
   source "$(dirname "${BASH_SOURCE[0]}")/log.sh"
 fi
+if ! declare -F mumei_state_active_vehicle >/dev/null 2>&1; then
+  # shellcheck disable=SC1091
+  source "$(dirname "${BASH_SOURCE[0]}")/state.sh"
+fi
 
-# Resolve the active feature's artifact path. spec vehicle stores its spec
-# under .mumei/specs/<key>/requirements.md; plan vehicle under
-# .mumei/plans/<slug>/plan.md. Echo the first that exists; echo nothing
-# (return 0) when neither does.
+# Resolve the active feature's artifact path, keyed off the ACTIVE vehicle
+# (state.json existence via mumei_state_active_vehicle) — NOT by which artifact
+# file happens to be present. A stale leftover spec doc for the same slug must
+# not shadow a plan-vehicle artifact (or vice versa). spec → requirements.md,
+# plan → plan.md. Echo nothing (return 0) when there is no resolvable artifact.
 mumei_gencontrol_artifact_path() {
   local feature="$1"
   [[ -n "$feature" ]] || return 0
-  local spec=".mumei/specs/${feature}/requirements.md"
-  local plan=".mumei/plans/${feature}/plan.md"
-  if [[ -f "$spec" ]]; then
-    printf '%s\n' "$spec"
-  elif [[ -f "$plan" ]]; then
-    printf '%s\n' "$plan"
-  fi
+  local vehicle spec plan
+  vehicle="$(mumei_state_active_vehicle "$feature" 2>/dev/null || true)"
+  spec=".mumei/specs/${feature}/requirements.md"
+  plan=".mumei/plans/${feature}/plan.md"
+  case "$vehicle" in
+  spec) [[ -f "$spec" ]] && printf '%s\n' "$spec" ;;
+  plan) [[ -f "$plan" ]] && printf '%s\n' "$plan" ;;
+  esac
   return 0
 }
 

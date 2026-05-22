@@ -20,8 +20,17 @@ teardown() {
 
 # ─── mumei_gencontrol_artifact_path ──────────────────────────
 
+# Artifact resolution keys off the ACTIVE vehicle (state.json), not file
+# presence, so each test seeds the matching state.json.
+_plan_state() {
+  mkdir -p ".mumei/plans/$1"
+  jq -n --arg s "$1" '{slug:$s, phase:"implement", current_wave:0,
+    created_at:"2026-01-01T00:00:00Z", updated_at:"2026-01-01T00:00:00Z",
+    task_created_count:0}' >".mumei/plans/$1/state.json"
+}
+
 @test "artifact_path resolves spec vehicle requirements.md" {
-  mkdir -p .mumei/specs/REQ-1-foo
+  _init_feature REQ-1-foo implement 1
   : >.mumei/specs/REQ-1-foo/requirements.md
   run mumei_gencontrol_artifact_path REQ-1-foo
   [ "$status" -eq 0 ]
@@ -29,23 +38,28 @@ teardown() {
 }
 
 @test "artifact_path resolves plan vehicle plan.md" {
-  mkdir -p .mumei/plans/fix-login
+  _plan_state fix-login
   : >.mumei/plans/fix-login/plan.md
   run mumei_gencontrol_artifact_path fix-login
   [ "$status" -eq 0 ]
   [ "$output" = ".mumei/plans/fix-login/plan.md" ]
 }
 
-@test "artifact_path prefers spec over plan when both exist" {
-  mkdir -p .mumei/specs/dup .mumei/plans/dup
+@test "artifact_path uses the active vehicle, not file presence (stale spec doc does not shadow a plan)" {
+  # plan vehicle is active (only plans/ has state.json); a leftover spec doc
+  # for the same slug must NOT be picked.
+  _plan_state dup
+  mkdir -p .mumei/specs/dup
   : >.mumei/specs/dup/requirements.md
   : >.mumei/plans/dup/plan.md
   run mumei_gencontrol_artifact_path dup
-  [ "$output" = ".mumei/specs/dup/requirements.md" ]
+  [ "$output" = ".mumei/plans/dup/plan.md" ]
 }
 
-@test "artifact_path emits nothing when neither exists" {
-  run mumei_gencontrol_artifact_path nope
+@test "artifact_path emits nothing when no state.json resolves a vehicle" {
+  mkdir -p .mumei/specs/orphan
+  : >.mumei/specs/orphan/requirements.md
+  run mumei_gencontrol_artifact_path orphan
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }

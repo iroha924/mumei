@@ -284,21 +284,28 @@ mumei_is_meta_path() {
 
 # R3 was relocated above (vehicle/feature-independent gate); see line ~45.
 
-# --- E1: Open Questions block (pillar E, BOTH vehicles) ---
-# In implement phase, refuse edits to production (non-meta) files while the
-# active feature's artifact still has unresolved Open Questions. The artifact
-# and all .mumei/ paths are meta-exempt, so resolving the questions (editing
-# requirements.md / plan.md) is never blocked. Phase is read via
-# mumei_state_read_any (vehicle-agnostic) rather than mumei_state_phase, which
-# resolves the spec-only path and would return empty for plan vehicle.
-GENCTRL_PHASE="$(mumei_state_read_any "$FEATURE" '.phase' 2>/dev/null || true)"
-if [[ "$GENCTRL_PHASE" == "implement" ]] && ! mumei_is_meta_path "$FILE_PATH"; then
+# spec-only rules below (E1, P1/I2/I1/W1) assume spec-format artifacts
+# (requirements.md with a `## Open Questions` section, tasks.md _Files: meta,
+# design.md). Plan vehicle has none — its plan.md is captured verbatim from
+# ExitPlanMode and carries no Open Questions section, so an OQ gate would
+# deadlock every accepted plan. Exit here; pillar E generation-time gating for
+# the plan vehicle awaits plan-capture producer support (a follow-up feature).
+if [[ "$VEHICLE" == "plan" ]]; then
+  exit 0
+fi
+
+# --- E1: Open Questions block (pillar E, spec vehicle) ---
+# In implement phase, refuse edits to production (non-meta) files while
+# requirements.md still has unresolved Open Questions. The artifact and all
+# .mumei/ paths are meta-exempt, so resolving the questions (editing
+# requirements.md) is never blocked.
+if [[ "$PHASE" == "implement" ]] && ! mumei_is_meta_path "$FILE_PATH"; then
   GENCTRL_ARTIFACT="$(mumei_gencontrol_artifact_path "$FEATURE" 2>/dev/null || true)"
   if [[ -z "$GENCTRL_ARTIFACT" ]]; then
     # An active feature in implement phase must have its artifact present;
     # a missing/renamed artifact would otherwise silently bypass the OQ gate.
     mumei_deny \
-      "Cannot edit ${FILE_PATH}: feature ${FEATURE} is in implement phase but its spec artifact (requirements.md / plan.md) is missing. Restore it before editing production files." \
+      "Cannot edit ${FILE_PATH}: feature ${FEATURE} is in implement phase but its requirements.md is missing. Restore it before editing production files." \
       "phase=implement gate (pillar E.1). An active feature must have its artifact present so Open Questions can be verified; a missing artifact must not silently allow production edits. Set MUMEI_BYPASS=1 to override." \
       "E1"
   fi
@@ -308,13 +315,6 @@ if [[ "$GENCTRL_PHASE" == "implement" ]] && ! mumei_is_meta_path "$FILE_PATH"; t
       "phase=implement gate (pillar E.1). The '## Open Questions' section must exist and contain only resolved '- [x]' items or the literal 'None'. Set MUMEI_BYPASS=1 to override." \
       "E1"
   fi
-fi
-
-# spec-only rules below (P1/I2/I1/W1) assume spec-format artifacts (tasks.md
-# _Files: meta, design.md). Plan vehicle has none, so exit here — E1 above
-# already ran for both vehicles.
-if [[ "$VEHICLE" == "plan" ]]; then
-  exit 0
 fi
 
 # --- P1: editing src/ etc. before the spec is complete ---

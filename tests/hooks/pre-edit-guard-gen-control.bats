@@ -107,16 +107,12 @@ _plan() {
   [[ "$output" == *"artifact"* ]]
 }
 
-@test "E1 denies plan-vehicle production edit when OQ has an unchecked item" {
+# E1 is spec-vehicle only: plan.md is captured verbatim from ExitPlanMode and
+# carries no `## Open Questions` section, so gating it would deadlock every
+# accepted plan. The plan vehicle exits before E1 — production edits are not
+# blocked by E1 regardless of OQ state.
+@test "E1 does not run for the plan vehicle (production edit allowed even with unresolved OQ)" {
   _plan "$OQ_OPEN"
-  _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/app.js"}}'
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'"permissionDecision": "deny"'* ]]
-  [[ "$output" == *"Open Questions"* ]]
-}
-
-@test "E1 allows plan-vehicle production edit when OQ is resolved" {
-  _plan "$OQ_OK"
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/app.js"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
