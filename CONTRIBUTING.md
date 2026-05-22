@@ -223,9 +223,10 @@ creates a topic branch in this repo.
    sufficient — automated reviewers also post feedback:
    - `task pr:watch` — wait for the latest CI run on this branch
    - `gh pr checks <N>` — CI status snapshot
-   - **GitHub PR UI** — review findings from automated reviewers (Gemini
-     Code Assist, GitHub Copilot) that comment asynchronously on PR open
-     and on pushes. Triage them, push fix commits, and resolve the
+   - **GitHub PR UI** — review findings from automated reviewers. Gemini
+     Code Assist comments on PR open (a re-review after a push needs a
+     manual `/gemini review` comment); OpenAI Codex comments on PR open
+     and on each push. Triage them, push fix commits, and resolve the
      threads before merging. Reviewer monitoring is the PR author's
      responsibility; an AI agent driving the PR watches CI only.
 9. Self-merge via squash or rebase (linear history; merge commits should
