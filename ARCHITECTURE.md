@@ -46,7 +46,7 @@ mumei/
 │   │   ├── cost-log.sh     # optional pre/post wrap helpers; SubagentStop hook is authoritative
 │   │   ├── verify-log.sh   # test-run audit trail (commit-gate / worktree-clean / agent-run exit codes)
 │   │   ├── worktree-verify.sh # clean-HEAD double-measurement (reward-hacking defense)
-│   │   ├── config.sh       # .mumei/config.json reader: golden-path glob + tool_gates map (pillar B)
+│   │   ├── config.sh       # .mumei/config.json: golden-path glob + golden append + tool_gates map (pillar B)
 │   │   ├── gen-control.sh  # pillar E parsing: artifact path + Open Questions section
 │   │   ├── property.sh     # pillar B: _Invariant: structure validation + opt-in AC enum
 │   │   ├── reviewer-prompt.sh # immutable prefix + variable suffix builder for cache-friendly prompts

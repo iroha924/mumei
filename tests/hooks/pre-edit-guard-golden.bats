@@ -103,3 +103,13 @@ _edit_input() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "G1: a path registered via mumei_config_add_golden_path is denied (pillar B freeze)" {
+  # shellcheck disable=SC1091
+  source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/config.sh"
+  mumei_config_add_golden_path "tests/encode.property.test.ts"
+  _run_hook "$(_edit_input "tests/encode.property.test.ts")"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
+  [[ "$(jq -r '.hookSpecificOutput.permissionDecisionReason' <<<"$output")" == *golden* ]]
+}

@@ -163,3 +163,38 @@ _write_config() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+# ─── mumei_config_add_golden_path ────────────────────────────
+
+@test "add_golden_path creates config.json with golden_paths when absent" {
+  run mumei_config_add_golden_path "tests/p.test.ts"
+  [ "$status" -eq 0 ]
+  run jq -c '.golden_paths' .mumei/config.json
+  [ "$output" = '["tests/p.test.ts"]' ]
+}
+
+@test "add_golden_path appends to an existing golden_paths" {
+  _write_config '{"golden_paths": ["a"]}'
+  mumei_config_add_golden_path "b"
+  run jq -c '.golden_paths' .mumei/config.json
+  [ "$output" = '["a","b"]' ]
+}
+
+@test "add_golden_path is a no-op for a duplicate" {
+  _write_config '{"golden_paths": ["a"]}'
+  mumei_config_add_golden_path "a"
+  run jq -r '.golden_paths | length' .mumei/config.json
+  [ "$output" = "1" ]
+}
+
+@test "add_golden_path preserves other keys (tool_gates)" {
+  _write_config '{"golden_paths": ["a"], "tool_gates": {"lint": "x"}}'
+  mumei_config_add_golden_path "b"
+  run jq -c '.tool_gates' .mumei/config.json
+  [ "$output" = '{"lint":"x"}' ]
+}
+
+@test "add_golden_path returns 1 on an empty path" {
+  run mumei_config_add_golden_path ""
+  [ "$status" -eq 1 ]
+}

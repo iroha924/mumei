@@ -98,3 +98,38 @@ mumei_config_tool_gates() {
               | "\(.key)\t\(.value)"
          else empty end' "$cf" 2>/dev/null || return 0
 }
+
+# Append a single path to golden_paths in .mumei/config.json (atomic tmp+mv).
+# No-op (return 0) when the path is already present. Creates config.json with a
+# golden_paths array when the file is absent. Used by /mumei:plan to freeze a
+# generated property test so the implement actor cannot edit it (G1). Returns 1
+# on an empty path argument or a write/jq failure.
+mumei_config_add_golden_path() {
+  local path="$1"
+  [[ -n "$path" ]] || return 1
+  local cf=".mumei/config.json" tmp
+  mkdir -p .mumei 2>/dev/null || return 1
+  if [[ -f "$cf" ]]; then
+    # Already registered → no-op. index() returns a number (truthy under -e)
+    # when present, null (falsy) when absent.
+    if jq -e --arg p "$path" '(.golden_paths // []) | index($p)' "$cf" >/dev/null 2>&1; then
+      return 0
+    fi
+    tmp="$(mktemp "${cf}.XXXXXX")" || return 1
+    if jq --arg p "$path" '.golden_paths = ((.golden_paths // []) + [$p])' "$cf" >"$tmp" 2>/dev/null; then
+      mv "$tmp" "$cf"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
+  else
+    tmp="$(mktemp "${cf}.XXXXXX")" || return 1
+    if jq -n --arg p "$path" '{golden_paths: [$p]}' >"$tmp" 2>/dev/null; then
+      mv "$tmp" "$cf"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
+  fi
+  return 0
+}

@@ -614,6 +614,46 @@ This is the single user approval gate. There is no per-spec approval before this
 
 The user (or Claude through their guidance) implements Wave 1's tasks. After each task, mark `[x]` in `tasks.md` (the post-edit-guard hook will verify the implementation actually exists).
 
+### Phase 4.0 — Blind property authoring (opt-in, pillar B)
+
+Before implementing a Wave, check whether any AC in scope carries an
+`_Invariant:` line. This is **opt-in**: ACs without one are skipped and the
+Wave proceeds normally (no deadlock when a feature has no invariants).
+
+```bash
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/property.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/config.sh"
+# Each line is "REQ-N.M<TAB>type=… fn=… …" for an opted-in AC; no output → skip.
+mumei_property_acs_with_invariant ".mumei/specs/${feature}/requirements.md"
+```
+
+For each opted-in AC: validate the invariant structure, then launch the
+`property-author` subagent. Pass it ONLY the `_Invariant:` spec, the AC body,
+and the target function signature / type definitions — never the implementation
+body. The SubagentStart hook also withholds the full requirements.md from this
+agent, keeping it blind so its test cannot pander to a flawed implementation.
+
+```bash
+# Rejects unknown types and tautological forms (fn == inverse / fn == oracle).
+mumei_property_validate_invariant "type=roundtrip fn=encode inverse=decode" ||
+  echo "invalid invariant — fix requirements.md or drop the _Invariant: line"
+```
+
+```text
+Task(subagent_type: "property-author",
+     prompt: "_Invariant: <spec>. AC: <AC body>. Signature: <fn signature / type defs>. Write one property test.")
+```
+
+After the agent writes the test, freeze it as a golden file so the implement
+actor cannot tune it to a flawed implementation (G1):
+
+```bash
+mumei_config_add_golden_path "<generated property test path>"
+```
+
+The implement actor may READ the property test (to satisfy it), but any
+Edit/Write is denied by G1 and the file is restored from HEAD.
+
 When all tasks in current Wave are `[x]`:
 
 1. Hooks will require a commit before the next Wave can start.
