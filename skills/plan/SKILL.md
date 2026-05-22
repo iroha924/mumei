@@ -1113,6 +1113,15 @@ or count-based KPI field (REQ-23.10).
 # rather than relying on the Phase 5 bootstrap persisting here.
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
+# Observability guard: if reviewer_outputs is undeclared or empty (upstream
+# wiring failure) the loop degrades to [], the always-on ai-blindspot-ceiling
+# keeps residual non-empty, and the degraded result is byte-indistinguishable
+# from a clean review — silently dropping every needs-dynamic-analysis /
+# needs-architecture-review residual. declare -p is the portable existence check
+# (bash 3.2+); warn loudly rather than degrade silently.
+if ! declare -p reviewer_outputs >/dev/null 2>&1 || [ "${#reviewer_outputs[@]}" -eq 0 ]; then
+  mumei_log_warn "residual: reviewer_outputs unpopulated — filtered_out residuals will be absent"
+fi
 reviewer_filtered_out="$(
   for r in spec-compliance security adversarial; do
     jq -c --arg r "$r" '(.filtered_out // [])[] | . + {reviewer: $r}' \
