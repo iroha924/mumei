@@ -69,7 +69,7 @@ load '../test_helper'
 @test "review skill injects verbatim plan body into security-reviewer (issue #66)" {
   # security-reviewer prompt cats the plan into a <spec_context> block,
   # not a bare path reference.
-  grep -q '<spec_context>\$(cat .mumei/plans/\${slug}/plan.md)</spec_context>' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
+  grep -q '<spec_context>\$(cat ".mumei/plans/\${slug}/plan.md")</spec_context>' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
 }
 
 # ─── Model contract (all reviewers + validator opus, REQ-22.2) ──────

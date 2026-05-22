@@ -111,26 +111,31 @@ mumei_ledger_append() {
     tries=$((tries + 1))
     sleep 0.1
   done
-  ((lock_acquired)) ||
-    mumei_log_warn "ledger: mkdir-lock timeout; appending without lock (single-line append to an O_APPEND regular file is atomic)"
+  # Lock-or-fail: an unlocked append could race the lock holder's rotation
+  # (tail >tmp && mv) and be lost on the replaced inode. Rather than write
+  # unlocked, fail loud (the caller's append loop counts and logs it).
+  if ((!lock_acquired)); then
+    mumei_log_error "ledger: could not acquire lock after 50 tries; skipping append to avoid racing rotation"
+    return 1
+  fi
 
   printf '%s\n' "$entry" >>"$ledger"
   local rc=$?
 
   # Rotation: keep only the most recent MUMEI_LEDGER_MAX_LINES lines so the
   # append-only ledger does not grow unbounded and per-finding lookups stay
-  # bounded. Prune only when we hold the lock (avoids concurrent corruption).
-  if ((lock_acquired)); then
-    local max="${MUMEI_LEDGER_MAX_LINES:-5000}" lines
-    lines="$(wc -l <"$ledger" 2>/dev/null | tr -d ' ')"
-    if [[ -n "$lines" ]] && ((lines > max)); then
-      tail -n "$max" "$ledger" >"${ledger}.tmp" 2>/dev/null && mv "${ledger}.tmp" "$ledger"
-    fi
+  # bounded. We hold the lock here, and all appends are locked, so the
+  # tail/mv replace cannot drop a concurrent write. A non-numeric override
+  # falls back to the default (a bare `((lines > $max))` on a non-number
+  # would abort under set -u).
+  local max="${MUMEI_LEDGER_MAX_LINES:-5000}" lines
+  [[ "$max" =~ ^[0-9]+$ ]] || max=5000
+  lines="$(wc -l <"$ledger" 2>/dev/null | tr -d ' ')"
+  if [[ -n "$lines" ]] && ((lines > max)); then
+    tail -n "$max" "$ledger" >"${ledger}.tmp" 2>/dev/null && mv "${ledger}.tmp" "$ledger"
   fi
 
-  # Release the lock ONLY if this invocation acquired it — otherwise a
-  # blind rmdir could delete a concurrent writer's live lock dir.
-  ((lock_acquired)) && { rmdir "$lockdir" 2>/dev/null || true; }
+  rmdir "$lockdir" 2>/dev/null || true
   return "$rc"
 }
 

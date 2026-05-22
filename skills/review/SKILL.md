@@ -190,7 +190,7 @@ Task(subagent_type: "spec-compliance-reviewer",
      prompt: "Review plan-vehicle feature ${slug}. Wave: all. scope_source=.mumei/plans/${slug}/plan.md. Diff: $(git diff $(git merge-base origin/main HEAD)). ${detector_block_if_any}")
 
 Task(subagent_type: "security-reviewer",
-     prompt: "Review plan-vehicle feature ${slug}. Diff: $(git diff $(git merge-base origin/main HEAD)). <spec_context>$(cat .mumei/plans/${slug}/plan.md)</spec_context> ${detector_block_if_any}")
+     prompt: "Review plan-vehicle feature ${slug}. Diff: $(git diff $(git merge-base origin/main HEAD)). <spec_context>$(cat ".mumei/plans/${slug}/plan.md")</spec_context> ${detector_block_if_any}")
 
 Task(subagent_type: "adversarial-reviewer",
      prompt: "Review plan-vehicle feature ${slug}. Diff: ... . Prior findings: ${prior_findings_json}.")

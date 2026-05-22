@@ -149,6 +149,14 @@ teardown() {
   [ "$(wc -l <"$MUMEI_LEDGER_PATH" | tr -d ' ')" = "3" ]
 }
 
+@test "append: non-numeric MUMEI_LEDGER_MAX_LINES falls back to default (no set -u abort)" {
+  export MUMEI_LEDGER_MAX_LINES=abc
+  f='{"category":"injection","location":"src/db.ts:42","evidence":"x"}'
+  run mumei_ledger_append "$f" "REQ-1-foo" "security" "invalid" "HIGH"
+  [ "$status" -eq 0 ]
+  [ "$(wc -l <"$MUMEI_LEDGER_PATH" | tr -d ' ')" = "1" ]
+}
+
 @test "hash8: falls back without shasum (no empty/colliding output)" {
   # simulate shasum + sha256sum absent by shadowing command lookup via PATH
   out_full="$(_mumei_ledger_hash8 "alpha")"
