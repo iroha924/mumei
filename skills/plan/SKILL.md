@@ -924,6 +924,20 @@ Pass each reviewer:
   prompt as a literal `scope_source=<path>` suffix. The reviewer dispatches
   on this parameter to select spec-vehicle vs plan-vehicle scope-comparison
   logic. Spec vehicle always uses requirements.md.
+- **Input asymmetry (REQ-22.4 / REQ-22.5)**: inject the full spec context
+  (the verbatim bodies of `requirements.md` AND `design.md`) into the
+  **`security-reviewer`** prompt suffix as a `<spec_context>` block, so it
+  judges the diff against intent. Do **NOT** inject spec context into the
+  **`adversarial-reviewer`** prompt — it evaluates the diff cold (diff only).
+  This asymmetry is the sole diversity mechanism (all reviewers run on the
+  same model); model rotation is intentionally not used.
+
+  ```text
+  <spec_context>
+  [verbatim requirements.md, then design.md]
+  </spec_context>
+  ```
+
 - **HIGH detector findings** (only when `high_count > 0`) injected into the
   prompt as a `<detector_findings ground_truth="true">` block. The block
   contains the JSON array from `.findings.HIGH` of the detectors report.

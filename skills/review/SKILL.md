@@ -201,6 +201,14 @@ extension: `requirements.md` → spec-vehicle EARS comparison;
 (scope_creep / silent_reinterpretation findings only, no
 ac_drift / missing_ac).
 
+**Input asymmetry (REQ-22.4 / REQ-22.5)**: the `security-reviewer` prompt
+carries the full plan context (`Plan: .mumei/plans/${slug}/plan.md`) so it
+judges the diff against intent, while the `adversarial-reviewer` prompt
+carries the diff and prior findings only — no plan — so it evaluates cold.
+Keep this asymmetry intact: it is the sole diversity mechanism (both run on
+the same model; model rotation is intentionally not used). Do NOT add the
+plan path to the adversarial prompt.
+
 When `high_count > 0`, inject the HIGH detector findings into all running
 reviewer prompts as a `<detector_findings ground_truth="true">` block
 exactly as Phase 5 does (see `skills/plan/SKILL.md` Stage 1).
