@@ -37,6 +37,9 @@ jobs:
           # app installed + id-token: write). pull-requests: write above is
           # enough for inline comments.
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Default is Sonnet; use Opus 4.7 for higher review quality (Max 20x
+          # has ample quota headroom).
+          claude_args: "--model claude-opus-4-7"
           prompt: |
             Review this pull request as an automated reviewer for the mumei repository.
             Read AGENTS.md for review guidance and CLAUDE.md / .claude/rules/ for project rules.
