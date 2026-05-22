@@ -85,10 +85,14 @@ mumei_gencontrol_oq_unresolved() {
   if printf '%s\n' "$sec" | grep -qE '^[[:space:]]*-[[:space:]]+\[[xX]\]'; then
     return 1
   fi
-  # No checkboxes at all: require the literal `None` to mean "explicitly empty".
-  if printf '%s\n' "$sec" | grep -qE '^[[:space:]]*None[[:space:]]*$'; then
+  # No checkboxes at all: allow ONLY when the section's sole non-blank line is
+  # the literal `None` (explicitly empty). Prose plus a stray `None` line stays
+  # blocked — `None` must be the entire content, not just present somewhere.
+  local nonblank
+  nonblank="$(printf '%s\n' "$sec" | grep -vE '^[[:space:]]*$' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+  if [[ "$nonblank" == "None" ]]; then
     return 1
   fi
-  # Section present but empty / prose-only without `None` -> unresolved.
+  # Section present but empty / prose-only (with or without a stray None) -> unresolved.
   return 0
 }

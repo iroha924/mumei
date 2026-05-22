@@ -294,7 +294,15 @@ mumei_is_meta_path() {
 GENCTRL_PHASE="$(mumei_state_read_any "$FEATURE" '.phase' 2>/dev/null || true)"
 if [[ "$GENCTRL_PHASE" == "implement" ]] && ! mumei_is_meta_path "$FILE_PATH"; then
   GENCTRL_ARTIFACT="$(mumei_gencontrol_artifact_path "$FEATURE" 2>/dev/null || true)"
-  if [[ -n "$GENCTRL_ARTIFACT" ]] && mumei_gencontrol_oq_unresolved "$GENCTRL_ARTIFACT"; then
+  if [[ -z "$GENCTRL_ARTIFACT" ]]; then
+    # An active feature in implement phase must have its artifact present;
+    # a missing/renamed artifact would otherwise silently bypass the OQ gate.
+    mumei_deny \
+      "Cannot edit ${FILE_PATH}: feature ${FEATURE} is in implement phase but its spec artifact (requirements.md / plan.md) is missing. Restore it before editing production files." \
+      "phase=implement gate (pillar E.1). An active feature must have its artifact present so Open Questions can be verified; a missing artifact must not silently allow production edits. Set MUMEI_BYPASS=1 to override." \
+      "E1"
+  fi
+  if mumei_gencontrol_oq_unresolved "$GENCTRL_ARTIFACT"; then
     mumei_deny \
       "Cannot edit ${FILE_PATH}: ${GENCTRL_ARTIFACT} has unresolved Open Questions. Mark each '- [x]' or set the section body to the literal 'None' before editing production files." \
       "phase=implement gate (pillar E.1). The '## Open Questions' section must exist and contain only resolved '- [x]' items or the literal 'None'. Set MUMEI_BYPASS=1 to override." \

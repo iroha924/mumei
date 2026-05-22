@@ -245,7 +245,6 @@
         ]
       },
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",

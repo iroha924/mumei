@@ -101,6 +101,12 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "oq_unresolved blocks prose plus a stray None line (None must be the whole content)" {
+  printf '## Open Questions\nwe still need to decide X\nNone\n' >art.md
+  run mumei_gencontrol_oq_unresolved art.md
+  [ "$status" -eq 0 ]
+}
+
 @test "oq_unresolved allows (does not block) when the artifact file is missing" {
   run mumei_gencontrol_oq_unresolved does-not-exist.md
   [ "$status" -eq 1 ]

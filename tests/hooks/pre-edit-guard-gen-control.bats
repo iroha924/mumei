@@ -98,6 +98,15 @@ _plan() {
   [ "$output" = "" ]
 }
 
+@test "E1 denies production edit when the artifact is missing in implement phase (no silent bypass)" {
+  _spec "$OQ_OK"
+  rm -f .mumei/specs/REQ-1-foo/requirements.md
+  _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/app.js"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "deny"'* ]]
+  [[ "$output" == *"artifact"* ]]
+}
+
 @test "E1 denies plan-vehicle production edit when OQ has an unchecked item" {
   _plan "$OQ_OPEN"
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/app.js"}}'
