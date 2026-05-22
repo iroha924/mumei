@@ -53,6 +53,10 @@ FRAMING_PREFIX="mumei generation-time context (pillar E.3): In this project, 'sa
 # the Task prompt; here we inject only the framing prefix plus a blind reminder.
 INPUT="$(cat 2>/dev/null || true)"
 AGENT_TYPE="$(jq -r '.agent_type // empty' <<<"$INPUT" 2>/dev/null || true)"
+# agent_type arrives plugin-namespaced ('mumei:property-author' at runtime);
+# strip the prefix before matching, mirroring subagent-cost-log.sh. A bare-name
+# match would silently never fire and leak the full requirements.md.
+AGENT_TYPE="${AGENT_TYPE#mumei:}"
 if [[ "$AGENT_TYPE" == "property-author" ]]; then
   BLIND="${FRAMING_PREFIX}
 

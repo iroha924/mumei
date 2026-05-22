@@ -108,7 +108,8 @@ _run_hook_agent() {
   _init_feature REQ-1-foo implement 1
   printf '# foo\n## Acceptance Criteria\n- REQ-1.1 WHEN x SHALL y.\n  - _Invariant: type=roundtrip fn=encode inverse=decode_\n\n## Open Questions\nNone\n' \
     >.mumei/specs/REQ-1-foo/requirements.md
-  _run_hook_agent property-author
+  # Runtime delivers the plugin-namespaced agent_type; the hook must strip it.
+  _run_hook_agent mumei:property-author
   [ "$status" -eq 0 ]
   ctx="$(_ctx)"
   [[ "$ctx" == *"blind property-author"* ]]
@@ -120,9 +121,19 @@ _run_hook_agent() {
 @test "non-property-author agent still receives the full artifact (no regression)" {
   _init_feature REQ-1-foo implement 1
   printf '# foo\nbody line\n## Open Questions\nNone\n' >.mumei/specs/REQ-1-foo/requirements.md
-  _run_hook_agent security-reviewer
+  _run_hook_agent mumei:security-reviewer
   [ "$status" -eq 0 ]
   ctx="$(_ctx)"
   [[ "$ctx" == *"Active feature spec"* ]]
   [[ "$ctx" == *"body line"* ]]
+}
+
+@test "property-author blind branch fires even on a bare (un-namespaced) agent_type" {
+  _init_feature REQ-1-foo implement 1
+  printf '# foo\n## Open Questions\nNone\n' >.mumei/specs/REQ-1-foo/requirements.md
+  _run_hook_agent property-author
+  [ "$status" -eq 0 ]
+  ctx="$(_ctx)"
+  [[ "$ctx" == *"blind property-author"* ]]
+  [[ "$ctx" != *"Active feature spec"* ]]
 }

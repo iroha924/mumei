@@ -292,3 +292,19 @@ _complete_wave1() {
   ec="$(jq -r 'select(.source=="tool-gate") | .exit_code' .mumei/specs/REQ-1-foo/verify-log.jsonl | head -1)"
   [ "$ec" = "0" ]
 }
+
+@test "I5: a stdin-reading tool_gate does not skip later gates (fd-0 drain guard)" {
+  _init_feature_with_tasks
+  _complete_wave1
+  # 'a_reader' (cat) reads stdin. Without the </dev/null guard it would drain
+  # the process-substitution feeding the gate loop, so the later 'z_fail' gate
+  # would never run and the commit would pass. With the guard, z_fail runs and
+  # denies the commit.
+  printf '%s' '{"tool_gates": {"a_reader": "cat", "z_fail": "exit 3"}}' >.mumei/config.json
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m foo"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
+  reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
+  [[ "$reason" == *"z_fail"* ]]
+}

@@ -83,6 +83,12 @@ teardown() {
   [ "$status" -eq 1 ]
 }
 
+@test "validate rejects a multi-word value (read -ra truncation guard)" {
+  run mumei_property_validate_invariant "type=invariant-preservation fn=sort invariant=output is sorted"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"malformed invariant token"* ]]
+}
+
 # ─── mumei_property_acs_with_invariant ───────────────────────
 
 @test "acs_with_invariant lists only ACs carrying _Invariant: (opt-in)" {

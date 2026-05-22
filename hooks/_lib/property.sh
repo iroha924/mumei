@@ -50,6 +50,16 @@ mumei_property_validate_invariant() {
   local -a toks=()
   read -ra toks <<<"$spec"
   for tok in "${toks[@]}"; do
+    # Every token must be key=value. A bare token (no '=') means a field value
+    # contained whitespace (e.g. `invariant=output is sorted`) and read -ra
+    # split it; accepting it would silently freeze a truncated predicate. Reject.
+    case "$tok" in
+    *=*) ;;
+    *)
+      printf 'malformed invariant token without = (field values must be single tokens, no spaces): %s\n' "$tok"
+      return 1
+      ;;
+    esac
     key="${tok%%=*}"
     val="${tok#*=}"
     case "$key" in

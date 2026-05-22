@@ -410,9 +410,12 @@ if mumei_is_git_commit "$COMMAND"; then
   while IFS=$'\t' read -r _tg_key _tg_cmd; do
     [[ -n "$_tg_key" && -n "$_tg_cmd" ]] || continue
     mumei_log_info "running tool gate '${_tg_key}' before commit: ${_tg_cmd}"
+    # Redirect stdin from /dev/null: this loop is fed by process substitution on
+    # fd 0, so a gate command that reads stdin would otherwise drain the
+    # remaining gate lines and silently skip every later gate.
     TG_OUTPUT="$(
       set -o pipefail
-      eval "$_tg_cmd" 2>&1
+      eval "$_tg_cmd" </dev/null 2>&1
     )"
     TG_EXIT=$?
     TG_TAIL=""
