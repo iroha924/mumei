@@ -32,6 +32,11 @@ jobs:
       - uses: anthropics/claude-code-action@4481e6d3c7bbb88db2a928ca3444c536f589c7c1 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Use the workflow's GITHUB_TOKEN to post review comments, avoiding
+          # the GitHub-App / OIDC token-exchange path (which needs the Claude
+          # app installed + id-token: write). pull-requests: write above is
+          # enough for inline comments.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Review this pull request as an automated reviewer for the mumei repository.
             Read AGENTS.md for review guidance and CLAUDE.md / .claude/rules/ for project rules.
