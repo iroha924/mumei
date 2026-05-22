@@ -88,11 +88,11 @@ load '../test_helper'
 
 # ─── Agent count invariant (REQ-17.16) ───────────────────────
 
-@test "agents/ contains exactly 8 reviewer/validator/curator agents (no new agent added)" {
+@test "agents/ contains 9 agents (8 reviewer/validator/curator + property-author)" {
   count="$(find "$CLAUDE_PLUGIN_ROOT/agents" -maxdepth 1 -name '*.md' -type f | wc -l)"
   # Strip whitespace from wc output (BSD vs GNU difference)
   count="$(printf '%s' "$count" | tr -d '[:space:]')"
-  [ "$count" = "8" ]
+  [ "$count" = "9" ]
 }
 
 @test "agents/ does not contain a separate plan-compliance-reviewer file" {
