@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
 # Tests for hooks/pre-edit-guard.sh generation-time gate (pillar E).
-# Rule under test (implement phase, BOTH vehicles, on production = non-meta files):
-#   E1 — unresolved Open Questions in the artifact → deny
+# Rule under test (implement phase, SPEC vehicle only, on production = non-meta
+# files; the plan vehicle exits before E1 and is covered by an exemption test):
+#   E1 — unresolved Open Questions in requirements.md → deny
 
 bats_require_minimum_version 1.5.0
 

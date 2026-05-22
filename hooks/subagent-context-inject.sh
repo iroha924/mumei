@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# SubagentStart hook (matcher *). Re-injects generation-time context into
-# every subagent so long-context degradation and adversarial diff framing do
-# not erode subagent judgment (pillar E.3):
+# SubagentStart hook (registered with no matcher in hooks.json → fires for
+# every subagent). Re-injects generation-time context so long-context
+# degradation and adversarial diff framing do not erode subagent judgment
+# (pillar E.3):
 #   (a) a framing-neutralization prefix — disregard "safe"/"benign" claims,
 #       re-derive from the code itself;
 #   (b) the active feature's artifact (requirements.md / plan.md), truncated

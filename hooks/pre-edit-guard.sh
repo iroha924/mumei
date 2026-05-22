@@ -158,11 +158,11 @@ fi
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
 
-# Resolve the active vehicle once. The generation-time gate E1 runs for
-# BOTH vehicles, so it sits before the spec-only exit further down. The
-# spec-only hooks (P1/P2/P3, I1/I2, W1) assume spec-format artifacts
-# (requirements.md, design.md, tasks.md with _Files: meta) which plan vehicle
-# does not have, so they are skipped for plan after E1 has run.
+# Resolve the active vehicle once. All gates in this hook (E1, P1/P2/P3,
+# I1/I2, W1) are spec-vehicle only — they assume spec-format artifacts
+# (requirements.md with a `## Open Questions` section, design.md, tasks.md with
+# _Files: meta) which the plan vehicle lacks. The plan vehicle exits right
+# after the mumei_deny definition below, before any of them run.
 # Resolution goes through mumei_state_active_vehicle so dispatch is consistent
 # with pre-bash-guard.sh and skills/archive (spec wins on dual-state).
 VEHICLE="$(mumei_state_active_vehicle "$FEATURE")"
