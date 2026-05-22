@@ -689,10 +689,13 @@ detector findings that the LLM reviewers treat as ground truth.
 
 This phase relies on shared helpers in `hooks/_lib/review.sh` (extracted in
 this lib so the plan-vehicle `/mumei:review` skill can reuse them).
-Source the lib once at the top of Phase 5:
+Source the libs once at the top of Phase 5. `ledger.sh` MUST be sourced
+here (not lazily in Stage 6.4) because Stage 4 calls
+`mumei_ledger_fingerprint` / `mumei_ledger_prior_fp_count` before Stage 6:
 
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/ledger.sh"
 review_dir=".mumei/specs/${feature}/reviews"
 ```
 
