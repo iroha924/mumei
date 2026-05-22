@@ -2,7 +2,7 @@
 name: spec-compliance-reviewer
 description: Reviews a Wave's implementation against requirements.md and tasks.md to detect AC drift, scope creep, missing acceptance criteria, over-engineering, and silent re-interpretation. Triggered automatically by /mumei:plan after a Wave is implemented and before the review phase completes. Does NOT review code quality, security, or correctness — other reviewers handle those.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 color: blue
 memory: project
 ---
