@@ -51,6 +51,19 @@ _cats() { jq -c '[.[].category]'; }
   [ "$(jq -r '.[0].category' <<<"$out")" = "ai-blindspot-ceiling" ]
 }
 
+@test "invalid (false-positive) findings are NOT in residual — they live in findings_filtered, never passed (REQ-23.7)" {
+  # mumei_residual_collect's $1 is findings_surfaced, which by Stage 5 contract
+  # never contains invalid findings (they are moved to findings_filtered, which
+  # is NOT an argument). Even if an invalid-decision finding were mistakenly in
+  # surfaced, it matches no residual condition (not report_only / unsure /
+  # valid_by_assertion) and is dropped.
+  surfaced='[{"id":"F-9","validator":{"decision":"invalid"},"message":"false positive"}]'
+  out="$(mumei_residual_collect "$surfaced" '[]' "$CEIL")"
+  [ "$(jq -r '[.[] | select(.ref=="F-9")] | length' <<<"$out")" = "0" ]
+  [ "$(jq 'length' <<<"$out")" = "1" ]
+  [ "$(jq -r '.[0].category' <<<"$out")" = "ai-blindspot-ceiling" ]
+}
+
 @test "non-needs filtered_out reasons (low_confidence) are NOT residual" {
   filtered='[{"reviewer":"adversarial","reason":"low_confidence","would_have_flagged":"weak"}]'
   out="$(mumei_residual_collect '[]' "$filtered" "$CEIL")"
