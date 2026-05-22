@@ -52,6 +52,30 @@ const VerdictLiteral = Type.Union([
   Type.Literal('MAJOR_ISSUES'),
 ])
 
+// Residual exposition (pillar D, REQ-23). One entry per signal that objective
+// verification cannot guarantee, aggregated deterministically by
+// `hooks/_lib/residual.sh`. `category` is a fixed source-derived set; finer
+// semantic judgement (auth boundary / business logic) is left to the human
+// who reads `note`.
+const ResidualItemSchema = Type.Object({
+  category: Type.Union([
+    Type.Literal('ungrounded-concern'),
+    Type.Literal('insufficient-context'),
+    Type.Literal('needs-dynamic-analysis'),
+    Type.Literal('needs-architecture-review'),
+    Type.Literal('unvalidated-assertion'),
+    Type.Literal('ai-blindspot-ceiling'),
+  ]),
+  source: Type.String({
+    description:
+      'Originating signal: advisory / validator-unsure / validator-skip / reviewer-filtered / ceiling.',
+  }),
+  ref: Type.String({
+    description: 'Originating finding id, reviewer name, or "-" for the ceiling item.',
+  }),
+  note: Type.String({ description: 'Verbatim original reason / message for human spot-check.' }),
+})
+
 // Per-reviewer entry in the `reviewers` map. Multiple historical
 // shapes observed: object-with-`verdict` (current), bare string
 // (older), and free-form verdict labels like `PASS_AFTER_FIX` that
@@ -130,6 +154,12 @@ export const ReviewSchema = Type.Object(
       Type.String({
         description:
           'One-line honesty disclaimer (pillar C, REQ-22.10): names the Claude-family shared blind spot and the real-bug detection ceiling. Never claims human review is unnecessary.',
+      }),
+    ),
+    residual: Type.Optional(
+      Type.Array(ResidualItemSchema, {
+        description:
+          'Residual exposition (pillar D, REQ-23): signals objective verification cannot guarantee, for human review. Optional: archived reviews and synthetic short-circuit records (iter-1-all-PASS) omit it; for a full (non-short-circuit) review the orchestrator emits it non-empty via the always-on ai-blindspot-ceiling. Consumers must null-check.',
       }),
     ),
   },

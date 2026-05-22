@@ -268,6 +268,61 @@
     "confidence_ceiling": {
       "description": "One-line honesty disclaimer (pillar C, REQ-22.10): names the Claude-family shared blind spot and the real-bug detection ceiling. Never claims human review is unnecessary.",
       "type": "string"
+    },
+    "residual": {
+      "description": "Residual exposition (pillar D, REQ-23): signals objective verification cannot guarantee, for human review. Optional: archived reviews and synthetic short-circuit records (iter-1-all-PASS) omit it; for a full (non-short-circuit) review the orchestrator emits it non-empty via the always-on ai-blindspot-ceiling. Consumers must null-check.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "category",
+          "source",
+          "ref",
+          "note"
+        ],
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "const": "ungrounded-concern",
+                "type": "string"
+              },
+              {
+                "const": "insufficient-context",
+                "type": "string"
+              },
+              {
+                "const": "needs-dynamic-analysis",
+                "type": "string"
+              },
+              {
+                "const": "needs-architecture-review",
+                "type": "string"
+              },
+              {
+                "const": "unvalidated-assertion",
+                "type": "string"
+              },
+              {
+                "const": "ai-blindspot-ceiling",
+                "type": "string"
+              }
+            ]
+          },
+          "source": {
+            "description": "Originating signal: advisory / validator-unsure / validator-skip / reviewer-filtered / ceiling.",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Originating finding id, reviewer name, or \"-\" for the ceiling item.",
+            "type": "string"
+          },
+          "note": {
+            "description": "Verbatim original reason / message for human spot-check.",
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

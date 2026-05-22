@@ -43,6 +43,7 @@ mumei/
 │   │   ├── detectors.sh    # semgrep / osv-scanner runners + severity normalizer
 │   │   ├── review.sh       # shared Phase 5 / /mumei:review pipeline helpers
 │   │   ├── ledger.sh       # cross-feature finding ledger (pillar C: move-resistant fingerprint + FP annotation, annotate-only)
+│   │   ├── residual.sh     # residual exposition (pillar D: deterministic aggregation of advisory/unsure/needs_*/valid_by_assertion + always-on ai-blindspot-ceiling)
 │   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
 │   │   ├── cost-log.sh     # optional pre/post wrap helpers; SubagentStop hook is authoritative
 │   │   ├── verify-log.sh   # test-run audit trail (commit-gate / worktree-clean / agent-run exit codes)
@@ -235,6 +236,19 @@ Key constraints:
   one-liner (`mumei_review_ceiling_disclaimer`) naming the Claude-family
   blind spot and real-bug detection ceiling — AI review is an assist, not a
   replacement for human review.
+- **Residual exposition.** `hooks/_lib/residual.sh` deterministically
+  aggregates every signal objective verification cannot guarantee into a
+  `residual` array on the review JSON: advisory (report_only) →
+  `ungrounded-concern`, validator `unsure` → `insufficient-context`,
+  validator `valid_by_assertion` → `unvalidated-assertion`, reviewer
+  `filtered_out` `needs_dynamic_analysis` / `needs_architecture_review` →
+  matching categories, plus an always-present `ai-blindspot-ceiling` item
+  (every review, even a clean PASS). Aggregation is pure bash + jq — no AI
+  drop gate — and conservatively over-includes; `invalid` findings are
+  structurally excluded (never passed to the collector). Each item carries
+  `{category, source, ref, note}` for human spot-check. No reduction-ratio
+  or count KPI is emitted (Goodhart avoidance): the claim is "human review
+  is reduced and concentrated onto the residual, not eliminated".
 
 ## File-based state model
 

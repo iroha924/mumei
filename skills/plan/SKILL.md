@@ -696,6 +696,7 @@ here (not lazily in Stage 6.4) because Stage 4 calls
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/ledger.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
 review_dir=".mumei/specs/${feature}/reviews"
 ```
 
@@ -1093,8 +1094,33 @@ the next iteration:
   "next_iter_reviewers": ["<reviewer1>", "<reviewer2>", "adversarial"],
   "detector_skipped": false,
   "detector_reused_from": null,
-  "confidence_ceiling": "<mumei_review_ceiling_disclaimer output>"
+  "confidence_ceiling": "<mumei_review_ceiling_disclaimer output>",
+  "residual": [ { "category": "...", "source": "...", "ref": "...", "note": "..." } ]
 }
+```
+
+**`residual`** (pillar D, REQ-23): deterministically aggregate the residual
+signals and stamp them onto the review JSON. Aggregate every reviewer's
+`filtered_out` (annotated with its reviewer name) and pass surfaced + that
+array + the ceiling text to `mumei_residual_collect`. It reads only
+surfaced + filtered_out + ceiling (never `findings_filtered`), so invalid
+findings are structurally excluded (REQ-23.7), and always appends one
+`ai-blindspot-ceiling` item (REQ-23.8). Do **NOT** add any reduction-ratio
+or count-based KPI field (REQ-23.10).
+
+```bash
+# Each Bash invocation is a fresh shell — source the helpers this block uses
+# rather than relying on the Phase 5 bootstrap persisting here.
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
+reviewer_filtered_out="$(
+  for r in spec-compliance security adversarial; do
+    jq -c --arg r "$r" '(.filtered_out // [])[] | . + {reviewer: $r}' \
+      <<<"${reviewer_outputs[$r]:-{}}" 2>/dev/null
+  done | jq -sc '.'
+)"
+residual_json="$(mumei_residual_collect "$surfaced_json" "$reviewer_filtered_out" "$(mumei_review_ceiling_disclaimer)")"
+# include --argjson residual "$residual_json" + `residual: $residual` in the review JSON builder.
 ```
 
 **`confidence_ceiling`** (REQ-22.10): stamp the fixed one-line disclaimer
