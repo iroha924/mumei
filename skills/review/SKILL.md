@@ -190,7 +190,7 @@ Task(subagent_type: "spec-compliance-reviewer",
      prompt: "Review plan-vehicle feature ${slug}. Wave: all. scope_source=.mumei/plans/${slug}/plan.md. Diff: $(git diff $(git merge-base origin/main HEAD)). ${detector_block_if_any}")
 
 Task(subagent_type: "security-reviewer",
-     prompt: "Review plan-vehicle feature ${slug}. Diff: $(git diff $(git merge-base origin/main HEAD)). Plan: .mumei/plans/${slug}/plan.md. ${detector_block_if_any}")
+     prompt: "Review plan-vehicle feature ${slug}. Diff: $(git diff $(git merge-base origin/main HEAD)). <spec_context>$(cat .mumei/plans/${slug}/plan.md)</spec_context> ${detector_block_if_any}")
 
 Task(subagent_type: "adversarial-reviewer",
      prompt: "Review plan-vehicle feature ${slug}. Diff: ... . Prior findings: ${prior_findings_json}.")
@@ -203,12 +203,13 @@ extension: `requirements.md` → spec-vehicle EARS comparison;
 ac_drift / missing_ac).
 
 **Input asymmetry (REQ-22.4 / REQ-22.5)**: the `security-reviewer` prompt
-carries the full plan context (`Plan: .mumei/plans/${slug}/plan.md`) so it
-judges the diff against intent, while the `adversarial-reviewer` prompt
-carries the diff and prior findings only — no plan — so it evaluates cold.
-Keep this asymmetry intact: it is the sole diversity mechanism (both run on
-the same model; model rotation is intentionally not used). Do NOT add the
-plan path to the adversarial prompt.
+carries the **verbatim** plan body inside a `<spec_context>` block (the
+orchestrator `cat`s `.mumei/plans/${slug}/plan.md` into the prompt, mirroring
+the spec-vehicle injection) so it judges the diff against intent, while the
+`adversarial-reviewer` prompt carries the diff and prior findings only — no
+plan — so it evaluates cold. Keep this asymmetry intact: it is the sole
+diversity mechanism (both run on the same model; model rotation is
+intentionally not used). Do NOT inject the plan into the adversarial prompt.
 
 When `high_count > 0`, inject the HIGH detector findings into all running
 reviewer prompts as a `<detector_findings ground_truth="true">` block
@@ -238,7 +239,12 @@ The validator also returns `severity_action` and `axes.reproducible` (grounding,
 # Stamp severity_action="report_only" on HIGH/CRITICAL findings the validator
 # judged not reproducible (ungrounded). They stay in surfaced_json — never
 # dropped — but no longer pin the verdict (REQ-22.2 / REQ-22.3).
-surfaced_json="$(mumei_review_apply_advisory_downgrade "$surfaced_json")"
+# The helper fails loud (rc 1) when surfaced_json is not a JSON array; abort
+# rather than aggregating a verdict from malformed input (risks a false PASS).
+if ! surfaced_json="$(mumei_review_apply_advisory_downgrade "$surfaced_json")"; then
+  echo "::error::advisory-downgrade failed (findings_surfaced is not a JSON array) — aborting review" >&2
+  exit 2
+fi
 ```
 
 ### Step 8 — Aggregate verdict + persist
@@ -302,13 +308,23 @@ annotate the validator. The orchestrator is the single writer.
 
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/ledger.sh"
-jq -c '.[]' <<<"$(jq -nc --argjson s "$surfaced_json" --argjson f "$filtered_json" '$s + $f')" |
-  while IFS= read -r finding; do
-    decision="$(jq -r '.validator.decision // "unsure"' <<<"$finding")"
-    severity="$(jq -r '.severity // "MEDIUM"' <<<"$finding")"
-    reviewer="$(jq -r '.reviewer // "unknown"' <<<"$finding")"
-    mumei_ledger_append "$finding" "$slug" "$reviewer" "$decision" "$severity"
-  done
+# Process-substitution (not a pipe) keeps the loop in the current shell so
+# the failure counter survives; a per-finding append failure is counted and
+# surfaced rather than silently swallowed.
+ledger_total=0
+ledger_fail=0
+while IFS= read -r finding; do
+  [[ -z "$finding" ]] && continue
+  ledger_total=$((ledger_total + 1))
+  decision="$(jq -r '.validator.decision // "unsure"' <<<"$finding")"
+  severity="$(jq -r '.severity // "MEDIUM"' <<<"$finding")"
+  reviewer="$(jq -r '.reviewer // "unknown"' <<<"$finding")"
+  mumei_ledger_append "$finding" "$slug" "$reviewer" "$decision" "$severity" ||
+    ledger_fail=$((ledger_fail + 1))
+done < <(jq -c '.[]' <<<"$(jq -nc --argjson s "$surfaced_json" --argjson f "$filtered_json" '$s + $f')")
+if ((ledger_fail > 0)); then
+  echo "[mumei] ledger: recorded $((ledger_total - ledger_fail))/${ledger_total} findings (${ledger_fail} failed)" >&2
+fi
 ```
 
 ### Step 8.5 — Memory candidate curation (sync, non-blocking)

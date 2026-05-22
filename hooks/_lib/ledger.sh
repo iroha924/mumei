@@ -27,6 +27,21 @@ mumei_ledger_path() {
   printf '%s' "${MUMEI_LEDGER_PATH:-.mumei/finding-ledger.jsonl}"
 }
 
+# Emit the first 8 chars of a content hash, tool-agnostic. Prefers shasum,
+# then sha256sum, then cksum (POSIX, always present) — so a host missing
+# shasum never collapses every symbol-less finding to the same fingerprint.
+# Arg: $1 data string.
+_mumei_ledger_hash8() {
+  local data="$1"
+  if command -v shasum >/dev/null 2>&1; then
+    printf '%s' "$data" | shasum -a 256 | cut -c1-8
+  elif command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$data" | sha256sum | cut -c1-8
+  else
+    printf '%s' "$data" | cksum | tr -d ' ' | cut -c1-8
+  fi
+}
+
 # Compute a move-resistant fingerprint for a finding JSON.
 #   <category>:<basename-of-location-path>:<symbol>
 # Line numbers are stripped from `location` so the fingerprint survives code
@@ -38,22 +53,28 @@ mumei_ledger_path() {
 # Arg: $1 finding_json. Echoes the fingerprint string.
 mumei_ledger_fingerprint() {
   local finding="$1"
-  local category path base symbol
+  local category path symbol
   category="$(jq -r '.category // "uncategorized"' <<<"$finding" 2>/dev/null || printf 'uncategorized')"
   path="$(jq -r '(.location // "") | split(":")[0]' <<<"$finding" 2>/dev/null || printf '')"
-  base="$(basename "${path:-unknown}")"
-  [[ -n "$base" ]] || base="unknown"
+  # Keep directory context (not just basename) so two same-named files in
+  # different folders — e.g. two index.ts — do NOT collide and cross-bias
+  # FP annotations. Strip a leading ./ or / for a stable relative key; line
+  # numbers were already removed above, so the key survives code movement.
+  # The key is never used as a filesystem path, so any ../ in it is inert.
+  path="${path#./}"
+  path="${path#/}"
+  [[ -n "$path" ]] || path="unknown"
   symbol="$(jq -r '.symbol // empty' <<<"$finding" 2>/dev/null || printf '')"
   if [[ -z "$symbol" ]]; then
     local blob
     blob="$(jq -r '((.trace // "") + " " + (.evidence // "")) | gsub("[[:space:]]+";" ") | ascii_downcase | ltrimstr(" ") | rtrimstr(" ")' <<<"$finding" 2>/dev/null || printf '')"
     if [[ -n "$blob" ]]; then
-      symbol="h$(printf '%s' "$blob" | shasum -a 256 | cut -c1-8)"
+      symbol="h$(_mumei_ledger_hash8 "$blob")"
     else
       symbol="nosym"
     fi
   fi
-  printf '%s:%s:%s' "$category" "$base" "$symbol"
+  printf '%s:%s:%s' "$category" "$path" "$symbol"
 }
 
 # Append a ledger entry for a validated finding.
@@ -81,17 +102,35 @@ mumei_ledger_append() {
   }
 
   lockdir="${ledger}.mkdirlock"
-  while ! mkdir "$lockdir" 2>/dev/null; do
-    tries=$((tries + 1))
-    if ((tries > 50)); then
-      mumei_log_warn "ledger: mkdir-lock timeout; appending without lock (single-line append is atomic < PIPE_BUF)"
+  local lock_acquired=0
+  while ((tries <= 50)); do
+    if mkdir "$lockdir" 2>/dev/null; then
+      lock_acquired=1
       break
     fi
+    tries=$((tries + 1))
     sleep 0.1
   done
+  ((lock_acquired)) ||
+    mumei_log_warn "ledger: mkdir-lock timeout; appending without lock (single-line append to an O_APPEND regular file is atomic)"
+
   printf '%s\n' "$entry" >>"$ledger"
   local rc=$?
-  rmdir "$lockdir" 2>/dev/null || true
+
+  # Rotation: keep only the most recent MUMEI_LEDGER_MAX_LINES lines so the
+  # append-only ledger does not grow unbounded and per-finding lookups stay
+  # bounded. Prune only when we hold the lock (avoids concurrent corruption).
+  if ((lock_acquired)); then
+    local max="${MUMEI_LEDGER_MAX_LINES:-5000}" lines
+    lines="$(wc -l <"$ledger" 2>/dev/null | tr -d ' ')"
+    if [[ -n "$lines" ]] && ((lines > max)); then
+      tail -n "$max" "$ledger" >"${ledger}.tmp" 2>/dev/null && mv "${ledger}.tmp" "$ledger"
+    fi
+  fi
+
+  # Release the lock ONLY if this invocation acquired it — otherwise a
+  # blind rmdir could delete a concurrent writer's live lock dir.
+  ((lock_acquired)) && { rmdir "$lockdir" 2>/dev/null || true; }
   return "$rc"
 }
 
@@ -102,12 +141,18 @@ mumei_ledger_append() {
 # Arg: $1 fingerprint.
 mumei_ledger_prior_fp_count() {
   local fp="$1" ledger
+  local count
   ledger="$(mumei_ledger_path)"
   [[ -f "$ledger" ]] || {
     printf '0'
     return 0
   }
-  jq -r --arg fp "$fp" -s \
-    '[.[] | select(.fingerprint == $fp and .decision == "invalid")] | length' \
-    "$ledger" 2>/dev/null || printf '0'
+  # Line-robust + streaming: `fromjson?` skips a malformed line instead of
+  # `jq -s` parse-erroring over the WHOLE file (which would silently return
+  # 0 and disable FP annotation feature-wide). Reading line by line also
+  # avoids slurping the entire cross-feature ledger into memory per call.
+  count="$(jq -cR --arg fp "$fp" \
+    'fromjson? // empty | select(.fingerprint == $fp and .decision == "invalid")' \
+    "$ledger" 2>/dev/null | wc -l | tr -d ' ')"
+  printf '%s' "${count:-0}"
 }
