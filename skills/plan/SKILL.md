@@ -1064,7 +1064,12 @@ The validator also returns `severity_action` and `axes.reproducible` (grounding,
 # judged not reproducible (ungrounded). They stay in findings_surfaced — never
 # dropped — but no longer pin the verdict (REQ-22.2 / REQ-22.3). Detector
 # ground-truth findings are exempt.
-surfaced_json="$(mumei_review_apply_advisory_downgrade "$surfaced_json")"
+# The helper fails loud (rc 1) when surfaced_json is not a JSON array; abort
+# rather than aggregating a verdict from malformed input (risks a false PASS).
+if ! surfaced_json="$(mumei_review_apply_advisory_downgrade "$surfaced_json")"; then
+  echo "::error::advisory-downgrade failed (findings_surfaced is not a JSON array) — aborting review" >&2
+  exit 2
+fi
 ```
 
 ### Stage 6 — Persist + verdict aggregation
@@ -1197,13 +1202,24 @@ The orchestrator is the single writer; the validator never touches the file.
 
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/ledger.sh"
-# all_validated = surfaced ++ filtered, each carrying .validator.decision
-jq -c '.[]' <<<"$all_validated_json" | while IFS= read -r finding; do
+# all_validated = surfaced ++ filtered, each carrying .validator.decision.
+# Process-substitution (not a pipe) keeps the loop in the current shell so
+# the failure counter survives; a per-finding append failure (disk full /
+# read-only .mumei) is counted and surfaced rather than silently swallowed.
+ledger_total=0
+ledger_fail=0
+while IFS= read -r finding; do
+  [[ -z "$finding" ]] && continue
+  ledger_total=$((ledger_total + 1))
   decision="$(jq -r '.validator.decision // "unsure"' <<<"$finding")"
   severity="$(jq -r '.severity // "MEDIUM"' <<<"$finding")"
   reviewer="$(jq -r '.reviewer // "unknown"' <<<"$finding")"
-  mumei_ledger_append "$finding" "$feature" "$reviewer" "$decision" "$severity"
-done
+  mumei_ledger_append "$finding" "$feature" "$reviewer" "$decision" "$severity" ||
+    ledger_fail=$((ledger_fail + 1))
+done < <(jq -c '.[]' <<<"$all_validated_json")
+if ((ledger_fail > 0)); then
+  echo "[mumei] ledger: recorded $((ledger_total - ledger_fail))/${ledger_total} findings (${ledger_fail} failed)" >&2
+fi
 ```
 
 ### Stage 6.5 — Memory candidate curation (sync, non-blocking)

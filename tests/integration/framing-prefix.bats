@@ -63,11 +63,23 @@ load '../test_helper'
 
 @test "review skill documents adversarial stays cold (no plan context)" {
   grep -q 'REQ-22.4 / REQ-22.5' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
-  grep -q 'Do NOT add the' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
+  grep -q 'Do NOT inject the plan into the adversarial prompt' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
 }
 
-# ─── Model contract (validator opus, REQ-22.2) ──────
+@test "review skill injects verbatim plan body into security-reviewer (issue #66)" {
+  # security-reviewer prompt cats the plan into a <spec_context> block,
+  # not a bare path reference.
+  grep -q '<spec_context>\$(cat ".mumei/plans/\${slug}/plan.md")</spec_context>' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
+}
 
-@test "issue-validator runs on opus" {
-  grep -qE '^model:[[:space:]]*opus' "$CLAUDE_PLUGIN_ROOT/agents/issue-validator.md"
+# ─── Model contract (all reviewers + validator opus, REQ-22.2) ──────
+
+@test "all 4 diff-facing agents run on opus" {
+  for agent in security-reviewer adversarial-reviewer spec-compliance-reviewer issue-validator; do
+    grep -qE '^model:[[:space:]]*opus' "$CLAUDE_PLUGIN_ROOT/agents/${agent}.md" ||
+      {
+        echo "${agent} not on opus"
+        return 1
+      }
+  done
 }

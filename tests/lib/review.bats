@@ -308,3 +308,26 @@ EOF
   # and must not contain a bare "human review unnecessary" claim without the negation
   ! grep -qiE '(no|without) human review' <<<"$out"
 }
+
+# --- advisory-downgrade hardening (issue #64) ---
+
+@test "advisory: non-array input fails loud (rc 1, no false-PASS)" {
+  run mumei_review_apply_advisory_downgrade 'null'
+  [ "$status" -eq 1 ]
+  run mumei_review_apply_advisory_downgrade '{"not":"an array"}'
+  [ "$status" -eq 1 ]
+}
+
+@test "advisory: detector exemption matches exact source, not substring 'detector'" {
+  # a reviewer finding whose source is a code location containing 'detector'
+  # must NOT be treated as ground-truth; an ungrounded HIGH still downgrades.
+  surfaced='[{"id":"F-1","severity":"HIGH","source":"hooks/pre-review-detector.sh:42","validator":{"axes":{"reproducible":false}}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "report_only" ]
+}
+
+@test "advisory: real detector source (semgrep) stays block" {
+  surfaced='[{"id":"F-1","severity":"HIGH","source":"semgrep","validator":{"axes":{"reproducible":false}}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "block" ]
+}

@@ -140,9 +140,22 @@ mumei_review_run_detector() {
 # Echoes the updated array.
 mumei_review_apply_advisory_downgrade() {
   local surfaced_json="$1"
+  # Guard: input MUST be a JSON array. A non-array (null / object) is an
+  # upstream bug; fail loud (return 1, no stdout) rather than echoing it
+  # back — a downstream verdict aggregator with its own `|| echo 0` would
+  # otherwise read malformed input as zero blocking findings and
+  # silently PASS a review that contains ungrounded HIGH findings.
+  if ! jq -e 'type == "array"' <<<"$surfaced_json" >/dev/null 2>&1; then
+    mumei_log_error "advisory-downgrade: input is not a JSON array; refusing to transform"
+    return 1
+  fi
+  # Detector ground-truth is matched by EXACT source value, not a substring
+  # of "detector" — a reviewer finding whose `source` is a code location
+  # (e.g. a path containing "pre-review-detector.sh") must NOT be exempted
+  # from advisory downgrade.
   jq -c '
     map(
-      if ((.source // "") | test("semgrep|osv-scanner|detector|structural-integrity"))
+      if ((.source // "") | (. == "semgrep" or . == "osv-scanner" or . == "structural-integrity"))
       then .severity_action = "block"
       elif (.severity == "HIGH" or .severity == "CRITICAL")
         and ((.validator.severity_action == "report_only")
@@ -151,7 +164,10 @@ mumei_review_apply_advisory_downgrade() {
       else .severity_action = (.severity_action // "block")
       end
     )
-  ' <<<"$surfaced_json" 2>/dev/null || printf '%s' "$surfaced_json"
+  ' <<<"$surfaced_json" 2>/dev/null || {
+    mumei_log_error "advisory-downgrade: jq transform failed"
+    return 1
+  }
 }
 
 # Aggregate the final verdict from inputs.
