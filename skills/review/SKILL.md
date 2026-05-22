@@ -300,7 +300,7 @@ the false-positive marks the ledger remembers so a later review can
 annotate the validator. The orchestrator is the single writer.
 
 ```bash
-source "/Users/shunichi/.claude/plugins/cache/mumei/mumei/0.5.3/hooks/_lib/ledger.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/ledger.sh"
 jq -c '.[]' <<<"$(jq -nc --argjson s "$surfaced_json" --argjson f "$filtered_json" '$s + $f')" |
   while IFS= read -r finding; do
     decision="$(jq -r '.validator.decision // "unsure"' <<<"$finding")"

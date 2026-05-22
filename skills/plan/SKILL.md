@@ -1193,7 +1193,7 @@ those are exactly the false-positive marks the ledger exists to remember.
 The orchestrator is the single writer; the validator never touches the file.
 
 ```bash
-source "/Users/shunichi/.claude/plugins/cache/mumei/mumei/0.5.3/hooks/_lib/ledger.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/ledger.sh"
 # all_validated = surfaced ++ filtered, each carrying .validator.decision
 jq -c '.[]' <<<"$all_validated_json" | while IFS= read -r finding; do
   decision="$(jq -r '.validator.decision // "unsure"' <<<"$finding")"
