@@ -599,7 +599,7 @@ After all 3 spec-reviewers have returned `PASS`, present the package to the user
    # All gates passed. Record approval timestamp (so future state
    # reconcile sees it) and transition.
    if [[ -z "$approved_at" ]]; then
-     mumei_state_set "$feature" '.approved_at' "$(date -u +'\"%Y-%m-%dT%H:%M:%SZ\"')"
+     mumei_state_set "$feature" '.approved_at' "\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
    fi
    mumei_state_set "$feature" '.phase' '"implement"'
    mumei_state_set "$feature" '.current_wave' '1'
