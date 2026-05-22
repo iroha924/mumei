@@ -49,7 +49,7 @@ jobs:
           persist-credentials: false
 
       - name: install task
-        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
         with:
           version: "3.49.1"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -139,7 +139,7 @@ jobs:
           config: .markdownlint-cli2.jsonc
 
       - name: typos
-        uses: crate-ci/typos@5374cbf686e897b15713110e233094e2874de7ef # v1.46.1
+        uses: crate-ci/typos@aca895bf05aec0cb7dffa6f94495e923224d9f17 # v1.46.2
 
       - name: shfmt (shell format)
         run: |
@@ -187,14 +187,14 @@ jobs:
       # Both run on every PR (lint-extra is PR-gated). Defense-in-depth is
       # preserved by the weekly full-history rescan in gitleaks.yml.
       - name: trufflehog (secret scan)
-        uses: trufflesecurity/trufflehog@17456f8c7d042d8c82c9a8ca9e937231f9f42e26 # v3.95.2
+        uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab # v3.95.3
         with:
           path: ./
           # Pin the docker image tag so the action's internal
           # `docker run ghcr.io/.../trufflehog:${VERSION}` does not float
           # to `:latest`. Keep this aligned with the action SHA pin
           # above and the .pre-commit-config.yaml trufflehog rev.
-          version: "3.95.2"
+          version: "3.95.3"
           extra_args: --results=verified
 
       # lychee is heavy and rate-limit-sensitive; keep it out of pre-commit
@@ -296,7 +296,7 @@ jobs:
           persist-credentials: false
 
       - name: install task
-        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
         with:
           version: "3.49.1"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -339,11 +339,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v3
+        uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v3
         with:
           languages: ${{ matrix.language }}
           queries: +security-extended
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v3
+        uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v3
         with:
           category: "/language:${{ matrix.language }}"
