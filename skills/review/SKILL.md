@@ -215,6 +215,15 @@ For each finding returned by the reviewers, apply the same severity-conditional 
 
 The validator returns `decision: "valid" | "invalid" | "unsure"`. Keep `valid` and `valid_by_assertion`; move `invalid` to `findings_filtered`; surface `unsure` with a warning marker.
 
+The validator also returns `severity_action` and `axes.reproducible` (grounding, REQ-22.2). Merge each validator result into its finding under a `validator` object (`{decision, confidence, severity_action, axes}`), then apply the deterministic advisory-downgrade before aggregating the verdict:
+
+```bash
+# Stamp severity_action="report_only" on HIGH/CRITICAL findings the validator
+# judged not reproducible (ungrounded). They stay in surfaced_json — never
+# dropped — but no longer pin the verdict (REQ-22.2 / REQ-22.3).
+surfaced_json="$(mumei_review_apply_advisory_downgrade "$surfaced_json")"
+```
+
 ### Step 8 — Aggregate verdict + persist
 
 ```bash

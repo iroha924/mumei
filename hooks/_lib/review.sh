@@ -126,12 +126,42 @@ mumei_review_run_detector() {
   return "$rc"
 }
 
+# Apply the grounding advisory-downgrade rule (REQ-22.2 / REQ-22.3) to a
+# surfaced findings array. For each HIGH/CRITICAL finding the issue-validator
+# judged not reproducible (validator.severity_action == "report_only" OR
+# validator.axes.reproducible == false), stamp a top-level
+# severity_action="report_only" so verdict aggregation treats it as advisory.
+# Findings are NEVER removed — advisory downgrade is the maximum action; a
+# HIGH/CRITICAL concern that cannot be grounded is surfaced, not dropped.
+# Detector ground-truth findings (semgrep / osv-scanner / structural-integrity)
+# are never downgraded. All other findings get severity_action="block" unless
+# one is already set.
+# Args: $1 surfaced_findings_json (JSON array)
+# Echoes the updated array.
+mumei_review_apply_advisory_downgrade() {
+  local surfaced_json="$1"
+  jq -c '
+    map(
+      if ((.source // "") | test("semgrep|osv-scanner|detector|structural-integrity"))
+      then .severity_action = "block"
+      elif (.severity == "HIGH" or .severity == "CRITICAL")
+        and ((.validator.severity_action == "report_only")
+             or (.validator.axes.reproducible == false))
+      then .severity_action = "report_only"
+      else .severity_action = (.severity_action // "block")
+      end
+    )
+  ' <<<"$surfaced_json" 2>/dev/null || printf '%s' "$surfaced_json"
+}
+
 # Aggregate the final verdict from inputs.
 # Args:
 #   $1 high_count                  (integer, from detector summary)
 #   $2 surfaced_findings_json      (JSON array of {severity, ...})
 #   $3 reviewer_verdicts_json      (JSON object { reviewer_name: "PASS"|"NEEDS_IMPROVEMENT"|"MAJOR_ISSUES", ... })
 # Echoes one of: PASS / NEEDS_IMPROVEMENT / MAJOR_ISSUES
+# HIGH/CRITICAL findings stamped severity_action="report_only" (advisory
+# downgrade) are excluded from the blocking count.
 mumei_review_aggregate_verdict() {
   local high_count="$1"
   local surfaced_json="$2"
@@ -153,7 +183,7 @@ mumei_review_aggregate_verdict() {
 
   local critical_or_high
   critical_or_high="$(jq -r '
-    [.[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length
+    [.[] | select((.severity == "CRITICAL" or .severity == "HIGH") and ((.severity_action // "block") != "report_only"))] | length
   ' <<<"$surfaced_json" 2>/dev/null || echo 0)"
   if [[ "${critical_or_high:-0}" -gt 0 ]]; then
     printf '%s' 'NEEDS_IMPROVEMENT'

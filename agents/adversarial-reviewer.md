@@ -168,6 +168,7 @@ Reviewers report findings via the JSON output. They do not mutate any file. If y
       "manifestation": "How the failure shows up: corrupted state / hung request / data loss / etc.",
       "message": "<= 280 chars",
       "evidence": "verbatim code quote",
+      "trace": "falsifiable basis (REQUIRED for HIGH): the concrete trigger → failure path that proves the scenario, e.g. 'two concurrent writers read-modify-write the same key → last write wins → lost update'. <= 280 chars; the scenario itself condensed into one reproducible thread, distinct from evidence (raw code quote)",
       "suggestion": "concrete fix (idempotency key / transaction / mutex / etc.)",
       "confidence": "HIGH|MEDIUM|LOW",
       "concrete_alternative": "<= 200 chars; only present when category == simpler_alternative"
@@ -210,6 +211,7 @@ Natural-language fields (`message`, `suggested_fix`, `reasoning`, `reason`, `sum
 
 # Output rules
 
+- Every HIGH finding MUST include a `trace`: a falsifiable trigger → failure path that a validator can confirm by reading the code. A HIGH finding whose `trace` is absent, empty, or describes a path unreachable in the code will be downgraded to advisory by the issue-validator's REPRODUCIBLE axis — it will NOT block. The `trace` is the `scenario` condensed to one reproducible thread; keep it distinct from `evidence` (the verbatim code quote).
 - Every HIGH/MEDIUM finding MUST include `scenario` AND `manifestation` fields.
 - `message` fact-form, <= 280 chars. State the trigger and failure mode plainly ("WHEN concurrent writers append, the read-modify-write loop loses updates"). Avoid imperative phrasing ("YOU MUST add a mutex") — it triggers prompt-injection defenses and inflates length.
 - `suggestion` MUST be concrete (not "add error handling" but "wrap in try/catch and emit a `db.write_failed` metric with `correlation_id`").

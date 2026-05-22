@@ -240,3 +240,50 @@ EOF
   count="$(jq 'length' <<<"$out")"
   [ "$count" = "2" ]
 }
+
+# --- mumei_review_apply_advisory_downgrade (REQ-22.2 / REQ-22.3, grounding) ---
+
+@test "advisory: ungrounded HIGH (reproducible=false) is downgraded to report_only, not dropped" {
+  surfaced='[{"id":"F-1","severity":"HIGH","reviewer":"security","validator":{"decision":"valid","axes":{"reproducible":false}}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  [ "$(jq 'length' <<<"$out")" = "1" ]
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "report_only" ]
+}
+
+@test "advisory: HIGH with validator severity_action report_only is honored" {
+  surfaced='[{"id":"F-1","severity":"HIGH","validator":{"decision":"valid","severity_action":"report_only"}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "report_only" ]
+}
+
+@test "advisory: grounded HIGH (reproducible=true) stays block" {
+  surfaced='[{"id":"F-1","severity":"HIGH","validator":{"decision":"valid","severity_action":"block","axes":{"reproducible":true}}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "block" ]
+}
+
+@test "advisory: detector ground-truth HIGH is never downgraded" {
+  surfaced='[{"id":"F-1","severity":"HIGH","source":"semgrep","validator":{"axes":{"reproducible":false}}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "block" ]
+}
+
+@test "advisory: MEDIUM finding is unaffected (block default)" {
+  surfaced='[{"id":"F-1","severity":"MEDIUM","validator":{"decision":"valid","axes":{"reproducible":null}}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "block" ]
+}
+
+@test "advisory: downgraded HIGH no longer pins the verdict (PASS)" {
+  surfaced='[{"id":"F-1","severity":"HIGH","validator":{"axes":{"reproducible":false}}}]'
+  downgraded="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  verdict="$(mumei_review_aggregate_verdict 0 "$downgraded" '{}')"
+  [ "$verdict" = "PASS" ]
+}
+
+@test "advisory: grounded HIGH still pins verdict to NEEDS_IMPROVEMENT" {
+  surfaced='[{"id":"F-1","severity":"HIGH","validator":{"axes":{"reproducible":true}}}]'
+  downgraded="$(mumei_review_apply_advisory_downgrade "$surfaced")"
+  verdict="$(mumei_review_aggregate_verdict 0 "$downgraded" '{}')"
+  [ "$verdict" = "NEEDS_IMPROVEMENT" ]
+}

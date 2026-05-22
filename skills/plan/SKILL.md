@@ -1023,7 +1023,17 @@ Wait for all.
 
 ### Stage 5 — Filter
 
-Keep only findings where `decision == "valid"`. Move `invalid` to `filtered_out`. Surface `unsure` with a warning marker.
+Keep only findings where `decision == "valid"` (and `valid_by_assertion`). Move `invalid` to `filtered_out`. Surface `unsure` with a warning marker.
+
+The validator also returns `severity_action` and `axes.reproducible` (grounding, REQ-22.2). Merge each validator result into its finding under a `validator` object (`{decision, confidence, severity_action, axes}`), then apply the deterministic advisory-downgrade to the surfaced array before Stage 6 aggregates the verdict:
+
+```bash
+# Stamp severity_action="report_only" on HIGH/CRITICAL findings the validator
+# judged not reproducible (ungrounded). They stay in findings_surfaced — never
+# dropped — but no longer pin the verdict (REQ-22.2 / REQ-22.3). Detector
+# ground-truth findings are exempt.
+surfaced_json="$(mumei_review_apply_advisory_downgrade "$surfaced_json")"
+```
 
 ### Stage 6 — Persist + verdict aggregation
 

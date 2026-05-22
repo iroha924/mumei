@@ -183,6 +183,7 @@ Return ONLY a JSON object matching this schema. No markdown fencing, no commenta
       "location": "path/to/file.ts:123-130",
       "message": "<= 280 chars",
       "evidence": "verbatim quote from code OR rule_quote from requirements.md",
+      "trace": "falsifiable basis (REQUIRED for HIGH/CRITICAL): the AC clause → diff hunk mismatch that proves the drift/creep, e.g. 'REQ-1.2 requires session cookie on success but login handler (auth.ts:30) returns a bare 200 with no Set-Cookie'. <= 280 chars; distinct from evidence (raw code/rule quote)",
       "suggestion": "concrete fix",
       "confidence": "HIGH|MEDIUM|LOW",
       "rule_quote": "verbatim text from requirements.md",
@@ -225,6 +226,7 @@ Natural-language fields (`message`, `suggested_fix`, `reasoning`, `reason`, `sum
 
 # Output rules
 
+- Every HIGH/CRITICAL finding MUST include a `trace`: a falsifiable AC-clause → diff-hunk mismatch that a validator can confirm by reading the code and the spec. A finding whose `trace` is absent, empty, or names a hunk that does not actually contradict the AC will be downgraded to advisory by the issue-validator's REPRODUCIBLE axis — it will NOT block. Keep `trace` distinct from `evidence`/`rule_quote` (raw quotes).
 - Cite evidence: every finding MUST have either a code quote or a rule_quote.
 - Severity HIGH only if the violation will block the spec contract; otherwise MEDIUM or `filtered_out`.
 - `message` <= 280 chars, fact-form ("AC REQ-1.2 requires X but diff implements Y"). Avoid imperative phrasing ("YOU MUST do X") — it triggers prompt-injection defenses.

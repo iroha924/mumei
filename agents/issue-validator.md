@@ -79,11 +79,21 @@ For the finding, evaluate THREE axes (each yes/no):
 
 3. **ACTIONABLE** — Does the finding have a concrete `suggestion` that a developer can apply? "Add error handling" is NOT actionable. "Wrap line 42 in `try/catch` and emit `db.write_failed` metric" IS actionable.
 
+4. **REPRODUCIBLE** (HIGH/CRITICAL only) — Is the finding's `trace` a falsifiable basis? Read the cited `trace` (the input → bad-output / source → sink / trigger → failure path) and verify the path is reachable in the code. The trace is falsifiable when you can point at the exact lines that compose it. It is NOT falsifiable when `trace` is absent, empty, restates the conclusion ("this is insecure because it is insecure"), or names a path that is guarded / unreachable. For MEDIUM/LOW findings this axis is `null` (not evaluated).
+
 # Verdict
 
-- **`valid`**: ALL THREE axes are yes. The finding is real and well-formed.
-- **`invalid`**: ANY axis is no. The finding is a false positive, ungrounded, or not actionable.
+- **`valid`**: ACCURATE + GROUNDED + ACTIONABLE are all yes. The finding is real and well-formed.
+- **`invalid`**: ACCURATE, GROUNDED, or ACTIONABLE is no. The finding is a false positive, ungrounded, or not actionable.
 - **`unsure`**: You cannot definitively decide because of missing context (e.g., dynamic behavior, external API contract not in the diff). Default to `unsure` rather than `valid` when in doubt.
+
+## Advisory downgrade (grounding) — separate from the verdict
+
+The REPRODUCIBLE axis does NOT change the `valid`/`invalid`/`unsure` decision. It controls `severity_action` independently:
+
+- For a HIGH/CRITICAL finding with `axes.reproducible == false`, set `severity_action: "report_only"`. The finding is **downgraded to advisory** — it is surfaced to the user but does NOT block the verdict. This is the grounding rule: a HIGH-severity concern that cannot be proven by a falsifiable trace must not block a merge, yet must never be silently dropped.
+- For all other findings (reproducible HIGH/CRITICAL, or MEDIUM/LOW), set `severity_action: "block"`.
+- A HIGH/CRITICAL finding is NEVER auto-dropped on grounding grounds. The maximum action is `report_only`. (A genuine false positive is handled by `decision: "invalid"`, which is a different judgment — the concern is not real at all.)
 
 # What you do NOT do
 
@@ -120,10 +130,12 @@ The output MUST echo back BOTH the `reviewer` and `finding_id` from the input so
   "finding_id": "F-001",
   "decision": "valid|invalid|unsure",
   "confidence": "HIGH|MEDIUM|LOW",
+  "severity_action": "block|report_only",
   "axes": {
     "accurate": true,
     "grounded": true,
-    "actionable": true
+    "actionable": true,
+    "reproducible": true
   },
   "reason": "<= 280 chars: why this verdict>",
   "evidence_check": {
@@ -135,9 +147,11 @@ The output MUST echo back BOTH the `reviewer` and `finding_id` from the input so
 
 ## Decision rules
 
-- `valid`: all three `axes` true AND `confidence: HIGH` or `MEDIUM`.
-- `invalid`: at least one axis false. Set `reason` to which axis failed and why.
+- `valid`: `accurate` + `grounded` + `actionable` all true AND `confidence: HIGH` or `MEDIUM`.
+- `invalid`: at least one of `accurate` / `grounded` / `actionable` false. Set `reason` to which axis failed and why.
 - `unsure`: cannot determine due to missing context. Set `confidence: LOW`.
+- `axes.reproducible`: set `true`/`false` only for HIGH/CRITICAL findings; `null` for MEDIUM/LOW. Does not affect `decision`.
+- `severity_action`: `report_only` when the finding is HIGH/CRITICAL AND `axes.reproducible == false` (advisory downgrade); `block` otherwise. Never set `report_only` as a way to drop a finding — the orchestrator still surfaces it.
 
 # Output language
 

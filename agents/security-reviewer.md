@@ -149,6 +149,7 @@ Reviewers report findings via the JSON output. They do not mutate any file. **Pa
       "location": "path/to/handler.ts:42-50",
       "message": "<= 280 chars",
       "evidence": "verbatim code quote of source AND sink",
+      "trace": "falsifiable basis (REQUIRED for HIGH/CRITICAL): the input → bad-output path that proves exploitability, e.g. 'req.query.id (handler.ts:42) unsanitized into db.query (db.ts:88)'. <= 280 chars; distinct from evidence (raw code quote)",
       "suggestion": "concrete fix (parameterized query / encoder / validator)",
       "confidence": "HIGH|MEDIUM|LOW",
       "severity_action": "block|report_only"
@@ -190,6 +191,7 @@ Natural-language fields (`message`, `suggested_fix`, `reasoning`, `reason`, `sum
 
 # Output rules
 
+- Every CRITICAL/HIGH finding MUST include a `trace`: a falsifiable input → bad-output path (source → sink) that a validator can confirm by reading the code. A finding whose `trace` is absent, empty, or names a path that is unreachable in the code will be downgraded to advisory by the issue-validator's REPRODUCIBLE axis — it will NOT block. Keep `trace` distinct from `evidence` (the verbatim code quote).
 - Every CRITICAL/HIGH finding MUST have BOTH `source` and `sink` lines cited.
 - `message` fact-form, <= 280 chars.
 - `suggestion` MUST propose a concrete fix (parameterized query, encoder library, validator, etc.).
