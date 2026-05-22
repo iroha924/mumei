@@ -399,6 +399,42 @@ if mumei_is_git_commit "$COMMAND"; then
     fi
   fi
 
+  # --- I5: deterministic tool gates (typecheck / lint / semgrep / gitleaks / …) ---
+  # Run each tool declared in .mumei/config.json tool_gates BEFORE the I3 test
+  # gate. A non-zero exit denies the commit; exit 127 (command not found) is a
+  # declaration error (the tool is declared but absent). Each run is recorded to
+  # verify-log with source=tool-gate. Tool presence is the user's responsibility
+  # — the commands are operator-trusted (same boundary as MUMEI_TEST_CMD), so we
+  # eval them; XSS / injection / secret detection is delegated here (semgrep /
+  # gitleaks) rather than to probabilistic AI review. Both vehicles.
+  while IFS=$'\t' read -r _tg_key _tg_cmd; do
+    [[ -n "$_tg_key" && -n "$_tg_cmd" ]] || continue
+    mumei_log_info "running tool gate '${_tg_key}' before commit: ${_tg_cmd}"
+    TG_OUTPUT="$(
+      set -o pipefail
+      eval "$_tg_cmd" 2>&1
+    )"
+    TG_EXIT=$?
+    TG_TAIL=""
+    [[ "$TG_EXIT" -ne 0 ]] && TG_TAIL="$(printf '%s' "$TG_OUTPUT" | tail -n 30)"
+    # Record the observed tool-gate exit (pass and fail) to verify-log. The
+    # command field carries the declaration KEY (typecheck / lint / …) so the
+    # record reads {ts, source: tool-gate, command: <key>, exit_code}.
+    mumei_verify_log_append "$FEATURE" "tool-gate" "$_tg_key" "$TG_EXIT" "$TG_TAIL" || true
+    if [[ "$TG_EXIT" -eq 127 ]]; then
+      mumei_deny \
+        "Declared tool_gate '${_tg_key}' not found (exit 127). Install it or fix .mumei/config.json." \
+        "Command: ${_tg_cmd}\n\nThis tool is declared in .mumei/config.json tool_gates but is not present in the environment. mumei treats a declared-but-missing tool as a configuration error. Install the tool, correct the command, remove the entry, or set MUMEI_BYPASS=1 for a one-off override." \
+        "I5"
+    fi
+    if [[ "$TG_EXIT" -ne 0 ]]; then
+      mumei_deny \
+        "tool_gate '${_tg_key}' failed (exit ${TG_EXIT}). Fix before committing." \
+        "Command: ${_tg_cmd}\n\n${TG_TAIL}" \
+        "I5"
+    fi
+  done < <(mumei_config_tool_gates)
+
   # --- I3: git commit while tests are red ---
   # MUMEI_TEST_CMD overrides auto-detect (handles non-standard runners such as
   # mumei's own bats suite, which auto-detect cannot find). Otherwise detect

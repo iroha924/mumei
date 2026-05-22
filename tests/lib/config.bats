@@ -117,3 +117,49 @@ _write_config() {
   run mumei_config_dir_holds_golden_glob "tests/goldenextra"
   [ "$status" -eq 1 ]
 }
+
+# ─── mumei_config_tool_gates ─────────────────────────────────
+
+@test "mumei_config_tool_gates emits nothing when config.json is absent" {
+  run mumei_config_tool_gates
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "mumei_config_tool_gates emits nothing on malformed JSON" {
+  _write_config '{ not json'
+  run mumei_config_tool_gates
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "mumei_config_tool_gates emits nothing when tool_gates key is absent" {
+  _write_config '{"golden_paths": ["x"]}'
+  run mumei_config_tool_gates
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "mumei_config_tool_gates emits key<TAB>command for each string entry" {
+  _write_config '{"tool_gates": {"typecheck": "npm run tc", "lint": "eslint ."}}'
+  run mumei_config_tool_gates
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'typecheck\tnpm run tc'* ]]
+  [[ "$output" == *$'lint\teslint .'* ]]
+}
+
+@test "mumei_config_tool_gates skips non-string values" {
+  _write_config '{"tool_gates": {"good": "echo ok", "bad": 123, "arr": ["x"]}}'
+  run mumei_config_tool_gates
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'good\techo ok'* ]]
+  [[ "$output" != *bad* ]]
+  [[ "$output" != *arr* ]]
+}
+
+@test "mumei_config_tool_gates emits nothing when tool_gates is not an object" {
+  _write_config '{"tool_gates": ["typecheck"]}'
+  run mumei_config_tool_gates
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

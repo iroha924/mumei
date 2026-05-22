@@ -81,3 +81,20 @@ mumei_config_dir_holds_golden_glob() {
   done < <(mumei_config_golden_paths)
   return 1
 }
+
+# Echo each configured tool gate as "key<TAB>command" on its own line. No
+# output (return 0) when .mumei/config.json is absent, unparsable, or has no
+# tool_gates object. Only an OBJECT with STRING values is honored (mirrors the
+# golden_paths array type-guard): a string/array tool_gates from a hand-edit,
+# or a non-string value (number/object/array), degrades to no-op for that entry
+# rather than emitting a malformed pair. Tool presence is the user's
+# responsibility — mumei only invokes the declared command and gates on exit.
+mumei_config_tool_gates() {
+  local cf=".mumei/config.json"
+  [[ -f "$cf" ]] || return 0
+  jq -r 'if (.tool_gates | type) == "object"
+         then .tool_gates | to_entries[]
+              | select((.value | type) == "string")
+              | "\(.key)\t\(.value)"
+         else empty end' "$cf" 2>/dev/null || return 0
+}

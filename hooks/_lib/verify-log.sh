@@ -20,6 +20,11 @@
 #   - agent-run     : the AI itself ran a test-like command via Bash
 #                     (hooks/post-bash-guard.sh). A best-effort "claimed green";
 #                     the commit-gate / worktree-clean sources are authoritative.
+#   - tool-gate     : the I5 deterministic tool gate ran a declared tool_gate
+#                     (typecheck / lint / semgrep / gitleaks / …) at the
+#                     git-commit boundary (hooks/pre-bash-guard.sh). The
+#                     `command` field holds the declaration KEY, not the full
+#                     command. A non-zero exit denies the commit under I5.
 # Divergences are blocked by the I3 deny and are self-evident in this log
 # (the commit-gate / worktree-clean pair sits on adjacent lines); no
 # cross-record comparator is computed here.
