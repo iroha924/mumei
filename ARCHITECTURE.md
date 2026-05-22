@@ -43,6 +43,7 @@ mumei/
 │   │   ├── detectors.sh    # semgrep / osv-scanner runners + severity normalizer
 │   │   ├── review.sh       # shared Phase 5 / /mumei:review pipeline helpers
 │   │   ├── ledger.sh       # cross-feature finding ledger (pillar C: move-resistant fingerprint + FP annotation, annotate-only)
+│   │   ├── residual.sh     # residual exposition (pillar D: deterministic aggregation of advisory/unsure/needs_*/valid_by_assertion + always-on ai-blindspot-ceiling)
 │   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
 │   │   ├── cost-log.sh     # optional pre/post wrap helpers; SubagentStop hook is authoritative
 │   │   ├── verify-log.sh   # test-run audit trail (commit-gate / worktree-clean / agent-run exit codes)
