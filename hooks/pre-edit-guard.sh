@@ -51,6 +51,8 @@ source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/tasks.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/config.sh"
+# shellcheck disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/gen-control.sh"
 
 # Read JSON from stdin
 INPUT="$(cat)"
@@ -156,15 +158,16 @@ fi
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 [[ -n "$FEATURE" ]] || exit 0
 
-# spec-only hooks (P1/P2/P3, I1/I2, W1) must skip when plan
-# vehicle is active. Resolution goes through mumei_state_active_vehicle
-# so dispatch is consistent with pre-bash-guard.sh and skills/archive
-# (spec wins on dual-state). All rules below assume spec-format
-# artifacts (requirements.md, design.md, tasks.md with _Files: meta)
-# which plan vehicle does not have.
-case "$(mumei_state_active_vehicle "$FEATURE")" in
-plan) exit 0 ;;
-spec) ;;
+# Resolve the active vehicle once. All gates in this hook (E1, P1/P2/P3,
+# I1/I2, W1) are spec-vehicle only — they assume spec-format artifacts
+# (requirements.md with a `## Open Questions` section, design.md, tasks.md with
+# _Files: meta) which the plan vehicle lacks. The plan vehicle exits right
+# after the mumei_deny definition below, before any of them run.
+# Resolution goes through mumei_state_active_vehicle so dispatch is consistent
+# with pre-bash-guard.sh and skills/archive (spec wins on dual-state).
+VEHICLE="$(mumei_state_active_vehicle "$FEATURE")"
+case "$VEHICLE" in
+spec | plan) ;;
 *) exit 0 ;; # neither vehicle has state.json — not a mumei session
 esac
 
@@ -187,6 +190,17 @@ mumei_deny() {
   }'
   exit 0
 }
+
+# Plan vehicle exits before ALL spec-only rules (P2/P3, E1, P1/I2/I1/W1), which
+# assume spec-format artifacts (requirements.md with a `## Open Questions`
+# section, design.md, tasks.md _Files: meta) that plan vehicle lacks — its
+# plan.md is captured verbatim from ExitPlanMode. Exiting here (before P2/P3)
+# also prevents spec-phase denials on a mixed/stale tree. Pillar E
+# generation-time gating for the plan vehicle awaits plan-capture producer
+# support (a follow-up feature).
+if [[ "$VEHICLE" == "plan" ]]; then
+  exit 0
+fi
 
 PHASE="$(mumei_state_phase "$FEATURE")"
 
@@ -280,6 +294,29 @@ mumei_is_meta_path() {
 }
 
 # R3 was relocated above (vehicle/feature-independent gate); see line ~45.
+
+# --- E1: Open Questions block (pillar E, spec vehicle) ---
+# In implement phase, refuse edits to production (non-meta) files while
+# requirements.md still has unresolved Open Questions. The artifact and all
+# .mumei/ paths are meta-exempt, so resolving the questions (editing
+# requirements.md) is never blocked.
+if [[ "$PHASE" == "implement" ]] && ! mumei_is_meta_path "$FILE_PATH"; then
+  GENCTRL_ARTIFACT="$(mumei_gencontrol_artifact_path "$FEATURE" 2>/dev/null || true)"
+  if [[ -z "$GENCTRL_ARTIFACT" ]]; then
+    # An active feature in implement phase must have its artifact present;
+    # a missing/renamed artifact would otherwise silently bypass the OQ gate.
+    mumei_deny \
+      "Cannot edit ${FILE_PATH}: feature ${FEATURE} is in implement phase but its requirements.md is missing. Restore it before editing production files." \
+      "phase=implement gate (pillar E.1). An active feature must have its artifact present so Open Questions can be verified; a missing artifact must not silently allow production edits. Set MUMEI_BYPASS=1 to override." \
+      "E1"
+  fi
+  if mumei_gencontrol_oq_unresolved "$GENCTRL_ARTIFACT"; then
+    mumei_deny \
+      "Cannot edit ${FILE_PATH}: ${GENCTRL_ARTIFACT} has unresolved Open Questions. Mark each '- [x]' or set the section body to the literal 'None' before editing production files." \
+      "phase=implement gate (pillar E.1). The '## Open Questions' section must exist and contain only resolved '- [x]' items or the literal 'None'. Set MUMEI_BYPASS=1 to override." \
+      "E1"
+  fi
+fi
 
 # --- P1: editing src/ etc. before the spec is complete ---
 # Allow meta files. For everything else, deny while phase=plan.

@@ -58,6 +58,10 @@ _init_feature_with_tasks() {
   - _Depends: -_
   - _Requirements: REQ-1.3_
 EOF
+  # A spec feature in implement phase always has requirements.md; the E1 gate
+  # (spec vehicle) now runs before I1/I2/W1, so provide a resolved-OQ artifact
+  # so these scope/dependency tests reach their target rules.
+  printf '# foo\n\n## Open Questions\n\nNone\n' >".mumei/specs/REQ-1-foo/requirements.md"
 }
 
 # ─── happy paths ─────────────────────────────────────────────
