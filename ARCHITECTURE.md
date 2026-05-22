@@ -46,6 +46,7 @@ mumei/
 │   │   ├── verify-log.sh   # test-run audit trail (commit-gate / worktree-clean / agent-run exit codes)
 │   │   ├── worktree-verify.sh # clean-HEAD double-measurement (reward-hacking defense)
 │   │   ├── config.sh       # .mumei/config.json reader + golden-path glob matcher
+│   │   ├── gen-control.sh  # pillar E parsing: artifact path + Open Questions section
 │   │   ├── reviewer-prompt.sh # immutable prefix + variable suffix builder for cache-friendly prompts
 │   │   ├── byte-exact.sh   # CRLF / tab advisory for byte-exact-prone file types
 │   │   ├── hook-stats.sh   # hook decision recorder (.mumei/.hook-stats.jsonl)
@@ -54,7 +55,7 @@ mumei/
 │   │   ├── scratch-parser.sh # brainstorm scratch parser → vehicle recommend
 │   │   ├── dependencies.sh # cross-feature `**Depends-Feature**:` queries (Phase D)
 │   │   └── log.sh          # mumei_log_info / warn / error / debug
-│   ├── pre-edit-guard.sh   # P1 / P2 / P3 / I1 / I2 / W1 / M1 / S1 / G1
+│   ├── pre-edit-guard.sh   # P1 / P2 / P3 / I1 / I2 / W1 / M1 / S1 / G1 / E1
 │   ├── pre-bash-guard.sh   # I3 / R2 / W2 / G2 / G3
 │   ├── post-edit-guard.sh  # I4 (phantom completion)
 │   ├── post-bash-guard.sh  # X1 (advisory: out-of-scope Bash writes) + X3 (Wave auto-advance on git commit, internal)
@@ -74,6 +75,7 @@ mumei/
 │   ├── session-end-audit.sh  # SessionEnd: session metadata audit log
 │   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log
 │   ├── subagent-cost-log-start.sh  # SubagentStart: pin active feature to .mumei/in-flight-agents/<agent_id>
+│   ├── subagent-context-inject.sh  # SubagentStart (matcher *): inject framing prefix + active feature artifact (pillar E.3)
 │   ├── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction
 │   └── stop-cost-backfill.sh  # Stop (async): safety-net cost-backfill for SubagentStop hooks that lost the jsonl-flush race
 ├── scripts/
@@ -125,6 +127,7 @@ spec-vehicle rules.
 | I4   | implement    | PostToolUse(Edit)        | Marking `[x]` without an implementation diff                                                                                                                                               | `hooks/post-edit-guard.sh`    |
 | W1   | implement    | PreToolUse(Edit)         | Editing Wave N+1 file before Wave N committed                                                                                                                                              | `hooks/pre-edit-guard.sh`     |
 | W2   | implement    | PreToolUse(Bash)         | `git commit` while current Wave has `[ ]` tasks                                                                                                                                            | `hooks/pre-bash-guard.sh`     |
+| E1   | implement    | PreToolUse(Edit)         | Editing a production file (spec vehicle) while requirements.md is missing, OR its `## Open Questions` section is absent, has an unchecked `- [ ]`, or is non-`None` prose                  | `hooks/pre-edit-guard.sh`     |
 | R1   | review       | Stop                     | Session ends with all tasks done but review skipped                                                                                                                                        | `hooks/stop-guard.sh`         |
 | R2   | review       | PreToolUse(Bash)         | `git push` while latest review verdict is `MAJOR_ISSUES`                                                                                                                                   | `hooks/pre-bash-guard.sh`     |
 | R3   | done         | Stop                     | `phase=done` but feature still in `.mumei/current`                                                                                                                                         | `hooks/stop-guard.sh`         |

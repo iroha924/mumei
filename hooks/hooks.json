@@ -243,6 +243,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-context-inject.sh\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SubagentStop": [
