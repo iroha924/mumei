@@ -84,7 +84,7 @@ Sub-namespaces:
   (`task cost`, `task cost:hook-stats`, etc.). Most accept a feature
   slug via `task cost -- <slug>`.
 - `pr:*` / `main:watch` — PR helpers (`task pr:watch`,
-  `task pr:codex-fetch -- <PR#>`, `task main:watch`).
+  `task pr:create -- <args>`, `task main:watch`).
 
 Tasks are thin wrappers around `scripts/*.sh` and `npm run …`. CI
 installs Task via [`go-task/setup-task`](https://github.com/go-task/setup-task)
@@ -220,17 +220,15 @@ creates a topic branch in this repo.
    `plugin-json-validate.yml`, and `dashboard-ci.yml` (path-triggered).
    Address failures before merge.
 8. Monitor the PR after opening. CI green is necessary but not
-   sufficient — also check the automated reviewer:
+   sufficient — automated reviewers also post feedback:
    - `task pr:watch` — wait for the latest CI run on this branch
    - `gh pr checks <N>` — CI status snapshot
-   - `task pr:codex-fetch -- <N>` — OpenAI Codex summary + inline
-     review (Codex Cloud auto-posts on PR open AND on each push, per
-     the repo's settings; only use `task pr:codex -- <N> "<focus>"`
-     when you want a focus-specific re-review such as
-     `"for security regressions"`).
-     Address findings (push fix commits) before merging. Codex flags
-     P0/P1 issues focused on architecture and security per OpenAI's
-     review prompt.
+   - **GitHub PR UI** — review findings from automated reviewers. Gemini
+     Code Assist comments on PR open (a re-review after a push needs a
+     manual `/gemini review` comment); OpenAI Codex comments on PR open
+     and on each push. Triage them, push fix commits, and resolve the
+     threads before merging. Reviewer monitoring is the PR author's
+     responsibility; an AI agent driving the PR watches CI only.
 9. Self-merge via squash or rebase (linear history; merge commits should
    be avoided). No required approval count.
 
