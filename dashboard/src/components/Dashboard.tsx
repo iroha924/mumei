@@ -19,6 +19,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useEventStream } from '@/hooks/useEventStream'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useMetaStats } from '@/hooks/useMeta'
@@ -43,22 +44,24 @@ const SECTION_INVALIDATIONS: Record<string, ReadonlyArray<readonly (string | num
   detail: [],
 }
 
+type TabId = 'features' | 'graph' | 'activity'
+
 /**
- * Bento dashboard. A wide hero strip introduces the project and exposes the
- * top-line counters; three cards below carry the focused feature, the live
- * activity feed, and the feature list. The full DetailPanel opens in a
- * right-side Sheet when a feature is selected — the first view stays sparse
- * on purpose.
+ * Tabbed single-view dashboard. Header on top, hero heading, then a single
+ * Liquid Glass card whose body switches between features / graph / activity.
+ * No bento grid, no internal scrollbars on the main content — each tab is
+ * meant to fit the viewport.
  */
 export function Dashboard(): ReactElement {
   const [selected, setSelected] = useState<string | null>(null)
   const [slugFilter, setSlugFilter] = useState('')
+  const [tab, setTab] = useState<TabId>('features')
   const live = useEventStream('/api/events')
 
   return (
     <div className="min-h-dvh w-full font-sans text-foreground">
       <ErrorBoundarySection name="meta">
-        <Suspense fallback={<TopBarSkeleton />}>
+        <Suspense fallback={<HeaderSkeleton />}>
           <Header connected={live.connected} disconnected={live.disconnected} />
         </Suspense>
       </ErrorBoundarySection>
@@ -70,23 +73,31 @@ export function Dashboard(): ReactElement {
           </Suspense>
         </ErrorBoundarySection>
 
-        <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:auto-rows-[minmax(200px,1fr)]">
-          <section
-            aria-label="features"
-            className="mumei-card flex flex-col p-5 lg:col-span-3 lg:max-h-[60vh]"
-          >
-            <div className="mb-4 flex shrink-0 items-center gap-3">
-              <SectionTitle>Features</SectionTitle>
-              <div className="flex-1" />
-              <Input
-                value={slugFilter}
-                onChange={(e) => setSlugFilter(e.target.value)}
-                placeholder="filter slug…"
-                aria-label="filter slug"
-                className="mumei-glass w-32 rounded-full border-0 font-mono placeholder:text-muted-foreground/70 sm:w-44"
-              />
-            </div>
-            <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as TabId)} className="mt-8 gap-5">
+          <TabsList variant="line" className="mumei-glass rounded-full">
+            <TabsTrigger value="features" className="rounded-full px-5">
+              Features
+            </TabsTrigger>
+            <TabsTrigger value="graph" className="rounded-full px-5">
+              Graph
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="rounded-full px-5">
+              Activity
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="features">
+            <div className="mumei-card p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex-1" />
+                <Input
+                  value={slugFilter}
+                  onChange={(e) => setSlugFilter(e.target.value)}
+                  placeholder="filter slug…"
+                  aria-label="filter slug"
+                  className="mumei-glass w-32 rounded-full border-0 font-mono placeholder:text-muted-foreground/70 sm:w-44"
+                />
+              </div>
               <ErrorBoundarySection name="features">
                 <Suspense fallback={<FeatureGridSkeleton />}>
                   <FeatureGrid
@@ -98,31 +109,26 @@ export function Dashboard(): ReactElement {
                 </Suspense>
               </ErrorBoundarySection>
             </div>
-          </section>
+          </TabsContent>
 
-          <section
-            aria-label="focused feature"
-            className="mumei-card flex flex-col p-7 lg:col-span-2 lg:row-span-2"
-          >
-            <ErrorBoundarySection name="detail">
-              <Suspense fallback={<FocusedFeatureSkeleton />}>
-                <FocusedFeature selected={selected} pulses={live.pulses} />
-              </Suspense>
-            </ErrorBoundarySection>
-          </section>
+          <TabsContent value="graph">
+            <div className="mumei-card p-7">
+              <ErrorBoundarySection name="trends">
+                <Suspense fallback={<GraphSkeleton />}>
+                  <GraphPanel />
+                </Suspense>
+              </ErrorBoundarySection>
+            </div>
+          </TabsContent>
 
-          <section
-            aria-label="activity"
-            className="mumei-card flex flex-col overflow-hidden p-5 lg:row-span-2"
-          >
-            <SectionTitle>Activity</SectionTitle>
-            <div className="-mx-1 mt-3 min-h-0 flex-1 overflow-y-auto">
+          <TabsContent value="activity">
+            <div className="mumei-card p-5">
               <ErrorBoundarySection name="activity">
                 <ActivityFeed />
               </ErrorBoundarySection>
             </div>
-          </section>
-        </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       <Sheet open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
@@ -206,19 +212,11 @@ function ErrorBoundarySection({
   )
 }
 
-function TopBarSkeleton(): ReactElement {
+function HeaderSkeleton(): ReactElement {
   return (
     <header className="flex h-[72px] shrink-0 items-center px-5 sm:px-8">
       <Skeleton className="h-9 w-32 rounded-full" />
     </header>
-  )
-}
-
-function SectionTitle({ children }: { children: ReactNode }): ReactElement {
-  return (
-    <h2 className="shrink-0 font-mono text-[12px] tracking-wider uppercase text-muted-foreground">
-      {children}
-    </h2>
   )
 }
 
@@ -251,122 +249,29 @@ function HeroSkeleton(): ReactElement {
   )
 }
 
-function FocusedFeature({
-  selected,
-  pulses,
-}: {
-  selected: string | null
-  pulses: Set<string>
-}): ReactElement {
+function GraphPanel(): ReactElement {
   const tokens = useTrendTokens(14).data
   const totalTokens = tokens.reduce((acc, p) => acc + p.v, 0)
-  const { data: features } = useFeatures()
-  const focus = selected ? (features.find((f) => f.slug === selected) ?? null) : null
-
   return (
-    <div className="flex h-full min-h-[360px] flex-col gap-5">
-      <div className="flex items-center gap-3">
-        <SectionTitle>Now</SectionTitle>
-        {focus && (
-          <span className="font-mono text-[12px] text-muted-foreground">
-            click any feature to switch focus · esc to close
-          </span>
-        )}
-      </div>
-
-      {focus === null ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
-          <p className="max-w-md text-[1.75rem] font-semibold leading-tight tracking-tight text-foreground">
-            Pick a feature to focus on.
-          </p>
-          <p className="max-w-md text-sm text-muted-foreground">
-            Click any feature card below — phase, waves, and review history open here.
-          </p>
-        </div>
-      ) : (
-        <FocusedFeatureCard
-          f={focus}
-          pulsing={pulses.has(focus.slug) || focus.pulse === 'active'}
-        />
-      )}
-
-      <div className="mt-auto">
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="font-mono text-[11px] tracking-wider uppercase text-muted-foreground">
-            Tokens / day · last 14
-          </span>
-          <span className="font-mono text-[13px] tabular-nums text-foreground">
-            {formatTokens(totalTokens)}
-          </span>
-        </div>
-        <LineChart data={tokens} h={120} />
-      </div>
-    </div>
-  )
-}
-
-function FocusedFeatureCard({
-  f,
-  pulsing,
-}: {
-  f: MumeiFeatureSummary
-  pulsing: boolean
-}): ReactElement {
-  const progressPct = f.totalWaves > 0 ? Math.round((f.waveProgress / f.totalWaves) * 100) : 0
-  const barColorClass =
-    f.phase === 'review'
-      ? 'bg-amber-500/80'
-      : f.phase === 'done'
-        ? 'bg-emerald-500/80'
-        : f.totalWaves > 0
-          ? 'bg-violet-500/80'
-          : 'bg-zinc-700/40'
-  return (
-    <div className="flex flex-1 flex-col justify-center gap-4 py-2">
-      <div className="flex items-baseline gap-3">
-        <span className="font-mono text-[14px] text-muted-foreground tabular-nums">{f.id}</span>
-        {pulsing && (
-          <span className="size-2 rounded-full bg-violet-500" role="status" aria-label="live" />
-        )}
-      </div>
-      <div className="font-mono text-[2rem] font-semibold leading-tight tracking-tight text-foreground break-all">
-        {f.slug}
-      </div>
-      <div className="flex items-center gap-3">
-        <PhaseBadge phase={f.phase} />
-        {f.lastVerdict && <VerdictBadge verdict={f.lastVerdict} iter={f.lastIter} />}
-        <span className="ml-auto font-mono text-[14px] text-muted-foreground tabular-nums">
-          {lastActivityDate(f.lastActivityMin)}
+    <div className="flex flex-col gap-4">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-mono text-[12px] tracking-wider uppercase text-muted-foreground">
+          Tokens / day · last 14
+        </h2>
+        <span className="font-mono text-[14px] tabular-nums text-foreground">
+          {formatTokens(totalTokens)}
         </span>
       </div>
-      <div>
-        <div className="mb-1.5 flex items-center justify-between font-mono text-[12px] text-muted-foreground">
-          <span>
-            wave {f.waveProgress} / {f.totalWaves}
-          </span>
-          <span className="tabular-nums">{progressPct}%</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-zinc-800/40">
-          <div
-            className={cn('h-full rounded-full transition-[width] duration-500', barColorClass)}
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-      </div>
+      <LineChart data={tokens} h={320} />
     </div>
   )
 }
 
-function FocusedFeatureSkeleton(): ReactElement {
+function GraphSkeleton(): ReactElement {
   return (
-    <div className="flex h-full min-h-[360px] flex-col gap-5">
-      <Skeleton className="h-7 w-16 rounded-full" />
-      <div className="flex flex-1 flex-col gap-3">
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-10 w-3/5" />
-        <Skeleton className="h-4 w-1/3" />
-      </div>
-      <Skeleton className="h-[120px] w-full rounded-xl" />
+    <div className="flex flex-col gap-4">
+      <Skeleton className="h-3 w-40" />
+      <Skeleton className="h-[320px] w-full rounded-xl" />
     </div>
   )
 }
@@ -397,7 +302,7 @@ function FeatureGrid({
   const totalSkips =
     warnings.skippedArchiveStates + warnings.skippedReviews + warnings.skippedCostLogLines
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {totalSkips > 0 && (
         <div
           aria-live="polite"
