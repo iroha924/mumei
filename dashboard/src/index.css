@@ -144,16 +144,17 @@
 }
 
 /* 4-corner mesh gradient — Stripe-style hero backdrop.
-   `background-attachment: fixed` keeps the gradient anchored to the viewport
-   so it doesn't pan when content scrolls. Each corner radial fades to
-   transparent by 70% radius so the centre breathes. */
+   `background-attachment: fixed` keeps the gradient anchored to the viewport.
+   Each corner reaches `farthest-corner` (full diagonal) with fade-out at 85%,
+   so the four colours overlap and mix around the centre rather than fading
+   into a neutral plate. */
 html,
 body {
   background:
-    radial-gradient(ellipse 70% 60% at 0% 0%, var(--color-corner-tl), transparent 65%),
-    radial-gradient(ellipse 70% 60% at 100% 0%, var(--color-corner-tr), transparent 65%),
-    radial-gradient(ellipse 70% 60% at 0% 100%, var(--color-corner-bl), transparent 65%),
-    radial-gradient(ellipse 70% 60% at 100% 100%, var(--color-corner-br), transparent 65%),
+    radial-gradient(circle at 0% 0%, var(--color-corner-tl) 0%, transparent 85%),
+    radial-gradient(circle at 100% 0%, var(--color-corner-tr) 0%, transparent 85%),
+    radial-gradient(circle at 0% 100%, var(--color-corner-bl) 0%, transparent 85%),
+    radial-gradient(circle at 100% 100%, var(--color-corner-br) 0%, transparent 85%),
     var(--color-card);
   background-attachment: fixed;
   color: var(--color-foreground);
@@ -175,39 +176,40 @@ body {
    specs). blur(14px) + saturate(140%) is the consensus baseline; the inner
    1px white highlight + outer drop fakes refraction at the bezel. */
 .mumei-glass {
-  backdrop-filter: blur(14px) saturate(140%) brightness(1.04);
-  -webkit-backdrop-filter: blur(14px) saturate(140%) brightness(1.04);
-  background: color-mix(in oklch, var(--color-card) 55%, transparent);
-  border: 1px solid color-mix(in oklch, white 22%, transparent);
+  backdrop-filter: blur(16px) saturate(150%) brightness(1.05);
+  -webkit-backdrop-filter: blur(16px) saturate(150%) brightness(1.05);
+  background: color-mix(in oklch, var(--color-card) 38%, transparent) !important;
+  border: 1px solid color-mix(in oklch, white 26%, transparent);
   box-shadow:
-    inset 0 1px 0 color-mix(in oklch, white 32%, transparent),
+    inset 0 1px 0 color-mix(in oklch, white 38%, transparent),
     inset 0 -1px 0 color-mix(in oklch, black 6%, transparent),
     0 6px 20px -10px color-mix(in oklch, black 18%, transparent);
 }
 .dark .mumei-glass {
-  background: color-mix(in oklch, var(--color-card) 65%, transparent);
-  border: 1px solid color-mix(in oklch, white 9%, transparent);
+  background: color-mix(in oklch, var(--color-card) 42%, transparent);
+  border: 1px solid color-mix(in oklch, white 11%, transparent);
   box-shadow:
-    inset 0 1px 0 color-mix(in oklch, white 14%, transparent),
+    inset 0 1px 0 color-mix(in oklch, white 16%, transparent),
     inset 0 -1px 0 color-mix(in oklch, black 22%, transparent),
     0 10px 28px -12px color-mix(in oklch, black 56%, transparent);
 }
 
-/* Card surface — translucent paper with strong blur.
-   Used as a wrapper class so existing shadcn Card primitives stay untouched. */
+/* Card surface — translucent paper with strong blur. `!important` keeps any
+   shadcn primitive (which ships `bg-card`) from re-applying its opaque fill
+   when composed with `.mumei-card`. */
 .mumei-card {
-  background: color-mix(in oklch, var(--color-card) 62%, transparent);
-  backdrop-filter: blur(20px) saturate(135%);
-  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  background: color-mix(in oklch, var(--color-card) 32%, transparent) !important;
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
   border: 1px solid color-mix(in oklch, var(--color-foreground) 8%, transparent);
   border-radius: 1.5rem;
   box-shadow:
-    inset 0 1px 0 color-mix(in oklch, white 22%, transparent),
+    inset 0 1px 0 color-mix(in oklch, white 24%, transparent),
     0 22px 44px -28px color-mix(in oklch, black 22%, transparent);
 }
 .dark .mumei-card {
-  background: color-mix(in oklch, var(--color-card) 60%, transparent);
-  border: 1px solid color-mix(in oklch, white 7%, transparent);
+  background: color-mix(in oklch, var(--color-card) 36%, transparent) !important;
+  border: 1px solid color-mix(in oklch, white 8%, transparent);
   box-shadow:
     inset 0 1px 0 color-mix(in oklch, white 9%, transparent),
     0 28px 56px -28px color-mix(in oklch, black 60%, transparent);

@@ -124,11 +124,12 @@ dashboard/
 
 - **Header**: brand pill + project label + theme toggle, centred in a
   1400 px hero strip.
-- **Hero**: large active-feature heading, project label microcopy, and four
-  Liquid Glass KPI chips (active, month tokens, cache hit, hooks per sec).
+- **Hero**: large active-feature heading plus a project label microcopy.
+  No KPI strip — the first view stays sparse on purpose.
 - **Bento grid (3 cols)**: focused feature (2×2) · activity feed (1×2) ·
-  features list (3×1). Each cell is a `.mumei-card` (translucent surface,
-  `rounded-3xl`).
+  features list (3×1). Each cell is a translucent `.mumei-card`
+  (`rounded-3xl`, `backdrop-filter: blur(22px)`); section titles are
+  plain monospaced labels, not chips.
 - **Sheet**: feature detail (tasks · documents · reviews tabs) slides in
   from the right when a feature is selected; close clears the selection.
 - **Theme**: light / dark via the header toggle, persisted to

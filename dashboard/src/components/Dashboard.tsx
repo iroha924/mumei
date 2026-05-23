@@ -86,7 +86,7 @@ export function Dashboard(): ReactElement {
             aria-label="activity"
             className="mumei-card flex flex-col overflow-hidden p-5 lg:row-span-2"
           >
-            <GlassChipTitle>Activity</GlassChipTitle>
+            <SectionTitle>Activity</SectionTitle>
             <div className="-mx-1 mt-3 min-h-0 flex-1 overflow-y-auto">
               <ErrorBoundarySection name="activity">
                 <ActivityFeed />
@@ -96,7 +96,7 @@ export function Dashboard(): ReactElement {
 
           <section aria-label="features" className="mumei-card p-5 lg:col-span-3">
             <div className="mb-4 flex items-center gap-3">
-              <GlassChipTitle>Features</GlassChipTitle>
+              <SectionTitle>Features</SectionTitle>
               <div className="flex-1" />
               <Input
                 value={slugFilter}
@@ -209,11 +209,11 @@ function TopBarSkeleton(): ReactElement {
   )
 }
 
-function GlassChipTitle({ children }: { children: ReactNode }): ReactElement {
+function SectionTitle({ children }: { children: ReactNode }): ReactElement {
   return (
-    <span className="mumei-glass inline-flex shrink-0 items-center rounded-full px-3 py-1 font-mono text-[12px] tracking-wider uppercase text-foreground">
+    <h2 className="shrink-0 font-mono text-[12px] tracking-wider uppercase text-muted-foreground">
       {children}
-    </span>
+    </h2>
   )
 }
 
@@ -237,12 +237,6 @@ function Hero(): ReactElement {
           ? 'Run /mumei:plan in your project to start one.'
           : `${stats.eventCount24h} event${stats.eventCount24h === 1 ? '' : 's'} in the last 24 hours.`}
       </p>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <KpiChip label="active" value={stats.activeCount} />
-        <KpiChip label="tokens · month" value={formatTokens(stats.monthTokens)} />
-        <KpiChip label="cache hit" value={`${Math.round(stats.cacheHitRate * 100)}%`} />
-        <KpiChip label="hooks · /sec" value={stats.hooksPerSec.toFixed(2)} />
-      </div>
     </section>
   )
 }
@@ -253,23 +247,7 @@ function HeroSkeleton(): ReactElement {
       <Skeleton className="h-3 w-32" />
       <Skeleton className="mt-3 h-12 w-[60%]" />
       <Skeleton className="mt-3 h-4 w-[40%]" />
-      <div className="mt-6 flex gap-3">
-        {Array.from({ length: 4 }, (_, i) => i).map((i) => (
-          <Skeleton key={i} className="h-14 w-28 rounded-2xl" />
-        ))}
-      </div>
     </section>
-  )
-}
-
-function KpiChip({ label, value }: { label: string; value: number | string }): ReactElement {
-  return (
-    <div className="mumei-glass min-w-[120px] rounded-2xl px-4 py-2.5">
-      <div className="font-mono text-[11px] tracking-wider uppercase text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-0.5 font-mono text-[20px] tabular-nums text-foreground">{value}</div>
-    </div>
   )
 }
 
@@ -288,7 +266,7 @@ function FocusedFeature({
   return (
     <div className="flex h-full min-h-[360px] flex-col gap-5">
       <div className="flex items-center gap-3">
-        <GlassChipTitle>Now</GlassChipTitle>
+        <SectionTitle>Now</SectionTitle>
         {focus && (
           <span className="font-mono text-[12px] text-muted-foreground">
             click any feature to switch focus · esc to close
