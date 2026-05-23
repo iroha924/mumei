@@ -48,6 +48,18 @@ jobs:
       github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
+      # Fail loud when invoked from a non-pull_request caller. The fork/dependabot
+      # gates above evaluate `null == false` → false on workflow_dispatch /
+      # workflow_run / push, silently skipping the entire job with green status
+      # (adversarial F-002). Assert event_name explicitly so a misconfigured
+      # caller fails red rather than appearing to succeed without reviewing.
+      - name: Guard — pull_request event only
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "::error::review-reusable.yml must be called from a pull_request workflow (got event=${{ github.event_name }})." >&2
+            exit 1
+          fi
+
       - name: Checkout consuming repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -76,11 +88,22 @@ jobs:
           fi
 
       - name: Install grounding tools
+        # Verify the osv-scanner binary against a pinned SHA-256. GitHub release
+        # tags are mutable in principle; without integrity verification a
+        # retagged release could swap an attacker binary into this privileged
+        # workflow (security F-002, OWASP A06). Bump version + SHA together.
+        env:
+          OSV_VERSION: "v2.3.8"
+          OSV_SHA256: "bc98e15319ed0d515e3f9235287ba53cdc5535d576d24fd573978ecfe9ab92dc"
         run: |
           set -u
           python -m pip install --quiet "semgrep==1.111.0"
           curl -fsSL -o /tmp/osv-scanner \
-            "https://github.com/google/osv-scanner/releases/download/v2.3.8/osv-scanner_linux_amd64"
+            "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SHA256}  /tmp/osv-scanner" | sha256sum -c - || {
+            echo "::error::osv-scanner ${OSV_VERSION} SHA-256 mismatch (release may have been retagged)" >&2
+            exit 1
+          }
           chmod +x /tmp/osv-scanner
           sudo mv /tmp/osv-scanner /usr/local/bin/
 
@@ -149,13 +172,24 @@ jobs:
             cat /tmp/grounding/summary.txt
           } > /tmp/prompt.txt
           # Multi-line env via heredoc — claude-code-action prompt: reads from env.
+          # Generate a per-run random delimiter to defeat CWE-1336 GitHub Actions
+          # delimiter injection: a fixed token would let a fetched rubric or repo
+          # AGENTS.md inject arbitrary env vars by embedding the same token
+          # literal (security F-001). Belt-and-suspenders: reject prompt bodies
+          # that happen to contain the random delimiter.
+          delim="MUMEI_PROMPT_EOF_$(openssl rand -hex 16 2>/dev/null || date +%s%N)"
+          if grep -Fxq "$delim" /tmp/prompt.txt; then
+            echo "::error::prompt body collided with random delimiter (re-run)" >&2
+            exit 1
+          fi
           {
-            echo "PROMPT<<MUMEI_PROMPT_EOF"
+            printf 'PROMPT<<%s\n' "$delim"
             cat /tmp/prompt.txt
-            echo "MUMEI_PROMPT_EOF"
+            printf '%s\n' "$delim"
           } >>"$GITHUB_ENV"
 
       - name: Claude review
+        id: claude
         uses: anthropics/claude-code-action@4481e6d3c7bbb88db2a928ca3444c536f589c7c1 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -166,6 +200,10 @@ jobs:
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
 
       - name: Emit audit record to job summary
+        # Run even on Claude step failure so the audit record is always present,
+        # but gate the "perspectives_run" claim on the actual Claude step
+        # outcome — `if: always()` with an unconditional success-shaped summary
+        # would lie when the reviewer was cancelled / failed (adversarial F-001).
         if: always()
         env:
           GROUNDING_SEMGREP_V: ${{ steps.grounding.outputs.semgrep_v }}
@@ -173,10 +211,16 @@ jobs:
           GROUNDING_OSV_V: ${{ steps.grounding.outputs.osv_v }}
           GROUNDING_OSV_COUNT: ${{ steps.grounding.outputs.osv_count }}
           CI_ARTIFACTS_PRESENT: ${{ steps.grounding.outputs.ci_artifacts_present }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         run: |
           set -u
           ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           sha="${{ github.event.pull_request.head.sha }}"
+          if [ "${CLAUDE_OUTCOME:-}" = "success" ]; then
+            perspectives_line="- perspectives_run: correctness, security, operability, maintainability"
+          else
+            perspectives_line="- perspectives_run: INCOMPLETE (claude step outcome=${CLAUDE_OUTCOME:-unknown})"
+          fi
           {
             echo "## Review audit record (REQ-24.12)"
             echo ""
@@ -186,6 +230,6 @@ jobs:
             echo "- grounding tools:"
             echo "  - semgrep ${GROUNDING_SEMGREP_V}: ${GROUNDING_SEMGREP_COUNT} findings"
             echo "  - osv-scanner ${GROUNDING_OSV_V}: ${GROUNDING_OSV_COUNT} vulnerabilities"
-            echo "- perspectives_run: correctness, security, operability, maintainability"
+            echo "${perspectives_line}"
             echo "- ci_artifacts_present: ${CI_ARTIFACTS_PRESENT}"
           } >>"$GITHUB_STEP_SUMMARY"
