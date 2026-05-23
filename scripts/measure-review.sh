@@ -71,10 +71,9 @@ EOF
 }
 
 _mumei_print_harness_prompt() {
-  local block_file
-  block_file="$(mktemp)"
-  awk '/<!-- BEGIN universal-review-rubric -->/{f=1;next} /<!-- END universal-review-rubric -->/{f=0} f' \
-    "$RUBRIC_PATH" >"$block_file"
+  # awk is inlined into the heredoc command-substitution directly so we do
+  # not need a temp file (and no missing-cleanup path on interrupt — Gemini
+  # iter-3 fix).
   cat <<EOF
 You are an automated reviewer for this pull request. Apply the universal
 review rubric below. Walk the four perspectives (correctness, security,
@@ -85,7 +84,7 @@ statement of what this review cannot guarantee.
 
 ## Universal review rubric
 
-$(cat "$block_file")
+$(awk '/<!-- BEGIN universal-review-rubric -->/{f=1;next} /<!-- END universal-review-rubric -->/{f=0} f' "$RUBRIC_PATH")
 
 ## Grounding (deterministic signals — input, not gate)
 
@@ -98,7 +97,6 @@ osv-scanner: no lockfile present (signal absent — note in output).
 $(awk '{ printf "%4d: %s\n", NR, $0 }' "$FIXTURE")
 \`\`\`
 EOF
-  rm -f "$block_file"
 }
 
 _mumei_score() {
@@ -130,25 +128,22 @@ _mumei_score() {
     local hit
     hit="$(awk -v lo="$lo" -v hi="$hi" -v kw="$keywords" '
       BEGIN {
+        # Word-boundary keyword regex on BOTH sides — bare-word keyword (e.g.
+        # "pass") must not match a substring like "bypass" (Gemini iter-3 fix).
         n_kw = split(kw, kw_parts, "|")
-        for (i = 1; i <= n_kw; i++) kw_lower[i] = tolower(kw_parts[i])
+        for (i = 1; i <= n_kw; i++) kw_re[i] = "([^a-z0-9_]|^)" tolower(kw_parts[i]) "([^a-z0-9_]|$)"
       }
       {
         s = tolower($0)
         has_kw = 0
         for (i = 1; i <= n_kw; i++) {
-          if (index(s, kw_lower[i]) > 0) { has_kw = 1; break }
+          if (s ~ kw_re[i]) { has_kw = 1; break }
         }
         if (!has_kw) next
+        # Digit-boundary on BOTH sides — `:14` must not match `:114` either
+        # at the LEADING boundary (was previously only trailing-checked).
         for (n = lo; n <= hi; n++) {
-          patt[1] = ":" n; patt[2] = "line " n; patt[3] = "line: " n
-          for (p = 1; p <= 3; p++) {
-            pos = index(s, patt[p])
-            if (pos > 0) {
-              after = substr(s, pos + length(patt[p]), 1)
-              if (after !~ /[0-9]/) { print "1"; exit }
-            }
-          }
+          if (s ~ "([^0-9]|^)(:" n "|line[: ]+" n ")([^0-9]|$)") { print "1"; exit }
         }
       }' "$output_file")"
     if [[ "$hit" == "1" ]]; then
@@ -163,12 +158,14 @@ _mumei_score() {
   # but cites lines must still have those counted, otherwise verbose harness
   # output is penalised vs terse baseline (matches the README methodology).
   local total_findings
+  # Word-boundary FP candidate detection (Gemini iter-3 fix): also count
+  # numbered-list items ("1. ..."), and apply the same digit-boundary on line
+  # references so ":14" inside ":1400" / "1400ms" does not falsely inflate FPs.
   total_findings="$(awk '
     {
       s = tolower($0)
-      if ($0 ~ /^[[:space:]]*[-*][[:space:]]/) { c++; next }
-      if (s ~ /:[0-9]+/)                       { c++; next }
-      if (s ~ /line[: ]+[0-9]+/)               { c++ }
+      if ($0 ~ /^[[:space:]]*([-*]|[0-9]+\.)[[:space:]]/) { c++; next }
+      if (s ~ /([^0-9]|^)(:[0-9]+|line[: ]+[0-9]+)([^0-9]|$)/) { c++ }
     }
     END { print c+0 }
   ' "$output_file")"

@@ -27,14 +27,22 @@ end='<!-- END universal-review-rubric -->'
 
 # Extract the lines strictly between the markers (BSD-awk compatible). The
 # workflow-yaml carrier embeds the block inside a bash heredoc and prefixes
-# every line with 10 leading spaces (matching the YAML block-scalar indent);
-# strip that constant prefix before comparison so the block content is
-# byte-identical across all four carriers.
+# every line with 10 leading spaces (matching the YAML block-scalar indent).
+# Apply the de-indent ONLY for the YAML carrier — stripping 10 leading spaces
+# universally would normalize away a legitimate 10-space indentation drift in
+# the markdown carriers (Codex / Gemini iter-2 finding).
 _mumei_extract_block() {
-  awk -v b="$begin" -v e="$end" '
-    index($0, b) { f = 1; next }
-    index($0, e) { f = 0 }
-    f' "$1" | sed 's/^          //'
+  if [[ "$1" == *.yml ]]; then
+    awk -v b="$begin" -v e="$end" '
+      index($0, b) { f = 1; next }
+      index($0, e) { f = 0 }
+      f' "$1" | sed 's/^          //'
+  else
+    awk -v b="$begin" -v e="$end" '
+      index($0, b) { f = 1; next }
+      index($0, e) { f = 0 }
+      f' "$1"
+  fi
 }
 
 # Detect malformed markers per carrier — exactly one BEGIN and one END must

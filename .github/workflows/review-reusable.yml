@@ -184,9 +184,11 @@ jobs:
           osv-scanner scan source --format=json --output=/tmp/grounding/osv.json . || osv_rc=$?
           osv_count="$(jq '[.results[]?.packages[]?.vulnerabilities[]?] | length' /tmp/grounding/osv.json 2>/dev/null || echo 0)"
           osv_status="ok"
-          # osv-scanner exits 1 when vulns are found — not a crash. Only treat
-          # rc >= 128 or rc == 127 (binary missing) as crashed.
-          if [ "$osv_rc" -ge 128 ] || [ "$osv_rc" = "127" ]; then
+          # osv-scanner exits 1 when vulns are found (not a crash) and 128 for
+          # "No packages found" — also a valid outcome on repos without
+          # lockfiles/SBOMs (Codex iter-2 finding). Only treat rc == 127
+          # (binary missing) or rc >= 129 (signal terminations) as crashed.
+          if [ "$osv_rc" = "127" ] || [ "$osv_rc" -ge 129 ]; then
             osv_status="crashed (rc=$osv_rc)"
           fi
           {
