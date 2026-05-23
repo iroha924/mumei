@@ -1,0 +1,28 @@
+# OSV-Scanner configuration consumed by .github/workflows/osv-scanner.yml
+# (and any local `osv-scanner --recursive .` invocation). Vulnerabilities
+# listed here are intentionally ignored after a documented exploit-path
+# assessment. Each entry must carry a `reason` and a finite
+# `ignoreUntil` so the bypass is revisited rather than accumulated.
+
+[[IgnoredVulns]]
+id = "CVE-2026-0994"
+ignoreUntil = 2027-05-23
+reason = """
+GHSA-7gcm-g887-7qv7: DoS via google.protobuf.json_format.ParseDict()
+on attacker-controlled deeply-nested Any messages (RecursionError).
+
+Path: protobuf==4.25.9 is a transitive dependency of semgrep==1.111.0
+(see .github/requirements/semgrep-review/requirements.txt), pulled in
+via opentelemetry-proto==1.25.0 which hard-pins protobuf<5. semgrep
+1.111.0 is frozen for review-pipeline grounding-signal stability
+(.github/requirements/semgrep-review/requirements.in); bumping to a
+semgrep release that ships protobuf>=5.29.6 would break that freeze.
+
+Exploit path in mumei: none. The review pipeline runs semgrep against
+trusted source files in this repository (sh, md, yml); no untrusted
+protobuf JSON ever reaches ParseDict() in this context. semgrep's
+own use of protobuf is internal telemetry and not exposed to PR-author
+input. Reassess on 2027-05-23 — by then the review pipeline should
+have moved off 1.111.0 anyway, or the upstream advisory should have
+been backported to the 4.25.x line.
+"""
