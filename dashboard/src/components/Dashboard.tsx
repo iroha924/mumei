@@ -152,7 +152,7 @@ export function Dashboard(): ReactElement {
       </main>
 
       <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="mumei-card flex h-[85vh] max-w-5xl flex-col gap-0 overflow-hidden border-0 p-0">
+        <DialogContent className="flex h-[88vh] w-[min(1280px,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden rounded-3xl border border-border/60 bg-card p-0 text-card-foreground shadow-2xl">
           <DialogHeader className="px-6 pt-6">
             <DialogTitle className="text-foreground">{selected ?? ''}</DialogTitle>
             <DialogDescription>Feature detail · waves · reviews</DialogDescription>
