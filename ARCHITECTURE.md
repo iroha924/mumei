@@ -37,6 +37,7 @@ mumei/
 ├── hooks/                  # Hook handlers + shared bash library
 │   ├── hooks.json          # event registration: PreToolUse / PostToolUse / Stop / TaskCreated / TaskCompleted / UserPromptSubmit + PreCompact / PostCompact / SessionStart / SessionEnd / FileChanged / CwdChanged / InstructionsLoaded / UserPromptExpansion / ConfigChange / PostToolUseFailure / SubagentStart / SubagentStop
 │   ├── _lib/               # shared bash modules
+│   │   ├── anchor.sh       # pre-flight bootstrap (cwd anchor + MUMEI_BYPASS + PLUGIN_ROOT export) sourced by every entrypoint
 │   │   ├── state.sh        # .mumei/specs/<feat>/state.json read/write (atomic)
 │   │   ├── tasks.sh        # tasks.md parser (BSD-awk compatible)
 │   │   ├── safe-grep.sh    # null-safe grep + git check-ignore helper
