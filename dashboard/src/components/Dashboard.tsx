@@ -71,8 +71,11 @@ export function Dashboard(): ReactElement {
         </ErrorBoundarySection>
 
         <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:auto-rows-[minmax(200px,1fr)]">
-          <section aria-label="features" className="mumei-card p-5 lg:col-span-3">
-            <div className="mb-4 flex items-center gap-3">
+          <section
+            aria-label="features"
+            className="mumei-card flex flex-col p-5 lg:col-span-3 lg:max-h-[60vh]"
+          >
+            <div className="mb-4 flex shrink-0 items-center gap-3">
               <SectionTitle>Features</SectionTitle>
               <div className="flex-1" />
               <Input
@@ -83,16 +86,18 @@ export function Dashboard(): ReactElement {
                 className="mumei-glass w-32 rounded-full border-0 font-mono placeholder:text-muted-foreground/70 sm:w-44"
               />
             </div>
-            <ErrorBoundarySection name="features">
-              <Suspense fallback={<FeatureGridSkeleton />}>
-                <FeatureGrid
-                  pulses={live.pulses}
-                  selected={selected}
-                  onSelect={setSelected}
-                  slugFilter={slugFilter}
-                />
-              </Suspense>
-            </ErrorBoundarySection>
+            <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+              <ErrorBoundarySection name="features">
+                <Suspense fallback={<FeatureGridSkeleton />}>
+                  <FeatureGrid
+                    pulses={live.pulses}
+                    selected={selected}
+                    onSelect={setSelected}
+                    slugFilter={slugFilter}
+                  />
+                </Suspense>
+              </ErrorBoundarySection>
+            </div>
           </section>
 
           <section
