@@ -1,0 +1,10 @@
+# Review-pipeline grounding scan (review-reusable.yml semgrep step).
+# Frozen at 1.111.0 so AI reviewer signal stays comparable across runs;
+# bumping disrupts grounding fingerprints. Move on a different cadence
+# from semgrep-release.in.
+#
+# Regenerate the locked .txt after editing:
+#   pip-compile --generate-hashes \
+#     --output-file=.github/requirements/semgrep-review.txt \
+#     .github/requirements/semgrep-review.in
+semgrep==1.111.0

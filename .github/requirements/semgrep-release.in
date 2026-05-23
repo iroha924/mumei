@@ -1,0 +1,10 @@
+# Release-time supply-chain scan (release-reusable.yml `semgrep` step).
+# Pinned to current stable to maximise rule coverage at tag-cut time.
+# Drift from semgrep-review.in is intentional (see release-reusable.yml
+# comment + .claude/agent docs).
+#
+# Regenerate the locked .txt after editing:
+#   pip-compile --generate-hashes \
+#     --output-file=.github/requirements/semgrep-release.txt \
+#     .github/requirements/semgrep-release.in
+semgrep==1.163.0

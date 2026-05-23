@@ -43,3 +43,35 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # pip lock files consumed by .github/workflows/{release-reusable,
+  # plugin-json-validate,review-reusable}.yml via `pip install
+  # --require-hashes`. Each `directory:` corresponds to one of:
+  #   .github/requirements/semgrep-release.txt  (release-time OWASP scan)
+  #   .github/requirements/semgrep-review.txt   (review-pipeline grounding,
+  #                                              frozen at 1.111.0 by policy)
+  #   .github/requirements/validate.txt         (jsonschema + requests)
+  # When Dependabot opens a bump PR for a direct dep (semgrep / jsonschema /
+  # requests), the operator regenerates the matching .txt locally with
+  # `pip-compile --generate-hashes --strip-extras --allow-unsafe` (transitive
+  # hashes are not auto-rewritten by Dependabot).
+  - package-ecosystem: "pip"
+    directories:
+      - "/.github/requirements"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "pip"
+    open-pull-requests-limit: 5
+    # semgrep-review is intentionally pinned at 1.111.0 for review grounding
+    # signal stability (see .github/requirements/semgrep-review.in). Block
+    # auto-bumps so Dependabot does not fight the policy; manual bump only.
+    ignore:
+      - dependency-name: "semgrep"
+        update-types: ["version-update:semver-major"]

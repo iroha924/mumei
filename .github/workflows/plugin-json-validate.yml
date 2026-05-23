@@ -42,7 +42,7 @@ jobs:
 
       - name: Set up Python
         run: |
-          python3 -m pip install 'jsonschema==4.23.0' 'requests==2.34.2'
+          python3 -m pip install --require-hashes -r .github/requirements/validate.txt
 
       - name: Validate plugin.json
         run: |

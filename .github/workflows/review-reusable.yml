@@ -165,7 +165,7 @@ jobs:
         run: |
           set -u
           semgrep_install_status=ok
-          python -m pip install --quiet "semgrep==1.111.0" || semgrep_install_status="install failed"
+          python -m pip install --quiet --require-hashes -r .github/requirements/semgrep-review.txt || semgrep_install_status="install failed"
           osv_install_status=ok
           if curl -fsSL -o /tmp/osv-scanner "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64"; then
             echo "${OSV_SHA256}  /tmp/osv-scanner" | sha256sum -c - || {
