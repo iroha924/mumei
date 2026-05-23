@@ -157,6 +157,11 @@ jobs:
         # whole review (Codex iter-5: grounding is input, not gate). SHA-256
         # MISMATCH stays hard-fail — that signals supply-chain tampering, not
         # a transient outage.
+        # semgrep is pinned independently of release-reusable.yml's semgrep
+        # (currently 1.163.0): the review pipeline freezes 1.111.0 so the AI
+        # reviewer's grounding signal stays comparable across runs, while
+        # release-time scan tracks current rule coverage. Bump these on
+        # different cadences and never sync them out of "consistency" alone.
         run: |
           set -u
           semgrep_install_status=ok

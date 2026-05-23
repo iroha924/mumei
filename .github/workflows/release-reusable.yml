@@ -55,8 +55,14 @@ jobs:
           persist-credentials: false
 
       - name: semgrep
+        # Pinned independently of review-reusable.yml's semgrep (1.111.0):
+        # release-time scan prioritises current OWASP / security-audit rule
+        # coverage at tag-cut time, while the review pipeline's semgrep is
+        # frozen at 1.111.0 to keep AI grounding signal stable across runs.
+        # Bump this pin to the current stable when cutting a release; the
+        # other pin moves on its own cadence.
         run: |
-          python3 -m pip install --quiet semgrep
+          python3 -m pip install --quiet 'semgrep==1.163.0'
           semgrep --error --config=p/owasp-top-ten --config=p/security-audit --severity=ERROR .
 
       - name: gitleaks
