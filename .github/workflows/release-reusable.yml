@@ -54,18 +54,28 @@ jobs:
           ref: ${{ inputs.tag }}
           persist-credentials: false
 
+      # Pin Python so the hash-locked install matches the version pip-compile
+      # used to resolve the dependency graph (.github/requirements/*/
+      # requirements.in regen comments). Without this, the runner's system
+      # python3 (3.12 on ubuntu-24.04) silently diverges from the compile
+      # environment (3.14), and a future transitive dep with
+      # `Requires-Python: >=3.13` would fail at install with a cryptic
+      # "no matching distribution" rather than a clean version mismatch.
+      - name: Set up Python 3.14
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+
       - name: semgrep
         # Pinned independently of review-reusable.yml's semgrep (1.111.0):
         # release-time scan prioritises current OWASP / security-audit rule
         # coverage at tag-cut time, while the review pipeline's semgrep is
         # frozen at 1.111.0 to keep AI grounding signal stable across runs.
-        # Bump by editing .github/requirements/semgrep-release.in, then run
-        # `pip-compile --generate-hashes --strip-extras --allow-unsafe \
-        #   --output-file=.github/requirements/semgrep-release.txt \
-        #   .github/requirements/semgrep-release.in`; the other pin moves
-        # on its own cadence via semgrep-review.{in,txt}.
+        # See .github/requirements/semgrep-release/requirements.in for the
+        # regen command; the other pin moves on its own cadence via
+        # .github/requirements/semgrep-review/.
         run: |
-          python3 -m pip install --quiet --require-hashes -r .github/requirements/semgrep-release.txt
+          python3 -m pip install --quiet --require-hashes -r .github/requirements/semgrep-release/requirements.txt
           semgrep --error --config=p/owasp-top-ten --config=p/security-audit --severity=ERROR .
 
       - name: gitleaks
@@ -195,11 +205,13 @@ jobs:
         # manifest $schema field together.
         run: |
           # Pin jsonschema (and the validate-side requests dep) via
-          # .github/requirements/validate.txt — hash-locked so a yanked or
-          # tampered tarball is rejected at install. Same lock backs
-          # plugin-json-validate.yml; bump via Dependabot pip ecosystem
-          # (drift is intentional, gated by both workflows).
-          python3 -m pip install --quiet --require-hashes -r .github/requirements/validate.txt
+          # .github/requirements/validate/requirements.txt — hash-locked
+          # so a yanked or tampered tarball is rejected at install. Same
+          # lock backs plugin-json-validate.yml; bump via Dependabot pip
+          # ecosystem (drift is intentional, gated by both workflows).
+          # Python is already pinned to 3.14 by the earlier setup-python
+          # step in this job.
+          python3 -m pip install --quiet --require-hashes -r .github/requirements/validate/requirements.txt
           python3 - <<'PY'
           import json, sys
           from pathlib import Path

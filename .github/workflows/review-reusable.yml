@@ -146,6 +146,17 @@ jobs:
           # heredocs do not strip leading whitespace, so we sed it off.
           sed -i 's/^          //' /tmp/rubric-block.md
 
+      # Pin Python to match the pip-compile environment for
+      # .github/requirements/semgrep-review/requirements.txt; runner's
+      # system python3 (3.12) would otherwise drift from the lock's
+      # resolution context (3.14). `if:` mirrors the install step so we
+      # don't pay the setup cost when the review gate skips.
+      - name: Set up Python 3.14
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+
       - name: Install grounding tools
         if: steps.gate.outputs.skip != 'true'
         id: install
@@ -165,7 +176,7 @@ jobs:
         run: |
           set -u
           semgrep_install_status=ok
-          python -m pip install --quiet --require-hashes -r .github/requirements/semgrep-review.txt || semgrep_install_status="install failed"
+          python -m pip install --quiet --require-hashes -r .github/requirements/semgrep-review/requirements.txt || semgrep_install_status="install failed"
           osv_install_status=ok
           if curl -fsSL -o /tmp/osv-scanner "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64"; then
             echo "${OSV_SHA256}  /tmp/osv-scanner" | sha256sum -c - || {

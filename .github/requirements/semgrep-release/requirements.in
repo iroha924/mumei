@@ -1,0 +1,15 @@
+# Release-time supply-chain scan (release-reusable.yml `semgrep` step).
+# Pinned to current stable to maximise rule coverage at tag-cut time.
+# Drift from semgrep-review/requirements.in is intentional (see
+# release-reusable.yml comment for the asymmetric-pin policy).
+#
+# Regenerate the locked requirements.txt on Python 3.14 (matches the
+# `actions/setup-python` version pinned in the workflows that consume
+# this lock):
+#   python3.14 -m venv .tmp/pip-compile-venv
+#   .tmp/pip-compile-venv/bin/pip install pip-tools
+#   .tmp/pip-compile-venv/bin/pip-compile \
+#     --generate-hashes --strip-extras --allow-unsafe \
+#     --output-file=.github/requirements/semgrep-release/requirements.txt \
+#     .github/requirements/semgrep-release/requirements.in
+semgrep==1.163.0

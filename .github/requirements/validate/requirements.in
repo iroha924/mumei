@@ -1,0 +1,14 @@
+# Manifest validation deps used by plugin-json-validate.yml and the
+# jsonschema check in release-reusable.yml. Both call sites share this
+# lock to avoid drift between PR-time and tag-cut validation.
+#
+# Regenerate the locked requirements.txt on Python 3.14 (matches the
+# `actions/setup-python` version pinned in the consuming workflows):
+#   python3.14 -m venv .tmp/pip-compile-venv
+#   .tmp/pip-compile-venv/bin/pip install pip-tools
+#   .tmp/pip-compile-venv/bin/pip-compile \
+#     --generate-hashes --strip-extras --allow-unsafe \
+#     --output-file=.github/requirements/validate/requirements.txt \
+#     .github/requirements/validate/requirements.in
+jsonschema==4.23.0
+requests==2.34.2
