@@ -15,22 +15,12 @@
 
 set -u
 
-# Anchor cwd to the project root so relative .mumei/ paths land
-# in the right place when invoked from a subdir (monorepo dev).
-if [[ -n "${CLAUDE_PROJECT_DIR:-}" && -d "$CLAUDE_PROJECT_DIR" ]]; then
-  if ! cd "$CLAUDE_PROJECT_DIR"; then
-    printf '[mumei] %s: cd CLAUDE_PROJECT_DIR=%s failed; gate not enforced\n' \
-      "$(basename "$0")" "$CLAUDE_PROJECT_DIR" >&2
-    _MUMEI_PLUGIN_ROOT_FALLBACK="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(realpath "$0")")")}"
-    # shellcheck disable=SC1091
-    if source "${_MUMEI_PLUGIN_ROOT_FALLBACK}/hooks/_lib/hook-stats.sh" 2>/dev/null &&
-      declare -F mumei_hook_stats_record >/dev/null 2>&1; then
-      mumei_hook_stats_record "$(basename "$0" .sh)" "error" "pre-anchor" "cwd-anchor-failed" 2>/dev/null || true
-    fi
-    exit 0
-  fi
-fi
-
+# PLUGIN_ROOT is set early (and re-set identically by anchor.sh below) so
+# the lib sources can run before the bypass check; this entrypoint's
+# bypass branch must emit a Stage 0 JSON shape before exit, and that
+# JSON construction does not depend on the libs but the libs must be
+# available for the non-bypass path. anchor.sh's re-assignment is
+# harmless (same fallback expression).
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(realpath "$0")")")}"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/log.sh"
@@ -40,8 +30,12 @@ source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/detectors.sh"
 
 # 2.2 — Bypass takes precedence over every other check, including the
-# missing-binary hard fail. This keeps the escape hatch usable in offline
-# CI environments where neither binary may be installed.
+# missing-binary hard fail and the cwd-anchor check that anchor.sh
+# performs below. This keeps the escape hatch usable in offline CI
+# environments where neither binary may be installed, and matches the
+# file's own audit philosophy ("Bypass takes precedence over every
+# other check"); it diverges from the 21 standard entrypoints, which
+# put the bypass check after the anchor.
 if [[ "${MUMEI_BYPASS:-0}" == "1" ]]; then
   # Include failed_detectors:[] so the bypass shape carries the same set of
   # fields as a clean run; the orchestrator distinguishes the two by the
@@ -49,6 +43,12 @@ if [[ "${MUMEI_BYPASS:-0}" == "1" ]]; then
   jq -n '{detectors_ran: false, high_count: 0, report_path: null, failed_detectors: [], bypassed: true}'
   exit 0
 fi
+
+# Anchor cwd to the project root via the shared helper. anchor.sh's own
+# bypass branch is a no-op here (already handled above); its cd-failure
+# path records `cwd-anchor-failed` and exits 0.
+# shellcheck source=_lib/anchor.sh disable=SC1091
+source "${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(realpath "$0")")")}/hooks/_lib/anchor.sh"
 
 # 2.3 — Verify required binaries. Missing binaries produce a hard fail
 # with installation guidance, not a fall-through.
