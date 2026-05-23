@@ -17,6 +17,7 @@
 !/docs/opus-4-7-playbook.md
 !/docs/getting-started.md
 !/docs/getting-started.ja.md
+!/docs/review-adoption.md
 
 # mumei plugin を mumei 自身で利用する場合の状態 (dogfood 想定)
 /.mumei/

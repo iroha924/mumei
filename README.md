@@ -87,6 +87,7 @@ Prerequisites: `semgrep` + `osv-scanner` for the review-phase detectors. See [do
 ## Companion tools
 
 - **[mumei-dashboard](./dashboard/README.md)** — local realtime browser dashboard. Watches `.mumei/` and renders feature phases, Wave progress, review verdicts, token cost, and hook firing trends. Runs via `npx mumei-dashboard` from any project. Distributed separately as an npm package; not bundled in the plugin tarball.
+- **Harness-engineered review workflow** — portable reusable GitHub Actions workflow that drives a Claude reviewer through four perspectives (correctness / security / operability / maintainability), grounded in semgrep + osv-scanner output, with bias-neutralisation and an honest-ceiling statement. Any repository can adopt it with one `uses:` line; see **[docs/review-adoption.md](./docs/review-adoption.md)**. Independent of the plugin itself.
 
 ## Documentation
 

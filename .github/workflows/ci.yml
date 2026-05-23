@@ -90,6 +90,9 @@ jobs:
       - name: docs ↔ filesystem drift (REQ-11.2)
         run: task lint:docs-drift
 
+      - name: review rubric parity (REQ-24.4)
+        run: task lint:rubric
+
       # ─────────────────────────────────────────
       # 配布物 README / LICENSE 存在確認
       # ─────────────────────────────────────────

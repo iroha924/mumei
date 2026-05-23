@@ -86,6 +86,11 @@ tasks:
     cmds:
       - bash scripts/lint-docs-drift.sh
 
+  lint:rubric:
+    desc: "review rubric parity across review-rubric.md / AGENTS.md / .gemini/styleguide.md"
+    cmds:
+      - bash scripts/lint-review-rubric.sh
+
   lint:plan-vehicle:
     desc: "plan-vehicle hooks.json registration check"
     cmds:

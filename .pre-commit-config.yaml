@@ -121,6 +121,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: lint-review-rubric
+        name: lint-review-rubric (REQ-24.4)
+        entry: bash scripts/lint-review-rubric.sh
+        language: system
+        pass_filenames: false
+        always_run: true
 
   # Run the project's own bats suite at pre-push time so test failures
   # land before reaching CI without paying the cost on every commit.
