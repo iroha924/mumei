@@ -217,7 +217,7 @@ fi
 # least one parseable JSON value, rejecting whitespace-only files).
 REVIEW_NAME="$(basename "$LATEST_REVIEW")"
 if [[ ! -s "$LATEST_REVIEW" ]] || ! jq -e 'type' <"$LATEST_REVIEW" >/dev/null 2>&1; then
-  REASON="Review ${REVIEW_NAME} is empty or not valid JSON. Delete or restore the file and re-run /mumei:proceed review."
+  REASON="Review ${REVIEW_NAME} is empty or not valid JSON. Delete or restore the file and re-run /mumei:proceed."
   CONTEXT="${LATEST_REVIEW} cannot be parsed by jq. Likely causes: 0-byte truncated write (disk full, killed editor, network mount disconnected), manual edit with syntax error, or filesystem corruption. Either restore from git history (.mumei/specs/<feature>/reviews/ is tracked) or delete the file and let /mumei:proceed write a fresh review."
   jq -n --arg r "$REASON" --arg c "$CONTEXT" '{
     decision: "block",
@@ -229,7 +229,7 @@ fi
 
 DETECTORS_FILE="$(jq -r '.detector_report // empty' "$LATEST_REVIEW" 2>/dev/null || true)"
 if [[ -z "$DETECTORS_FILE" || ! -f "$DETECTORS_FILE" ]]; then
-  REASON="Review ${REVIEW_NAME} has no resolvable detector_report — Stage 0 (deterministic detector run) was skipped. Re-run /mumei:proceed review."
+  REASON="Review ${REVIEW_NAME} has no resolvable detector_report — Stage 0 (deterministic detector run) was skipped. Re-run /mumei:proceed."
   CONTEXT="The review JSON must include a top-level \"detector_report\" field whose value is a readable path to a detectors.json from hooks/pre-review-detector.sh. Either the field is missing, empty, or points to a file that no longer exists. Detectors (semgrep, osv-scanner) provide ground-truth findings that LLM reviewers cannot replace."
   jq -n --arg r "$REASON" --arg c "$CONTEXT" '{
     decision: "block",

@@ -527,7 +527,7 @@ Generate `.mumei/specs/<feature>/tasks.md` from the design's Wave Plan:
 
 Each task MUST have `_Files:_`, `_Depends:_`, `_Requirements:_`. Each Wave MUST have `**Goal**:` and `**Verify**:`. The `tasks-reviewer` agent will block on missing meta.
 
-`**Depends-Feature**:` is optional. Add it only when the Wave's implementation references symbols, files, or interfaces from another feature (typically still in `.mumei/specs/<other>/` or already archived). When present, `/mumei:retire` refuses to move the depended-upon feature out of the active workspace until either this Wave's feature is also archived or the directive is removed. Use the bare `REQ-N` form to depend on whatever slug the dependency currently uses; use the compound `REQ-N-slug` form to pin to an exact dir.
+`**Depends-Feature**:` is optional. Add it only when the Wave's implementation references symbols, files, or interfaces from another feature (typically still in `.mumei/specs/<other>/` or already archived). When present, `/mumei:retire` refuses to move the depended-upon feature out of the active workspace until either this Wave's feature is also retired or the directive is removed. Use the bare `REQ-N` form to depend on whatever slug the dependency currently uses; use the compound `REQ-N-slug` form to pin to an exact dir.
 
 #### Format invariants (enforced by the parser, not just the reviewer)
 
@@ -1391,8 +1391,8 @@ mumei_state_set "$feature" '.phase' '"done"'
 After phase=done is set, the orchestrator MUST hand off to archive cleanup. Skipping this leaves stale specs in the active workspace and the user with no clear next step:
 
 1. **Tell the user the feature reached done** and prompt them to run `/mumei:retire <feature>` so the spec moves from `.mumei/specs/<feature>/` to `.mumei/archive/<YYYY-MM>/<feature>/`.
-2. **Do NOT clear `.mumei/current`.** Only `/mumei:retire` is allowed to mutate `.mumei/current` — see retire skill which auto-clears the file when archiving the currently-active feature. Clearing it elsewhere (orchestrator, manual edit) creates a session-handoff inconsistency where the next session sees no active feature even though the spec dir still exists.
-3. **Do NOT invoke `/mumei:retire` directly.** The retire skill is `disable-model-invocation: true` by design — it only runs on explicit user invocation. The orchestrator's job ends at the archive prompt.
+2. **Do NOT clear `.mumei/current`.** Only `/mumei:retire` is allowed to mutate `.mumei/current` — see retire skill which auto-clears the file when retiring the currently-active feature. Clearing it elsewhere (orchestrator, manual edit) creates a session-handoff inconsistency where the next session sees no active feature even though the spec dir still exists.
+3. **Do NOT invoke `/mumei:retire` directly.** The retire skill is `disable-model-invocation: true` by design — it only runs on explicit user invocation. The orchestrator's job ends at the retire prompt.
 
    In particular: do **NOT** call the `Skill` tool with `mumei:retire`, do **NOT** ask the user via `AskUserQuestion` whether to "trigger retire" (the user must type `/mumei:retire <feature>` themselves — there is no path the orchestrator can take to invoke it). The right behaviour is: print one line saying `Run /mumei:retire <feature> when ready`, then stop. Any attempt to wrap it in a tool call produces `Skill mumei:retire cannot be used with Skill tool due to disable-model-invocation` and wastes a turn.
 
