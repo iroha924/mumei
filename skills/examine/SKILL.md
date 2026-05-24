@@ -12,7 +12,7 @@ Output: .mumei/plans/<slug>/reviews/<ts>.json + state.json phase transition on P
 Principle: vehicle non-dependent reviewer + validator pipeline, fed by mumei_review_* helpers in hooks/_lib/review.sh
 -->
 
-# Review — plan-vehicle review pipeline
+# Examine — plan-vehicle review pipeline
 
 This skill is the plan-vehicle counterpart of Phase 5 in `/mumei:proceed`. It runs only against plan-vehicle features (state.json under `.mumei/plans/<slug>/`). For spec-vehicle review, use `/mumei:proceed` (which drives the same pipeline as part of its lifecycle).
 

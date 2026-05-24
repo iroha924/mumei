@@ -12,7 +12,7 @@ Output: .mumei/specs/<feature>/{requirements,design,tasks}.md + spec-reviews/ + 
 Principle: 3 spec drafts are produced non-stop, each gated by an independent spec-reviewer agent (auto-iter max 3). User is asked exactly once — at the approval gate after all 3 specs PASS their reviewer.
 -->
 
-# Plan — mumei orchestrator
+# Proceed — mumei orchestrator
 
 You orchestrate the full lifecycle of a feature in mumei: brainstorm input → clarification → requirements → design → tasks → single user approval gate → implement (Wave by Wave) → 4-stage review → done.
 
@@ -1394,7 +1394,7 @@ After phase=done is set, the orchestrator MUST hand off to archive cleanup. Skip
 2. **Do NOT clear `.mumei/current`.** Only `/mumei:retire` is allowed to mutate `.mumei/current` — see retire skill which auto-clears the file when archiving the currently-active feature. Clearing it elsewhere (orchestrator, manual edit) creates a session-handoff inconsistency where the next session sees no active feature even though the spec dir still exists.
 3. **Do NOT invoke `/mumei:retire` directly.** The retire skill is `disable-model-invocation: true` by design — it only runs on explicit user invocation. The orchestrator's job ends at the archive prompt.
 
-   In particular: do **NOT** call the `Skill` tool with `mumei:retire`, do **NOT** ask the user via `AskUserQuestion` whether to "trigger archive" (the user must type `/mumei:retire <feature>` themselves — there is no path the orchestrator can take to invoke it). The right behaviour is: print one line saying `Run /mumei:retire <feature> when ready`, then stop. Any attempt to wrap it in a tool call produces `Skill mumei:retire cannot be used with Skill tool due to disable-model-invocation` and wastes a turn.
+   In particular: do **NOT** call the `Skill` tool with `mumei:retire`, do **NOT** ask the user via `AskUserQuestion` whether to "trigger retire" (the user must type `/mumei:retire <feature>` themselves — there is no path the orchestrator can take to invoke it). The right behaviour is: print one line saying `Run /mumei:retire <feature> when ready`, then stop. Any attempt to wrap it in a tool call produces `Skill mumei:retire cannot be used with Skill tool due to disable-model-invocation` and wastes a turn.
 
 If `verdict == MAJOR_ISSUES` or `NEEDS_IMPROVEMENT`:
 

@@ -1,6 +1,6 @@
 ---
 name: retire
-description: Moves a completed feature directory to .mumei/archive/<YYYY-MM>/<feature>/ once the feature reaches phase=done. Auto-detects the active vehicle by checking .mumei/specs/<feature>/ first, then .mumei/plans/<feature>/. Triggers when the user explicitly archives a feature or when /mumei:proceed or /mumei:examine finishes with verdict=PASS and the user confirms.
+description: Moves a completed feature directory to .mumei/archive/<YYYY-MM>/<feature>/ once the feature reaches phase=done. Auto-detects the active vehicle by checking .mumei/specs/<feature>/ first, then .mumei/plans/<feature>/. Triggers when the user explicitly retires a feature or when /mumei:proceed or /mumei:examine finishes with verdict=PASS and the user confirms.
 disable-model-invocation: true
 allowed-tools: [Read, Write, Bash, Glob]
 argument-hint: <feature>
@@ -14,7 +14,7 @@ Principle: Side-effect heavy, so disable-model-invocation: true (user-invoked on
            Vehicle is auto-detected by directory existence.
 -->
 
-# Archive
+# Retire
 
 Move a completed feature out of the active workspace into the archive directory. This skill is **user-invocable only** (`disable-model-invocation: true`) — Claude will not auto-trigger archiving even if the workflow seems "done".
 

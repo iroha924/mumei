@@ -191,10 +191,10 @@ tasks:
     deps: [lint, test, cron:check]
 
   # ---------------------------------------------------------------
-  # Retro — generate retrospective from archived features.
+  # Reflect — generate retrospective from archived features.
   # ---------------------------------------------------------------
-  retro:
-    desc: "Generate retro from .mumei/archive/<YYYY-MM>/"
+  reflect:
+    desc: "Generate reflect from .mumei/archive/<YYYY-MM>/"
     cmds:
       - bash scripts/generate-reflect.sh {{.CLI_ARGS}}
 

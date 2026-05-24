@@ -11,7 +11,7 @@ Output: create .mumei/ directory + propose additions to CLAUDE.md / .claude/rule
 Principle: Never modify existing files without user consent (claude-md-improver pattern)
 -->
 
-# Init
+# Arrange
 
 Set up `mumei` for the current project. This skill is run **once** per project. It:
 

@@ -6,7 +6,7 @@ disable-model-invocation: true
 argument-hint: <feature>
 ---
 
-# Retro — auto-generate a feature retrospective
+# Reflect — auto-generate a feature retrospective
 
 Produce a single markdown document summarising a finished mumei feature so the team builds institutional knowledge instead of forgetting what happened.
 
@@ -98,7 +98,7 @@ The cost section in `reflect.md` reflects whatever ended up in `cost-log.jsonl` 
 
 ## Don'ts
 
-- Don't fail when partial data is missing — emit the section with `(no data)` and move on. A feature aborted mid-Phase 1 still benefits from a retro.
+- Don't fail when partial data is missing — emit the section with `(no data)` and move on. A feature aborted mid-Phase 1 still benefits from a reflect.
 - Don't auto-commit the reflect.md. Let the user edit lessons / suggestions, then commit themselves.
-- Don't re-trigger /mumei:retire from here. retro is read-only with respect to the feature lifecycle.
+- Don't re-trigger /mumei:retire from here. reflect is read-only with respect to the feature lifecycle.
 - Don't overwrite an existing reflect.md without confirmation. If `feature_dir/reflect.md` exists, suggest a timestamped sibling instead.

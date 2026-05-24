@@ -11,7 +11,7 @@ Output: .mumei/scratch/<topic>.md (structured, consumed by /mumei:proceed)
 Principle: Questions must be high-leverage. Cap at 5 per round x 3 rounds. No silent assumptions.
 -->
 
-# Brainstorm
+# Gather
 
 Run a structured brainstorming session with the user before they invoke `/mumei:proceed`. The output is a scratch file at `.mumei/scratch/<topic>.md` that captures the user's intent in a form `/mumei:proceed` can consume cleanly.
 
