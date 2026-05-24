@@ -117,7 +117,7 @@
       "type": "integer"
     },
     "lastVerdict": {
-      "description": "Verdict from the most recent review JSON (Phase 5 / /mumei:review). Null when no review has run yet.",
+      "description": "Verdict from the most recent review JSON (Phase 5 / /mumei:examine). Null when no review has run yet.",
       "anyOf": [
         {
           "anyOf": [

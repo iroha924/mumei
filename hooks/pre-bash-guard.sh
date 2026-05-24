@@ -536,7 +536,7 @@ fi
 #       (spec: phase=review; plan: pending_review=true). Pushing in
 #       this state would ship code that the harness has not vetted.
 #   (b) latest review verdict is MAJOR_ISSUES. Pre-existing rule;
-#       address findings via /mumei:plan (spec) or /mumei:review (plan)
+#       address findings via /mumei:proceed (spec) or /mumei:examine (plan)
 #       before retrying.
 # Detector reports (<ts>-detectors.json) are excluded so the latest
 # *review* (not the detector run) is selected.
@@ -564,12 +564,12 @@ if mumei_is_git_push "$COMMAND"; then
   if [[ "$REQUIRES_REVIEW" == "1" ]] && [[ -z "$LATEST_REVIEW" ]]; then
     if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
       mumei_deny \
-        "Review pipeline has not run. Run /mumei:review before pushing." \
+        "Review pipeline has not run. Run /mumei:examine before pushing." \
         "Active feature: ${KEY}\nReview dir: ${REVIEW_DIR} (no <ts>.json found)" \
         "L-R2"
     else
       mumei_deny \
-        "Review pipeline has not run. Run /mumei:plan to drive Phase 5 review before pushing." \
+        "Review pipeline has not run. Run /mumei:proceed to drive Phase 5 review before pushing." \
         "Active feature: ${FEATURE} (phase=review)\nReview dir: ${REVIEW_DIR} (no <ts>.json found)" \
         "R2"
     fi
@@ -582,12 +582,12 @@ if mumei_is_git_push "$COMMAND"; then
       if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
         mumei_deny \
           "Review verdict: MAJOR_ISSUES. Address findings before pushing." \
-          "Latest review: ${LATEST_REVIEW}\nRun /mumei:review to re-evaluate after fixing." \
+          "Latest review: ${LATEST_REVIEW}\nRun /mumei:examine to re-evaluate after fixing." \
           "L-R2"
       else
         mumei_deny \
           "Review verdict: MAJOR_ISSUES. Address findings before pushing." \
-          "Latest review: ${LATEST_REVIEW}\nRun /mumei:plan to address findings and re-review." \
+          "Latest review: ${LATEST_REVIEW}\nRun /mumei:proceed to address findings and re-review." \
           "R2"
       fi
     fi

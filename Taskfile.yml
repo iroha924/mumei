@@ -191,12 +191,12 @@ tasks:
     deps: [lint, test, cron:check]
 
   # ---------------------------------------------------------------
-  # Retro — generate retrospective from archived features.
+  # Reflect — generate retrospective from archived features.
   # ---------------------------------------------------------------
-  retro:
-    desc: "Generate retro from .mumei/archive/<YYYY-MM>/"
+  reflect:
+    desc: "Generate reflect.md from .mumei/archive/<YYYY-MM>/"
     cmds:
-      - bash scripts/generate-retro.sh {{.CLI_ARGS}}
+      - bash scripts/generate-reflect.sh {{.CLI_ARGS}}
 
   # ---------------------------------------------------------------
   # Doctor — verify required tools are installed. Fast smoke test for
@@ -244,8 +244,8 @@ tasks:
         echo "all required tools present"
 
   # ---------------------------------------------------------------
-  # Branch helper — guard against running /mumei:plan on default branch.
-  # CLAUDE.md rule: must branch before invoking /mumei:plan.
+  # Branch helper — guard against running /mumei:proceed on default branch.
+  # CLAUDE.md rule: must branch before invoking /mumei:proceed.
   # ---------------------------------------------------------------
   branch:guard:
     desc: "Refuse if currently on default branch (use before starting feature work)"

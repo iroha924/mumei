@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 
 /**
  * Rendered when GET /api/features returns []. Surfaces a hint for
- * starting a new feature with /mumei:plan.
+ * starting a new feature with /mumei:proceed.
  */
 export function EmptyState(): ReactElement {
   return (
@@ -12,7 +12,7 @@ export function EmptyState(): ReactElement {
         This project does not have any features under{' '}
         <code className="text-zinc-300">.mumei/specs/</code> or{' '}
         <code className="text-zinc-300">.mumei/plans/</code> yet. Run{' '}
-        <code className="text-emerald-300">/mumei:plan &lt;feature&gt;</code> in your editor to
+        <code className="text-emerald-300">/mumei:proceed &lt;feature&gt;</code> in your editor to
         start the first one.
       </p>
     </div>

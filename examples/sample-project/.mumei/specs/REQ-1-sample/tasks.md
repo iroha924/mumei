@@ -2,7 +2,7 @@
 
 ## Wave 1: Sample artifact set
 
-**Goal**: All spec / state / review files exist under `.mumei/specs/REQ-1-sample/` mirroring a real `/mumei:plan` output.
+**Goal**: All spec / state / review files exist under `.mumei/specs/REQ-1-sample/` mirroring a real `/mumei:proceed` output.
 **Verify**: `test -f requirements.md && test -f design.md && test -f tasks.md && test -f state.json && test -f reviews/sample-review.json`.
 
 - [x] 1.1 Author the spec triplet (`requirements.md`, `design.md`, `tasks.md`)

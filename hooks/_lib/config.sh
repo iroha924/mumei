@@ -109,7 +109,7 @@ mumei_config_tool_gates() {
 
 # Append a single path to golden_paths in .mumei/config.json (atomic tmp+mv).
 # No-op (return 0) when the path is already present. Creates config.json with a
-# golden_paths array when the file is absent. Used by /mumei:plan to freeze a
+# golden_paths array when the file is absent. Used by /mumei:proceed to freeze a
 # generated property test so the implement actor cannot edit it (G1). Returns 1
 # on an empty path argument or a write/jq failure.
 mumei_config_add_golden_path() {

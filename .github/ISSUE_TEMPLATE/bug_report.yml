@@ -19,7 +19,7 @@ body:
       options:
         - "hook (pre-edit / pre-bash / post-edit / post-bash / stop / pre-review-detector)"
         - "agent (requirements / design / tasks / spec-compliance / code-quality / security / adversarial / issue-validator)"
-        - "skill (plan / brainstorm / init / archive)"
+        - "skill (proceed / gather / arrange / examine / retire / reflect)"
         - "detector (semgrep / osv-scanner)"
         - "I don't know / multiple"
     validations:

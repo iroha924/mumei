@@ -221,7 +221,7 @@ mumei_state_set_observed_head() {
 #     state machine just lost the resulting transition.
 #
 # Future inconsistencies should be added here rather than scattered
-# across hook handlers, so the orchestrator (/mumei:plan) can call
+# across hook handlers, so the orchestrator (/mumei:proceed) can call
 # this at startup as a single self-heal pass.
 mumei_state_reconcile() {
   local feature="$1"

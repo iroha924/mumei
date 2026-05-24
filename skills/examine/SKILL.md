@@ -1,20 +1,20 @@
 ---
-name: review
-description: Plan-vehicle review pipeline. Runs Stage 0 detector (semgrep + osv-scanner) plus security-reviewer and adversarial-reviewer in parallel against the current diff, validates each finding via issue-validator, aggregates a verdict, and writes a review JSON to `.mumei/plans/<slug>/reviews/<ts>.json`. Triggers when the user invokes /mumei:review on a plan-vehicle feature whose state.json has `pending_review=true` (set automatically when the last TaskCompleted matches task_created_count). On PASS, advances `phase` to `done` and prompts the user to run /mumei:archive. On MAJOR_ISSUES, surfaces findings and leaves session-end and git-push blocks active until they are addressed.
+name: examine
+description: Plan-vehicle review pipeline. Runs Stage 0 detector (semgrep + osv-scanner) plus security-reviewer and adversarial-reviewer in parallel against the current diff, validates each finding via issue-validator, aggregates a verdict, and writes a review JSON to `.mumei/plans/<slug>/reviews/<ts>.json`. Triggers when the user invokes /mumei:examine on a plan-vehicle feature whose state.json has `pending_review=true` (set automatically when the last TaskCompleted matches task_created_count). On PASS, advances `phase` to `done` and prompts the user to run /mumei:retire. On MAJOR_ISSUES, surfaces findings and leaves session-end and git-push blocks active until they are addressed.
 allowed-tools: [Read, Bash, Task]
 argument-hint: (no args)
 ---
 
 <!--
-Role: thin orchestrator for plan-vehicle review (counterpart of skills/plan/SKILL.md Phase 5)
+Role: thin orchestrator for plan-vehicle review (counterpart of skills/proceed/SKILL.md Phase 5)
 Input: active plan-vehicle feature in .mumei/current
 Output: .mumei/plans/<slug>/reviews/<ts>.json + state.json phase transition on PASS
 Principle: vehicle non-dependent reviewer + validator pipeline, fed by mumei_review_* helpers in hooks/_lib/review.sh
 -->
 
-# Review — plan-vehicle review pipeline
+# Examine — plan-vehicle review pipeline
 
-This skill is the plan-vehicle counterpart of Phase 5 in `/mumei:plan`. It runs only against plan-vehicle features (state.json under `.mumei/plans/<slug>/`). For spec-vehicle review, use `/mumei:plan` (which drives the same pipeline as part of its lifecycle).
+This skill is the plan-vehicle counterpart of Phase 5 in `/mumei:proceed`. It runs only against plan-vehicle features (state.json under `.mumei/plans/<slug>/`). For spec-vehicle review, use `/mumei:proceed` (which drives the same pipeline as part of its lifecycle).
 
 ## When to use
 
@@ -23,7 +23,7 @@ This skill is the plan-vehicle counterpart of Phase 5 in `/mumei:plan`. It runs 
 
 ## When NOT to use
 
-- For spec-vehicle features (run `/mumei:plan` instead).
+- For spec-vehicle features (run `/mumei:proceed` instead).
 - Before all planned tasks have been marked completed (the skill aborts with a hint message).
 - For projects without an active mumei feature.
 
@@ -47,7 +47,7 @@ if [[ -z "$slug" ]]; then
 fi
 
 if ! mumei_state_is_plan_vehicle "$slug"; then
-  echo "/mumei:review is plan-vehicle only. Active feature '${slug}' is a spec-vehicle feature; use /mumei:plan to drive its review (Phase 5)." >&2
+  echo "/mumei:examine is plan-vehicle only. Active feature '${slug}' is a spec-vehicle feature; use /mumei:proceed to drive its review (Phase 5)." >&2
   exit 0
 fi
 
@@ -99,12 +99,12 @@ completed="$(jq -r '.task_completed_count // 0' "$state_path")"
 if [[ "$pending" != "true" ]]; then
   remaining=$((created - completed))
   echo "review not triggered: pending_review=false (${completed}/${created} tasks complete; ${remaining} remaining)." >&2
-  echo "complete the remaining tasks first, then re-run /mumei:review." >&2
+  echo "complete the remaining tasks first, then re-run /mumei:examine." >&2
   exit 0
 fi
 ```
 
-State is left untouched on this abort path; the user simply continues their task work and re-invokes `/mumei:review` later.
+State is left untouched on this abort path; the user simply continues their task work and re-invokes `/mumei:examine` later.
 
 ### Step 3 — Iteration accounting
 
@@ -136,7 +136,7 @@ if prev_review="$(mumei_review_should_short_circuit "$review_dir" "$current_wave
       next_iter_reviewers: [], detector_skipped: true, detector_reused_from: null}' \
     | mumei_review_persist "$review_dir" "shortcircuit" >/dev/null
   mumei_plan_state_set "$slug" '.phase' '"done"'
-  echo "phase advanced to done. Run /mumei:archive ${slug} when ready."
+  echo "phase advanced to done. Run /mumei:retire ${slug} when ready."
   exit 0
 fi
 ```
@@ -214,7 +214,7 @@ intentionally not used). Do NOT inject the plan into the adversarial prompt.
 
 When `high_count > 0`, inject the HIGH detector findings into all running
 reviewer prompts as a `<detector_findings ground_truth="true">` block
-exactly as Phase 5 does (see `skills/plan/SKILL.md` Stage 1).
+exactly as Phase 5 does (see `skills/proceed/SKILL.md` Stage 1).
 
 ### Step 7 — Per-issue validation
 
@@ -419,7 +419,7 @@ done
 ```
 
 The same `[mumei] curator output invalid: <reason>` format and same caps (max 5 per
-reviewer) apply as in `skills/plan/SKILL.md` Stage 6.5. The curator runs once per
+reviewer) apply as in `skills/proceed/SKILL.md` Stage 6.5. The curator runs once per
 candidate and is `tools: Read` only; the orchestrator's bash file ops in
 `mumei_memory_apply_operation` do not pass through `pre-edit-guard.sh`, so the
 M1 deny rule blocking LLM-driven Edit/Write does not interfere with the legitimate
@@ -476,14 +476,14 @@ case "$verdict" in
   PASS)
     mumei_plan_state_set "$slug" '.phase' '"done"'
     echo "verdict=PASS — phase advanced to done."
-    echo "next: run /mumei:archive ${slug} to move spec to .mumei/archive/<YYYY-MM>/."
+    echo "next: run /mumei:retire ${slug} to move spec to .mumei/archive/<YYYY-MM>/."
     ;;
   NEEDS_IMPROVEMENT|MAJOR_ISSUES)
     echo "verdict=${verdict} — phase remains 'implement'."
     echo "findings:"
     jq -r '.[] | "  [\(.severity)] \(.reviewer // "?"): \(.message // .summary // "(no message)")"' <<<"$surfaced_json"
     echo
-    echo "address the findings (or set MUMEI_BYPASS=1 for an explicit override) and re-run /mumei:review."
+    echo "address the findings (or set MUMEI_BYPASS=1 for an explicit override) and re-run /mumei:examine."
     ;;
 esac
 ```
@@ -498,8 +498,8 @@ esac
 
 ## Don'ts
 
-- Do not run this skill against a spec-vehicle feature. Use `/mumei:plan` instead.
-- Do not skip the `pending_review` gate. Premature `/mumei:review` aborts with a hint message and does not consume detector / reviewer budget.
-- Do not edit source files inside this skill. Findings are surfaced to the user; fixes happen in the next session turn (or by the user manually) before the next `/mumei:review` invocation.
-- Do not auto-archive on PASS. The archive skill (`/mumei:archive`) is `disable-model-invocation: true` and only the user can trigger it.
-- Do not mutate `.mumei/current` here. Only `/mumei:archive` is allowed to clear it.
+- Do not run this skill against a spec-vehicle feature. Use `/mumei:proceed` instead.
+- Do not skip the `pending_review` gate. Premature `/mumei:examine` aborts with a hint message and does not consume detector / reviewer budget.
+- Do not edit source files inside this skill. Findings are surfaced to the user; fixes happen in the next session turn (or by the user manually) before the next `/mumei:examine` invocation.
+- Do not auto-archive on PASS. The retire skill (`/mumei:retire`) is `disable-model-invocation: true` and only the user can trigger it.
+- Do not mutate `.mumei/current` here. Only `/mumei:retire` is allowed to clear it.

@@ -42,7 +42,7 @@ export const FeatureSummarySchema = Type.Object(
     }),
     lastVerdict: Type.Union([VerdictSchema, Type.Null()], {
       description:
-        'Verdict from the most recent review JSON (Phase 5 / /mumei:review). Null when no review has run yet.',
+        'Verdict from the most recent review JSON (Phase 5 / /mumei:examine). Null when no review has run yet.',
     }),
     lastIter: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()], {
       description:

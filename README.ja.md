@@ -32,7 +32,7 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
 インストール後、プロジェクトごとに一度だけセットアップを走らせます:
 
 ```text
-/mumei:init
+/mumei:arrange
 ```
 
 アンインストール: `/plugin uninstall mumei@mumei` (プロジェクト内の `.mumei/` はそのまま残ります)。
@@ -65,14 +65,14 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
 
 ## Commands
 
-| コマンド                      | 説明                                                                                                                                                                                                                                                |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/mumei:init`                 | プロジェクトごとに一度だけ走らせるセットアップ。`.mumei/` を作り、`CLAUDE.md` への追加内容を diff preview 付きで提案します。                                                                                                                        |
-| `/mumei:brainstorm <feature>` | spec を書き始める前の Q&A loop (最大 3 round × 5 質問)。出力は `.mumei/scratch/<feature>.md` に保存されます。                                                                                                                                       |
-| `/mumei:plan [feature]`       | 新規 feature では vehicle picker (`spec` = フル SDD / `plan` = Claude plan-mode ラッパー)。既存 feature は自動 resume。spec vehicle: clarification → requirements → design → tasks (各々最大 3 回 auto-review) → 単一承認 → Wave by Wave → review。 |
-| `/mumei:review`               | plan vehicle 用の review pipeline。`pending_review=true` の状態で Stage 0 detector + security-reviewer + adversarial-reviewer + per-issue validator を現在の diff に対して回します。                                                                |
-| `/mumei:archive <feature>`    | `done` になった feature を `.mumei/archive/<YYYY-MM>/<feature>/` に移動します。vehicle (specs/ または plans/) を自動判定し、`scratch/<feature>.md` も `scratch.md` として持ち越します。                                                             |
-| `/mumei:retro <feature>`      | archive 済 (または archive 直前) feature の `retro.md` を生成。AC 数 / Wave 数 / review iter パターン / fix-spiral 検出 / token cost / cache hit rate / hook 発火上位を集計。read-only、user 起動のみ。                                             |
+| コマンド                   | 説明                                                                                                                                                                                                                                                |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/mumei:arrange`           | プロジェクトごとに一度だけ走らせるセットアップ。`.mumei/` を作り、`CLAUDE.md` への追加内容を diff preview 付きで提案します。                                                                                                                        |
+| `/mumei:gather <feature>`  | spec を書き始める前の Q&A loop (最大 3 round × 5 質問)。出力は `.mumei/scratch/<feature>.md` に保存されます。                                                                                                                                       |
+| `/mumei:proceed [feature]` | 新規 feature では vehicle picker (`spec` = フル SDD / `plan` = Claude plan-mode ラッパー)。既存 feature は自動 resume。spec vehicle: clarification → requirements → design → tasks (各々最大 3 回 auto-review) → 単一承認 → Wave by Wave → review。 |
+| `/mumei:examine`           | plan vehicle 用の review pipeline。`pending_review=true` の状態で Stage 0 detector + security-reviewer + adversarial-reviewer + per-issue validator を現在の diff に対して回します。                                                                |
+| `/mumei:retire <feature>`  | `done` になった feature を `.mumei/archive/<YYYY-MM>/<feature>/` に移動します。vehicle (specs/ または plans/) を自動判定し、`scratch/<feature>.md` も `scratch.md` として持ち越します。                                                             |
+| `/mumei:reflect <feature>` | archive 済 (または archive 直前) feature の `reflect.md` を生成。AC 数 / Wave 数 / review iter パターン / fix-spiral 検出 / token cost / cache hit rate / hook 発火上位を集計。read-only、user 起動のみ。                                           |
 
 ## `mumei` がやらないこと
 

@@ -283,4 +283,4 @@ are filtered out at validator time per the same rule
   Breaking change).
 - No `--no-verify`, `--force` push to `main`, or unsigned tags.
 - Branch first (`git switch -c <slug>`) before invoking
-  `/mumei:plan <feature>` (mumei convention).
+  `/mumei:proceed <feature>` (mumei convention).

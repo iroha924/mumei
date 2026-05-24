@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Skill-led detector runner. Invoked by /mumei:plan as Stage 0 of the
+# Skill-led detector runner. Invoked by /mumei:proceed as Stage 0 of the
 # review phase, NOT registered as a Hook event handler.
 #
 # Behavior:
@@ -78,7 +78,7 @@ mumei_detector_version_check osv-scanner "$MUMEI_DETECTOR_OSV_SCANNER_MIN"
 # 2.4 — Resolve active feature and target output path. Vehicle-aware:
 # spec vehicle (`.mumei/specs/<feature>/`) wins on dual-state but plan
 # vehicle (`.mumei/plans/<slug>/`) is supported via the same code path
-# so /mumei:review can drive Stage 0 against a plan-vehicle layout.
+# so /mumei:examine can drive Stage 0 against a plan-vehicle layout.
 FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 if [[ -z "$FEATURE" ]]; then
   mumei_log_error ".mumei/current is missing or empty; cannot run detectors without an active feature."
@@ -115,7 +115,7 @@ _mumei_detector_on_signal() {
   local sig="$1"
   jq -n --arg sig "$sig" \
     '{detectors_ran: false, high_count: 0, report_path: null, failed_detectors: [], interrupted: true, signal: $sig}'
-  mumei_log_error "detector run interrupted by ${sig}; re-run /mumei:plan when ready."
+  mumei_log_error "detector run interrupted by ${sig}; re-run /mumei:proceed when ready."
   exit 2
 }
 # shellcheck disable=SC2064

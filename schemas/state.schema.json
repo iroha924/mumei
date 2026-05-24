@@ -85,7 +85,7 @@
       "type": "string"
     },
     "pending_review": {
-      "description": "Plan vehicle only. Set true by post-task-event.sh when the last TaskCompleted matches task_created_count; cleared by /mumei:review on PASS.",
+      "description": "Plan vehicle only. Set true by post-task-event.sh when the last TaskCompleted matches task_created_count; cleared by /mumei:examine on PASS.",
       "type": "boolean"
     },
     "task_created_count": {
@@ -99,7 +99,7 @@
       "type": "integer"
     },
     "review_runs": {
-      "description": "Plan vehicle only. Append-only history of review iterations driven by /mumei:review. Shape is opaque to the dashboard.",
+      "description": "Plan vehicle only. Append-only history of review iterations driven by /mumei:examine. Shape is opaque to the dashboard.",
       "type": "array",
       "items": {}
     },

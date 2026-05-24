@@ -17,7 +17,7 @@
 # recovery (no session log dir, no mumei subagents found in window,
 # or jq parse failure) are emitted as a single
 # "[mumei] cost-backfill: partial backfill only: <reason>" stderr
-# line so the user knows historical cost is unavailable but the retro
+# line so the user knows historical cost is unavailable but the reflect output
 # itself proceeds.
 
 set -u

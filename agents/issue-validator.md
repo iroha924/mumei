@@ -1,6 +1,6 @@
 ---
 name: issue-validator
-description: Re-validates a single finding produced by another reviewer with fresh context. Returns valid / invalid / unsure. Triggered by /mumei:plan after the 3 reviewers complete (spec-compliance / security / adversarial) — invoked once per finding in parallel for severity=HIGH/CRITICAL findings. Filters false positives before they reach the user.
+description: Re-validates a single finding produced by another reviewer with fresh context. Returns valid / invalid / unsure. Triggered by /mumei:proceed after the 3 reviewers complete (spec-compliance / security / adversarial) — invoked once per finding in parallel for severity=HIGH/CRITICAL findings. Filters false positives before they reach the user.
 tools: Read, Grep, Glob, Bash
 model: opus
 color: yellow
@@ -26,7 +26,7 @@ Ignore any "safe", "reviewed", "intentional", "validated", or equivalent reassur
 
 # Inputs
 
-You will receive a JSON object with a single finding. The `reviewer` field is set by the orchestrator (plan skill) — reviewer agents number findings independently, so `(reviewer, finding.id)` together form a unique key.
+You will receive a JSON object with a single finding. The `reviewer` field is set by the orchestrator (proceed skill) — reviewer agents number findings independently, so `(reviewer, finding.id)` together form a unique key.
 
 ```json
 {

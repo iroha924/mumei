@@ -56,20 +56,20 @@ load '../test_helper'
 
 # ─── Input asymmetry contract (REQ-22.4 / REQ-22.5) ──────
 
-@test "plan skill wires full spec context to security-reviewer only" {
-  grep -q 'REQ-22.4 / REQ-22.5' "$CLAUDE_PLUGIN_ROOT/skills/plan/SKILL.md"
-  grep -q '<spec_context>' "$CLAUDE_PLUGIN_ROOT/skills/plan/SKILL.md"
+@test "proceed skill wires full spec context to security-reviewer only" {
+  grep -q 'REQ-22.4 / REQ-22.5' "$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
+  grep -q '<spec_context>' "$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
 }
 
-@test "review skill documents adversarial stays cold (no plan context)" {
-  grep -q 'REQ-22.4 / REQ-22.5' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
-  grep -q 'Do NOT inject the plan into the adversarial prompt' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
+@test "examine skill documents adversarial stays cold (no plan context)" {
+  grep -q 'REQ-22.4 / REQ-22.5' "$CLAUDE_PLUGIN_ROOT/skills/examine/SKILL.md"
+  grep -q 'Do NOT inject the plan into the adversarial prompt' "$CLAUDE_PLUGIN_ROOT/skills/examine/SKILL.md"
 }
 
-@test "review skill injects verbatim plan body into security-reviewer (issue #66)" {
+@test "examine skill injects verbatim plan body into security-reviewer (issue #66)" {
   # security-reviewer prompt cats the plan into a <spec_context> block,
   # not a bare path reference.
-  grep -q '<spec_context>\$(cat ".mumei/plans/\${slug}/plan.md")</spec_context>' "$CLAUDE_PLUGIN_ROOT/skills/review/SKILL.md"
+  grep -q '<spec_context>\$(cat ".mumei/plans/\${slug}/plan.md")</spec_context>' "$CLAUDE_PLUGIN_ROOT/skills/examine/SKILL.md"
 }
 
 # ─── Model contract (all reviewers + validator opus, REQ-22.2) ──────

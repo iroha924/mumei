@@ -13,7 +13,7 @@ from the README template.
 
 ## Acceptance Criteria
 
-- REQ-1.1 [CONFIRMED] WHEN a developer opens `examples/sample-project/`, the system SHALL provide a complete and parseable `.mumei/specs/REQ-1-sample/` directory mirroring the layout produced by a real `/mumei:plan` invocation.
+- REQ-1.1 [CONFIRMED] WHEN a developer opens `examples/sample-project/`, the system SHALL provide a complete and parseable `.mumei/specs/REQ-1-sample/` directory mirroring the layout produced by a real `/mumei:proceed` invocation.
 - REQ-1.2 [CONFIRMED] IF the developer reads the EARS acceptance criteria of this sample, then the system SHALL display them with `WHEN`/`IF`/`SHALL` keywords in English and `[CONFIRMED]`/`[ASSUMPTION]` annotations preserved.
 - REQ-1.3 [ASSUMPTION] WHILE this is a fictional feature, the system SHALL keep the example small (single Wave) so readers are not overwhelmed by tasks.md depth.
 

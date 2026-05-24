@@ -29,11 +29,12 @@ mumei/
 │   ├── memory-curator.md
 │   └── property-author.md
 ├── skills/                 # user-invocable orchestration
-│   ├── plan/               # /mumei:plan — the orchestrator
-│   ├── brainstorm/         # /mumei:brainstorm — pre-spec Q&A
-│   ├── init/               # /mumei:init — one-time per-project setup
-│   ├── review/             # /mumei:review — plan-vehicle review pipeline
-│   └── archive/            # /mumei:archive — move done features to archive/
+│   ├── proceed/            # /mumei:proceed — the orchestrator
+│   ├── gather/             # /mumei:gather — pre-spec Q&A
+│   ├── arrange/            # /mumei:arrange — one-time per-project setup
+│   ├── examine/            # /mumei:examine — plan-vehicle review pipeline
+│   ├── retire/             # /mumei:retire — move done features to archive/
+│   └── reflect/            # /mumei:reflect — feature retrospective
 ├── hooks/                  # Hook handlers + shared bash library
 │   ├── hooks.json          # event registration: PreToolUse / PostToolUse / Stop / TaskCreated / TaskCompleted / UserPromptSubmit + PreCompact / PostCompact / SessionStart / SessionEnd / FileChanged / CwdChanged / InstructionsLoaded / UserPromptExpansion / ConfigChange / PostToolUseFailure / SubagentStart / SubagentStop
 │   ├── _lib/               # shared bash modules
@@ -42,7 +43,7 @@ mumei/
 │   │   ├── tasks.sh        # tasks.md parser (BSD-awk compatible)
 │   │   ├── safe-grep.sh    # null-safe grep + git check-ignore helper
 │   │   ├── detectors.sh    # semgrep / osv-scanner runners + severity normalizer
-│   │   ├── review.sh       # shared Phase 5 / /mumei:review pipeline helpers
+│   │   ├── review.sh       # shared Phase 5 / /mumei:examine pipeline helpers
 │   │   ├── ledger.sh       # cross-feature finding ledger (pillar C: move-resistant fingerprint + FP annotation, annotate-only)
 │   │   ├── residual.sh     # residual exposition (pillar D: deterministic aggregation of advisory/unsure/needs_*/valid_by_assertion + always-on ai-blindspot-ceiling)
 │   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
@@ -65,7 +66,7 @@ mumei/
 │   ├── post-edit-guard.sh  # I4 (phantom completion)
 │   ├── post-bash-guard.sh  # X1 (advisory: out-of-scope Bash writes) + X3 (Wave auto-advance on git commit, internal)
 │   ├── stop-guard.sh       # R1 / R3 + detector defense line
-│   ├── pre-review-detector.sh  # Stage 0 of /mumei:plan review pipeline
+│   ├── pre-review-detector.sh  # Stage 0 of /mumei:proceed review pipeline
 │   ├── userprompt-context-hint.sh  # UserPromptSubmit context hint
 │   ├── post-task-event.sh  # TaskCreated / TaskCompleted handler (plan vehicle)
 │   ├── pre-exitplan-guard.sh  # ExitPlanMode plan-vehicle init (L-P1)
@@ -75,7 +76,7 @@ mumei/
 │   ├── file-changed-validate.sh  # FileChanged: lint watched files on external edit
 │   ├── cwd-changed-detect.sh  # CwdChanged: notify when entering mumei project
 │   ├── instructions-loaded-audit.sh  # InstructionsLoaded: audit log of CLAUDE.md/rules loads
-│   ├── userprompt-expansion-context.sh  # UserPromptExpansion: enrich /mumei:archive with feature summary
+│   ├── userprompt-expansion-context.sh  # UserPromptExpansion: enrich /mumei:retire with feature summary
 │   ├── config-change-audit.sh  # ConfigChange: audit + invalid JSON exit 2
 │   ├── session-end-audit.sh  # SessionEnd: session metadata audit log
 │   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log
@@ -85,7 +86,7 @@ mumei/
 │   └── stop-cost-backfill.sh  # Stop (async): safety-net cost-backfill for SubagentStop hooks that lost the jsonl-flush race
 ├── scripts/
 │   ├── lint-tasks.sh       # X2 (advisory: tasks.md format)
-│   └── cost-backfill.sh    # /mumei:retro: rebuild cost-log.jsonl from session logs
+│   └── cost-backfill.sh    # /mumei:reflect: rebuild cost-log.jsonl from session logs
 ├── tests/                  # bats suite (CI on macOS + Ubuntu)
 ├── schemas/                # shared JSON Schemas (state / review / cost-log + dashboard payloads: feature-summary / meta / trends / feature-detail / activity-event / sse-event) — NOT shipped in plugin tarball
 ├── dashboard/              # mumei-dashboard — Vite + React 19 + Tailwind v4 + shadcn/ui — NOT shipped in plugin tarball
@@ -99,12 +100,12 @@ mumei tracks each feature through four phases. State is persisted in
 
 ```mermaid
 stateDiagram-v2
-  [*] --> plan: /mumei:plan <feature>
+  [*] --> plan: /mumei:proceed <feature>
   plan --> implement: 3 reviewer PASS + user approval
   implement --> review: all tasks marked [x]
   review --> done: verdict = PASS
   review --> implement: verdict = MAJOR_ISSUES (fix + re-review)
-  done --> [*]: /mumei:archive
+  done --> [*]: /mumei:retire
 ```
 
 Hooks gate every transition. The state machine is enforced at the OS boundary,
@@ -150,7 +151,7 @@ spec-vehicle rules.
 | L-P1 | plan-vehicle | PreToolUse(ExitPlanMode) | Capture the plan markdown into `.mumei/plans/<slug>/plan.md` and initialize plan-vehicle `state.json` (state mutation, not blocking)                                                                                             | `hooks/pre-exitplan-guard.sh` |
 | L-T1 | plan-vehicle | TaskCreated              | Increment `task_created_count` in plan-vehicle `state.json` (state mutation, not blocking)                                                                                                                                       | `hooks/post-task-event.sh`    |
 | L-T2 | plan-vehicle | TaskCompleted            | Increment `task_completed_count`; when it reaches `task_created_count`, set `pending_review=true` (state mutation, not blocking)                                                                                                 | `hooks/post-task-event.sh`    |
-| L-R1 | plan-vehicle | Stop                     | `pending_review=true` with no PASS review JSON or no `detector_report` — block until `/mumei:review` produces a PASS verdict                                                                                                     | `hooks/stop-guard.sh`         |
+| L-R1 | plan-vehicle | Stop                     | `pending_review=true` with no PASS review JSON or no `detector_report` — block until `/mumei:examine` produces a PASS verdict                                                                                                    | `hooks/stop-guard.sh`         |
 | L-R2 | plan-vehicle | PreToolUse(Bash)         | `git push` while latest plan-vehicle review verdict is `MAJOR_ISSUES` — deny                                                                                                                                                     | `hooks/pre-bash-guard.sh`     |
 
 The single escape hatch is `MUMEI_BYPASS=1` (env var). It short-circuits every
@@ -159,7 +160,7 @@ hook on entry. There is no per-rule bypass; this is intentional (see
 
 ## Reviewer pipeline (Phase 5)
 
-When `/mumei:plan` enters phase=review, the orchestrator drives a 7-stage
+When `/mumei:proceed` enters phase=review, the orchestrator drives a 7-stage
 pipeline. Stages 1, 4 are parallel; the rest are sequential.
 
 ```mermaid
@@ -210,7 +211,7 @@ Key constraints:
   in MEMORY.md atomically (`hooks/_lib/memory.sh`). Direct LLM
   Edit/Write to `.claude/agent-memory/<r>/MEMORY.md` is denied by the M1
   hook rule (above). The plan-vehicle equivalent runs as **Step 8.5** in
-  `/mumei:review`.
+  `/mumei:examine`.
 - **Grounding (advisory downgrade).** Reviewers must attach a falsifiable
   `trace` (input → bad-output / source → sink) to every HIGH/CRITICAL
   finding. The `issue-validator` evaluates it on a 4th `REPRODUCIBLE` axis;
@@ -265,10 +266,10 @@ mumei stores zero state outside the project tree. Everything lives under
 │   ├── design.md                 # Architecture + Wave Plan
 │   ├── tasks.md                  # Wave > Task hierarchy with _Files: _Depends: _Requirements:
 │   ├── state.json                # phase / current_wave / created_at / updated_at (gitignored)
-│   ├── spec-reviews/             # per-iteration JSON from spec-reviewers (created lazily by /mumei:plan; absent on fresh features)
+│   ├── spec-reviews/             # per-iteration JSON from spec-reviewers (created lazily by /mumei:proceed; absent on fresh features)
 │   └── reviews/                  # Phase 5 review results + detector reports
-├── archive/<YYYY-MM>/<feature>/  # completed features moved here by /mumei:archive
-└── scratch/<feature>.md          # /mumei:brainstorm output (tracked, team-shared)
+├── archive/<YYYY-MM>/<feature>/  # completed features moved here by /mumei:retire
+└── scratch/<feature>.md          # /mumei:gather output (tracked, team-shared)
 ```
 
 The split `gitignored vs tracked` is precise:

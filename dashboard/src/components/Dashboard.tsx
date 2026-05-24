@@ -253,7 +253,7 @@ function Hero(): ReactElement {
       </h1>
       <p className="mt-2 max-w-xl text-base text-muted-foreground">
         {stats.activeCount === 0
-          ? 'Run /mumei:plan in your project to start one.'
+          ? 'Run /mumei:proceed in your project to start one.'
           : `${stats.eventCount24h} event${stats.eventCount24h === 1 ? '' : 's'} in the last 24 hours.`}
       </p>
     </section>

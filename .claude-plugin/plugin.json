@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "mumei",
-  "version": "0.6.1",
-  "description": "A Claude Code harness with hook-enforced quality gates: brainstorm to plan (3 spec reviewers + single approval gate) to implement (Wave Gate) to review (4-stage independent + per-issue validation).",
+  "version": "0.7.0",
+  "description": "A Claude Code harness with hook-enforced quality gates: gather → proceed (3 spec reviewers + single approval gate) → implement (Wave Gate) → examine (4-stage independent + per-issue validation).",
   "author": {
     "name": "Shunichi Hirata"
   },

@@ -15,8 +15,8 @@ _build_baseline() {
     "${MUMEI_TEST_TMPDIR}/hooks/_lib" \
     "${MUMEI_TEST_TMPDIR}/hooks" \
     "${MUMEI_TEST_TMPDIR}/scripts" \
-    "${MUMEI_TEST_TMPDIR}/skills/plan" \
-    "${MUMEI_TEST_TMPDIR}/skills/review"
+    "${MUMEI_TEST_TMPDIR}/skills/proceed" \
+    "${MUMEI_TEST_TMPDIR}/skills/examine"
 
   : >"${MUMEI_TEST_TMPDIR}/agents/r1.md"
   : >"${MUMEI_TEST_TMPDIR}/agents/r2.md"
@@ -27,8 +27,8 @@ _build_baseline() {
   printf '%s\n' '# rule P1 lives here' >"${MUMEI_TEST_TMPDIR}/hooks/pre-edit-guard.sh"
   printf '%s\n' '# rule P2 lives here' >"${MUMEI_TEST_TMPDIR}/scripts/another.sh"
 
-  : >"${MUMEI_TEST_TMPDIR}/skills/plan/SKILL.md"
-  : >"${MUMEI_TEST_TMPDIR}/skills/review/SKILL.md"
+  : >"${MUMEI_TEST_TMPDIR}/skills/proceed/SKILL.md"
+  : >"${MUMEI_TEST_TMPDIR}/skills/examine/SKILL.md"
 
   cat >"${MUMEI_TEST_TMPDIR}/ARCHITECTURE.md" <<'EOF'
 # ARCHITECTURE
@@ -66,8 +66,8 @@ Commands:
 
 | Cmd               | Desc |
 | ----------------- | ---- |
-| `/mumei:plan`     | plan |
-| `/mumei:review`   | review |
+| `/mumei:proceed`     | plan |
+| `/mumei:examine`   | review |
 EOF
 }
 

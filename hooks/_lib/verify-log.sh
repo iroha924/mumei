@@ -30,7 +30,7 @@
 # cross-record comparator is computed here.
 #
 # Like cost-log.jsonl, verify-log.jsonl travels with the feature into
-# .mumei/archive/ via /mumei:archive, so it is intentionally NOT a target
+# .mumei/archive/ via /mumei:retire, so it is intentionally NOT a target
 # of log-rotate.sh.
 #
 # Usage:

@@ -40,11 +40,11 @@ NEXT_HINT=""
 case "$PHASE" in
 review)
   if [[ "$PENDING_REVIEW" == "true" ]]; then
-    NEXT_HINT=" — run /mumei:review"
+    NEXT_HINT=" — run /mumei:examine"
   fi
   ;;
 done)
-  NEXT_HINT=" — run /mumei:archive ${FEATURE}"
+  NEXT_HINT=" — run /mumei:retire ${FEATURE}"
   ;;
 esac
 

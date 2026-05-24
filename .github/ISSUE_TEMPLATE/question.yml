@@ -38,7 +38,7 @@ body:
       label: "Question area"
       options:
         - "Installation / setup"
-        - "Workflow (brainstorm / plan / implement / review / done)"
+        - "Workflow (gather / proceed / implement / examine / done)"
         - "Hook behavior"
         - "Reviewer agents (4-stage pipeline / per-issue validator)"
         - "Detector integration (semgrep / osv-scanner)"

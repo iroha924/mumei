@@ -14,7 +14,7 @@
 # cost. The suffix is small, so the per-call billable input shrinks
 # dramatically.
 #
-# Callers (skills/plan/SKILL.md Phase 5 / skills/review/SKILL.md):
+# Callers (skills/proceed/SKILL.md Phase 5 / skills/examine/SKILL.md):
 #
 #   prompt="$(mumei_reviewer_prompt \
 #     "spec-compliance-reviewer" \

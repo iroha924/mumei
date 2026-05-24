@@ -28,7 +28,7 @@ Anthropic engineering posts that describe document corruption and adjacent failu
    - **mumei takeaway**: reviewers cap `message` at ≤280 chars and `suggestion` at one concrete fix sentence. The "let me say something nice" temptation is suppressed by structure rather than discipline.
 
 3. [Harness design for long-running apps](https://www.anthropic.com/engineering/harness-design-long-running-apps) (2026-03-24) — Argues that side-effecting operations should be lifted out of the agent loop and gated behind **explicit user consent**.
-   - **mumei takeaway**: the archive and init skills carry `disable-model-invocation: true`. They never auto-fire. The only entry point is the user typing `/mumei:archive` or `/mumei:init`.
+   - **mumei takeaway**: the retire and arrange skills carry `disable-model-invocation: true`. They never auto-fire. The only entry point is the user typing `/mumei:retire` or `/mumei:arrange`.
 
 4. [Equipping agents with Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills) (2025-10-16) — Establishes the design principles around `disable-model-invocation`, progressive disclosure, and minimum permissions for skills.
    - **mumei takeaway**: every skill restricts `allowed-tools`. The state skill ships with `user-invocable: false` to hide it from the `/` menu. Least-privilege is adopted at the artifact level.
@@ -61,19 +61,19 @@ The following table maps each corruption pattern to a concrete countermeasure an
 
 | Corruption pattern | mumei countermeasure | Implementation site |
 |---|---|---|
-| Skill auto-fires on keywords | `disable-model-invocation: true` on side-effecting skills | `skills/archive/SKILL.md`, `skills/init/SKILL.md` |
+| Skill auto-fires on keywords | `disable-model-invocation: true` on side-effecting skills | `skills/retire/SKILL.md`, `skills/arrange/SKILL.md` |
 | Internal helper skill leaks into the `/` menu | `user-invocable: false` | `skills/state/SKILL.md` |
 | Imperative tone steers agent behavior | reviewer / hook reason locked to **fact form** | `agents/{spec-compliance,security,code-quality,adversarial}-reviewer.md`, `mumei_deny` in `hooks/*.sh` |
 | Hook deny reason misread as a "fix-it task" | `permissionDecision: "deny"` JSON + `additionalContext` separation | `hooks/pre-edit-guard.sh`, `hooks/pre-bash-guard.sh` |
 | Reviewers return many `findings` and bloat context | per-finding `<= 280 chars` cap + per-issue validator filtering on a fresh context | `agents/issue-validator.md`, the Output rules section of every reviewer |
-| Reviewers duplicate each other's findings and bloat context | adversarial reviewer receives `prior_findings` to suppress duplicates | `skills/plan/SKILL.md` Stage 2, `agents/adversarial-reviewer.md` |
+| Reviewers duplicate each other's findings and bloat context | adversarial reviewer receives `prior_findings` to suppress duplicates | `skills/proceed/SKILL.md` Stage 2, `agents/adversarial-reviewer.md` |
 | Agent crosses phase boundaries on its own | hooks block `src/` edits during `phase=plan` via `permissionDecision: "deny"` | `hooks/pre-edit-guard.sh` (P1 rule) |
 | State files corrupted by partial writes | `mktemp + jq empty + mv` atomic write | `hooks/_lib/state.sh::mumei_state_write_full` |
 | Other-project mumei sessions interfere | state lives in `.mumei/specs/<feature>/` (project-local) | `.mumei/` directory convention |
 | Files for the next Wave eaten ahead of schedule | `pre-edit-guard.sh` W1 rule denies when the previous Wave is uncommitted | `hooks/pre-edit-guard.sh` |
 | Phantom completion (`[x]` without an implementation) | `post-edit-guard.sh` cross-checks the diff against `_Files:_` and blocks | `hooks/post-edit-guard.sh` |
-| LLM reviewer waters down a verbose detector finding | HIGH detector findings pin the verdict to `MAJOR_ISSUES`; security-reviewer is skipped | `skills/plan/SKILL.md` Stage 0-1, `hooks/pre-review-detector.sh` |
-| Auto-commit silently advances side effects | mumei **never commits**. Wave completion prompts the user to commit | `skills/plan/SKILL.md` Don'ts |
+| LLM reviewer waters down a verbose detector finding | HIGH detector findings pin the verdict to `MAJOR_ISSUES`; security-reviewer is skipped | `skills/proceed/SKILL.md` Stage 0-1, `hooks/pre-review-detector.sh` |
+| Auto-commit silently advances side effects | mumei **never commits**. Wave completion prompts the user to commit | `skills/proceed/SKILL.md` Don'ts |
 | Spec missing / hallucinated requirements silently pass | `requirements-reviewer` returning **MAJOR_ISSUES** triggers an auto-fix iteration loop (max 3) before the single user approval gate, blocking phase transition until verdict=PASS | `hooks/pre-edit-guard.sh` (P2/P3), `agents/requirements-reviewer.md` |
 
 Every entry is a design decision to **not do something**, not to add another action. That is kuroko. The hook is just a wall; the plugin never speaks unsolicited to the user or the agent. Verdicts are returned as JSON; reasons are fact form. Error messages do not say "do this next"; they only say "this invariant has been violated."
@@ -86,7 +86,7 @@ Designs mumei **deliberately did not adopt** because they would each become a co
 
 - **Auto-fix on review failure**: when a reviewer returns a finding, mumei does not offer to "let the agent fix it". Fixes are user-initiated only. Reason: auto-fix re-fixes the reviewer's interpretation a second time, amplifying any misreading.
 - **Skill rebuilding prior-session context**: at session start, no skill summarizes previous conversation and injects it. Past sessions are ground-truth only via state.json + spec files. Summaries introduce drift.
-- **Automatic phase advancement**: the system does not flip `phase=review` the moment all tasks become `[x]`. The user must re-invoke `/mumei:plan` to advance, preventing accidental transitions.
+- **Automatic phase advancement**: the system does not flip `phase=review` the moment all tasks become `[x]`. The user must re-invoke `/mumei:proceed` to advance, preventing accidental transitions.
 - **Spec auto-update**: even when an implementation reveals the spec is outdated, the agent does not rewrite `requirements.md` on its own. Spec changes route through the spec-reviewer iteration loop with explicit user confirmation at the Phase 3.5 approval gate.
 - **Telemetry / usage tracking**: mumei measures no usage. It writes nothing to `~/.claude/`. State exists only under `.mumei/specs/<feature>/`.
 - **Cross-project memory persistence**: subagents are configured `memory: project` so that learned patterns stay inside `.claude/agent-memory/<name>/` of the current repo. Reusing one project's review heuristics for an unrelated project would import the wrong invariants and produce false-confidence findings.
@@ -132,8 +132,8 @@ A passing run means the countermeasures are **operating in code**. Design intent
 The price paid for the opt-in / kuroko stance:
 
 - **Need for an escape hatch**: `MUMEI_BYPASS=1` exists, but the operational cost is "if you forget it, the hook stops you". Acceptable because "being stopped" is cheaper than corruption. Bypass is restricted to environment variables and cannot be persisted to a settings file or UI, so users do not accidentally end up running in always-bypass mode.
-- **Learning cost**: new users must learn the phase / Wave / commit rules. The `/mumei:init` skill walks through setup interactively, but the rules themselves still need to be internalized. This is the price for giving up convenient auto-magic.
-- **Thin automation**: "being clever for the user" was deliberately removed; repetitive workflow optimization is left to user-side scripts. mumei provides an orchestrator (`/mumei:plan`) and otherwise stays out of sight.
+- **Learning cost**: new users must learn the phase / Wave / commit rules. The `/mumei:arrange` skill walks through setup interactively, but the rules themselves still need to be internalized. This is the price for giving up convenient auto-magic.
+- **Thin automation**: "being clever for the user" was deliberately removed; repetitive workflow optimization is left to user-side scripts. mumei provides an orchestrator (`/mumei:proceed`) and otherwise stays out of sight.
 - **Constraints on plugin growth**: the "abstract on the third repetition" rule keeps the bar high for adding new skills / agents. This is a safety device against the plugin itself growing complex enough to become a corruption source.
 - **Token economy is a side effect**: the core motivation is corruption suppression; token reduction is a consequence. Parallel reviewers + per-issue validators do create a 5-10x fan-out, but that fan-out buys back fresh context. Without fresh context, reviews degrade and themselves induce corruption — so the fan-out doubles as a safety device.
 - **Limited fit**: mumei targets teams or individuals who want a TDD / spec-driven workflow. It does not fit ad-hoc hack development. "Users it does not fit do not adopt it" is the natural state for an opt-in plugin.

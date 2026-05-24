@@ -80,7 +80,7 @@ export const StateSchema = Type.Object(
     pending_review: Type.Optional(
       Type.Boolean({
         description:
-          'Plan vehicle only. Set true by post-task-event.sh when the last TaskCompleted matches task_created_count; cleared by /mumei:review on PASS.',
+          'Plan vehicle only. Set true by post-task-event.sh when the last TaskCompleted matches task_created_count; cleared by /mumei:examine on PASS.',
       }),
     ),
     task_created_count: Type.Optional(
@@ -98,7 +98,7 @@ export const StateSchema = Type.Object(
     review_runs: Type.Optional(
       Type.Array(Type.Unknown(), {
         description:
-          'Plan vehicle only. Append-only history of review iterations driven by /mumei:review. Shape is opaque to the dashboard.',
+          'Plan vehicle only. Append-only history of review iterations driven by /mumei:examine. Shape is opaque to the dashboard.',
       }),
     ),
     depends_on: Type.Optional(

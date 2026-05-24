@@ -18,7 +18,7 @@ body:
       description: |
         What are you trying to do? Describe the workflow, not the solution.
         "I want to plan a feature with multiple parallel implementers" is a
-        use case; "add a `--parallel` flag to /mumei:plan" is a solution.
+        use case; "add a `--parallel` flag to /mumei:proceed" is a solution.
     validations:
       required: true
 

@@ -1,27 +1,27 @@
 ---
-name: brainstorm
-description: This skill should be used BEFORE any feature design. It runs structured brainstorming with the user — asking 5 high-leverage questions per round, up to 3 rounds, to extract Goal / Scope / Constraints / Edges / Done. Output is saved to .mumei/scratch/<topic>.md and used as input for /mumei:plan. Triggers include "I want to add X", "we need a feature for Y", "let's brainstorm Z", or any vague feature request.
+name: gather
+description: This skill should be used BEFORE any feature design. It runs structured gathering with the user — asking 5 high-leverage questions per round, up to 3 rounds, to extract Goal / Scope / Constraints / Edges / Done. Output is saved to .mumei/scratch/<topic>.md and used as input for /mumei:proceed. Triggers include "I want to add X", "we need a feature for Y", "let's brainstorm Z", or any vague feature request.
 allowed-tools: [Read, Write, Edit, Glob, Grep, AskUserQuestion]
 ---
 
 <!--
-Role: Pre-plan brainstorming partner for /mumei:plan
+Role: Pre-spec gathering partner for /mumei:proceed
 Input: free-form feature request from the user
-Output: .mumei/scratch/<topic>.md (structured, consumed by /mumei:plan)
+Output: .mumei/scratch/<topic>.md (structured, consumed by /mumei:proceed)
 Principle: Questions must be high-leverage. Cap at 5 per round x 3 rounds. No silent assumptions.
 -->
 
-# Brainstorm
+# Gather
 
-Run a structured brainstorming session with the user before they invoke `/mumei:plan`. The output is a scratch file at `.mumei/scratch/<topic>.md` that captures the user's intent in a form `/mumei:plan` can consume cleanly.
+Run a structured gathering session with the user before they invoke `/mumei:proceed`. The output is a scratch file at `.mumei/scratch/<topic>.md` that captures the user's intent in a form `/mumei:proceed` can consume cleanly.
 
 ## When to use
 
 - The user describes a vague feature request ("I want X", "let's add Y").
 - The user asks for help thinking through a problem before specing it.
-- The user invokes `/mumei:brainstorm` directly.
+- The user invokes `/mumei:gather` directly.
 
-Do NOT use this skill if `/mumei:plan` is already running — `plan` does its own clarification.
+Do NOT use this skill if `/mumei:proceed` is already running — `proceed` does its own clarification.
 
 ## Method
 
@@ -53,11 +53,11 @@ Only if the user did not signal closure. 5 questions max.
 
 ### AC format — canonical forms and what to avoid
 
-mumei's scratch parser recognizes exactly two AC line prefixes; anything else is silently dropped (`_mumei_scratch_count_acs` returns 0 for the AC, and `/mumei:plan` cannot compute a vehicle recommendation from the scratch).
+mumei's scratch parser recognizes exactly two AC line prefixes; anything else is silently dropped (`_mumei_scratch_count_acs` returns 0 for the AC, and `/mumei:proceed` cannot compute a vehicle recommendation from the scratch).
 
 Use one of these forms:
 
-- **Brainstorm form**: `- [Event] WHEN ...` / `- [Unwanted] IF ...` / `- [State] WHILE ...` / `- [Optional] WHERE ...`
+- **Gather form**: `- [Event] WHEN ...` / `- [Unwanted] IF ...` / `- [State] WHILE ...` / `- [Optional] WHERE ...`
 - **Mature spec form**: `- REQ-N.M WHEN ...` (only when hand-authoring a scratch that imports into an existing spec; `M` is the AC index within that REQ)
 
 Do NOT use `AC-N.M`. It is silently dropped by the parser AND violates `feature-detail.schema.json` (AC `id` pattern is `^REQ-[0-9]+\.[0-9]+(\.[0-9]+)?$`). Both effects make the scratch invisible to downstream tooling.
@@ -95,7 +95,7 @@ Stop and write the scratch file when ANY of these is true:
 
 ## Language conventions
 
-The brainstorm output follows the same language policy as `/mumei:plan`:
+The gather output follows the same language policy as `/mumei:proceed`:
 
 - **Section headings stay in English** (`## Goal (JTBD)`, `## Scope`, `## User Stories (draft)`, `## Acceptance Criteria (EARS, draft)`, `## Rejected Alternatives`, `## Open Questions`, `## Confidence Distribution`, `## Interview Record`).
 - **Body content follows the user's conversation language.** Japanese conversation → Japanese prose. English conversation → English prose. Match the user's most recent substantive message when in doubt.
@@ -177,16 +177,16 @@ Each AC carries an inline `Examples:` block of zero, one, or two natural-languag
 
 Tell the user:
 
-> Brainstorm saved to `.mumei/scratch/<slug>.md`. Run `/mumei:plan <feature-name>` to start spec creation. The plan skill will read this scratch file as input.
+> Gather saved to `.mumei/scratch/<slug>.md`. Run `/mumei:proceed <feature-name>` to start spec creation. The proceed skill will read this scratch file as input.
 
 ## Don'ts
 
-- Don't ask more than 5 questions per round. If you need more, finish the round and ask the user "continue brainstorming or proceed to plan?".
+- Don't ask more than 5 questions per round. If you need more, finish the round and ask the user "continue brainstorming or run /mumei:proceed?".
 - Don't ask trivial questions (variable names, file paths, etc.). Stay at the design level.
 - Don't repeat the same axis in different wording. Track what is covered.
 - Don't silently fill in assumptions — mark them `[ASSUMPTION]` and surface them in the output.
 - Don't skip the `Out of Scope` section. Closing scope is the strongest defense against scope creep.
 - Don't write a scratch file longer than the user actually answered. If only 2 rounds happened, the file should be short.
-- Don't proceed directly to `/mumei:plan`. Hand off via the scratch file and tell the user to invoke `/mumei:plan` themselves.
+- Don't proceed directly to `/mumei:proceed`. Hand off via the scratch file and tell the user to invoke `/mumei:proceed` themselves.
 - Don't paste the entire scratch file directly to external channels (Slack / email / tickets). The scratch contains internal meta (Confidence Distribution, Interview Record, Rejected Alternatives) that may leak rejected-vendor names or unverified assumptions. Extract only the sections you intend to share.
 - Don't emit more than 2 Examples per AC. If you feel a third example is needed, the AC is probably under-specified — split it into two ACs instead.

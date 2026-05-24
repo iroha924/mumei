@@ -189,7 +189,7 @@ creates a topic branch in this repo.
    (`git checkout -b feat/your-feature`; the branch-name prefix should
    match one of the allowed Conventional Commits types listed under
    "Commit conventions" above, such as `feat/`, `fix/`, `docs/`,
-   `refactor/`, `chore/`, etc.) **before** invoking `/mumei:plan
+   `refactor/`, `chore/`, etc.) **before** invoking `/mumei:proceed
 <feature>`. Direct work on `main` followed by retroactive branching
    (the "reverse dogfood" pattern: edit on main → `git reset --hard` →
    re-commit on branch) is forbidden by convention; both the
@@ -236,7 +236,7 @@ creates a topic branch in this repo.
 ## Spec-driven changes
 
 Larger changes (new Hook rules, new agents, schema breaks, new detectors) are
-expected to follow the mumei spec workflow itself: `/mumei:plan <feature>` to
+expected to follow the mumei spec workflow itself: `/mumei:proceed <feature>` to
 generate `requirements.md` / `design.md` / `tasks.md`, then implement Wave by
 Wave. The artifacts live under `.mumei/specs/<feature>/`. This is gitignored, so
 the spec stays local; share intent through the PR description and link to the

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Helpers for memory-curator integration: score → operation, validate
 # curator output, and atomic apply to .claude/agent-memory/<reviewer>/MEMORY.md.
-# Used by skills/plan/SKILL.md Phase 5 Stage 6 and skills/review/SKILL.md.
+# Used by skills/proceed/SKILL.md Phase 5 Stage 6 and skills/examine/SKILL.md.
 # Dependencies: jq, awk
 
 set -u

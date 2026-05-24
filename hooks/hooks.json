@@ -186,7 +186,7 @@
     ],
     "UserPromptExpansion": [
       {
-        "matcher": "^mumei:archive$",
+        "matcher": "^mumei:retire$",
         "hooks": [
           {
             "type": "command",
