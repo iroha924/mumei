@@ -194,7 +194,7 @@ tasks:
   # Reflect — generate retrospective from archived features.
   # ---------------------------------------------------------------
   reflect:
-    desc: "Generate reflect from .mumei/archive/<YYYY-MM>/"
+    desc: "Generate reflect.md from .mumei/archive/<YYYY-MM>/"
     cmds:
       - bash scripts/generate-reflect.sh {{.CLI_ARGS}}
 
