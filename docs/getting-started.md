@@ -124,7 +124,7 @@ mumei is judged by what it prevents, not by what it does.
 
 ## Workflow
 
-### 1. Setup and (optionally) brainstorm
+### 1. Setup and (optionally) gather
 
 ```text
 /mumei:arrange                       # one-time per project
@@ -157,7 +157,7 @@ implementation files actually changed (no phantom completion), no
 editing outside `_Files:_` scope, tests pass before commit, commit
 happens before starting the next Wave.
 
-### 4. Review, done, archive
+### 4. Examine, done, retire
 
 When all tasks are `[x]`, the review pipeline runs:
 

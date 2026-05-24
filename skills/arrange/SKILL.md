@@ -174,7 +174,7 @@ if (( ${#missing[@]} > 0 )); then
 fi
 ```
 
-Surface the warning verbatim to the user. Do NOT block init on missing
+Surface the warning verbatim to the user. Do NOT block arrange on missing
 binaries — let the user decide when to install. The hard fail happens
 later, at review time.
 
@@ -196,4 +196,4 @@ This skill is safe to re-run. It will:
 - Don't write to `~/.claude/CLAUDE.md` (user-global). It is read-only context.
 - Don't overwrite existing `.gitignore` patterns; append only.
 - Don't create a default `.mumei/specs/REQ-1-example/` — leave the spec dir empty until the user creates a real feature.
-- Don't run more than once silently. If `.mumei/` already exists, ask "re-init?" before doing anything.
+- Don't run more than once silently. If `.mumei/` already exists, ask "re-arrange?" before doing anything.

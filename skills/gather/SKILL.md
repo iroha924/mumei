@@ -5,7 +5,7 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, AskUserQuestion]
 ---
 
 <!--
-Role: Pre-plan brainstorming partner for /mumei:proceed
+Role: Pre-spec gathering partner for /mumei:proceed
 Input: free-form feature request from the user
 Output: .mumei/scratch/<topic>.md (structured, consumed by /mumei:proceed)
 Principle: Questions must be high-leverage. Cap at 5 per round x 3 rounds. No silent assumptions.

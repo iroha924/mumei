@@ -13,7 +13,7 @@ Produce a single markdown document summarising a finished mumei feature so the t
 ## When to use
 
 - The user invokes `/mumei:reflect <feature>` after `/mumei:retire`.
-- The user invokes it on a `phase: done` feature before archival (rare; lets them edit the retro before archive moves the docs).
+- The user invokes it on a `phase: done` feature before archival (rare; lets them edit the reflect.md before retire moves the docs).
 
 This skill is `disable-model-invocation: true` — only fires on explicit user request. Never auto-trigger.
 

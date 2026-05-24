@@ -1388,7 +1388,7 @@ If `verdict == PASS`:
 mumei_state_set "$feature" '.phase' '"done"'
 ```
 
-After phase=done is set, the orchestrator MUST hand off to archive cleanup. Skipping this leaves stale specs in the active workspace and the user with no clear next step:
+After phase=done is set, the orchestrator MUST hand off to retire cleanup. Skipping this leaves stale specs in the active workspace and the user with no clear next step:
 
 1. **Tell the user the feature reached done** and prompt them to run `/mumei:retire <feature>` so the spec moves from `.mumei/specs/<feature>/` to `.mumei/archive/<YYYY-MM>/<feature>/`.
 2. **Do NOT clear `.mumei/current`.** Only `/mumei:retire` is allowed to mutate `.mumei/current` — see retire skill which auto-clears the file when retiring the currently-active feature. Clearing it elsewhere (orchestrator, manual edit) creates a session-handoff inconsistency where the next session sees no active feature even though the spec dir still exists.
