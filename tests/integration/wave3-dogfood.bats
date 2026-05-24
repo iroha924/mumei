@@ -65,26 +65,26 @@ JSON
 
 # ─── skill body contract ──────────────────────────────────────
 
-@test "skill plan body documents Stage 0 with the hook path" {
+@test "skill proceed body documents Stage 0 with the hook path" {
   local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
   grep -q "Stage 0 — Detector run" "$skill"
   grep -q "hooks/pre-review-detector.sh" "$skill"
 }
 
-@test "skill plan body documents the HIGH > 0 branching rule" {
+@test "skill proceed body documents the HIGH > 0 branching rule" {
   local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
   # The body must mention skipping security-reviewer when HIGH count > 0.
   grep -q "high_count > 0" "$skill"
   grep -qE "skip.*security-reviewer|security-reviewer.*skip" "$skill"
 }
 
-@test "skill plan body pins MAJOR_ISSUES verdict when HIGH detector findings present" {
+@test "skill proceed body pins MAJOR_ISSUES verdict when HIGH detector findings present" {
   local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
   grep -q "HIGH detector findings present" "$skill"
   grep -q "MAJOR_ISSUES" "$skill"
 }
 
-@test "skill plan body documents ground_truth inject block syntax" {
+@test "skill proceed body documents ground_truth inject block syntax" {
   local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
   grep -q 'detector_findings ground_truth="true"' "$skill"
   # And the token-economy rule: do NOT inject when high_count == 0.
