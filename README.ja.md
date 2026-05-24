@@ -86,6 +86,19 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
 
 - **[mumei-dashboard](./dashboard/README.md)** — ローカル実行のリアルタイム browser ダッシュボード。`.mumei/` を watch し、各 feature の phase / Wave 進捗 / review verdict / token cost / Hook 発火 trend を可視化。任意プロジェクトで `npx mumei-dashboard` で起動。npm 別配布で plugin tarball には同梱されません。
 
+## 他の Claude Code plugin との位置付け
+
+mumei は単発 quality plugin の **置き換えではなく併用** を前提とします。必要なレイヤを選んでください:
+
+- **Anthropic `/code-review`** (公式、single PR + 0-100 confidence) — 直交。mumei は 0-100 scoring を再実装しません。併用可。
+- **Anthropic `/security-review`** (bundled skill、diff scope) — mumei の `security-reviewer` (Wave scope + cross-feature memory) と独立レイヤ。
+- **claude-prism** (Codex / Gemini / Claude の cross-provider review) — 直交。mumei は Claude Code only (Hook 物理強制は single platform 前提)。
+- **vibeguard** (pre-edit / pre-bash CWE pattern matching + graduated enforcement) — 直交。攻撃面が異なる (per-write pattern vs multi-stage spec / code 整合性)。共存可。
+- **tdd-guard** (Hook で TDD RED state 強制) — 隣接。mumei は `property-author` + golden file による blind PBT で test discipline をかける。tdd-guard は generic TDD RED。観点が違う。
+- **spec-kit** / **cc-sdd** / **Tsumiki** / **BMAD** (SDD workflow / agent persona) — プロジェクトごとに **一つ** の harness を選ぶ。mumei は独自の opinionated spec format を持ち、他 SDD ツールの artifact 形式に adapt しません。
+
+mumei が独占するレイヤ: **cross-session / cross-stage の spec ↔ code 整合性を Hook で物理強制** (3 段 spec doc reviewer / Wave commit / clean-HEAD verification integrity / residual exposition)。confidence scoring、cross-provider、generic TDD RED、single-PR review は上記 plugin に任せる。
+
 ## ドキュメント
 
 - **[docs/getting-started.ja.md](./docs/getting-started.ja.md)** — 詳細な解説: 二つの vehicle、ワークフロー、spec / tasks フォーマット、前提ツール、プロジェクト構成、Hook ルール、Troubleshooting。

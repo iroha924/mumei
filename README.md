@@ -89,6 +89,19 @@ Prerequisites: `semgrep` + `osv-scanner` for the review-phase detectors. See [do
 - **[mumei-dashboard](./dashboard/README.md)** — local realtime browser dashboard. Watches `.mumei/` and renders feature phases, Wave progress, review verdicts, token cost, and hook firing trends. Runs via `npx mumei-dashboard` from any project. Distributed separately as an npm package; not bundled in the plugin tarball.
 - **Harness-engineered review workflow** — portable reusable GitHub Actions workflow that drives a Claude reviewer through four perspectives (correctness / security / operability / maintainability), grounded in semgrep + osv-scanner output, with bias-neutralisation and an honest-ceiling statement. Any repository can adopt it with one `uses:` line; see **[docs/review-adoption.md](./docs/review-adoption.md)**. Independent of the plugin itself.
 
+## Where `mumei` fits among Claude Code plugins
+
+mumei is **not a replacement** for single-shot quality plugins — it composes alongside them. Pick the layer you need:
+
+- **Anthropic `/code-review`** (official, single-PR confidence-graded review) — independent. mumei does not re-implement the 0-100 scoring; both can run.
+- **Anthropic `/security-review`** (bundled skill, diff-scoped) — independent of mumei's `security-reviewer` (Wave-scoped + cross-feature memory).
+- **claude-prism** (cross-provider via Codex / Gemini / Claude) — orthogonal. mumei is Claude Code only by design — Hook physical enforcement requires a single platform.
+- **vibeguard** (pre-edit / pre-bash CWE pattern matching with graduated enforcement) — orthogonal. Different attack surface (per-write pattern vs multi-stage spec / code consistency); can coexist.
+- **tdd-guard** (Hook-enforced TDD RED state) — adjacent. mumei's `property-author` + golden file enforces blind PBT; tdd-guard enforces generic TDD RED. Different test-discipline angles.
+- **spec-kit** / **cc-sdd** / **Tsumiki** / **BMAD** (SDD workflow templates / agent libraries) — pick **one** harness per project; mumei has its own opinionated spec format and does not adapt to other SDD tools' artifacts.
+
+The unique layer mumei owns: **cross-session, cross-stage spec / code consistency enforcement at the Hook level** (3-stage spec-doc reviewers, Wave commits, clean-HEAD verification integrity, residual exposition). For confidence scoring, cross-provider triangulation, generic TDD RED gating, or single-PR review, install the plugins above.
+
 ## Documentation
 
 - **[docs/getting-started.md](./docs/getting-started.md)** — long-form walkthrough: two vehicles, workflow, spec & tasks format, prerequisites, project layout, hook rules, troubleshooting.
