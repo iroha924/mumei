@@ -187,17 +187,24 @@ repos:
         stages: [pre-push]
         files: '\.md$'
 
-  # NOTE: scripts/lint-all.sh used to run at pre-push as a "CI parity"
-  # gate, but every check it ran is now individually wired into
-  # pre-commit above with a `files:` scope (lint-hook-ids /
-  # lint-docs-drift / lint-review-rubric / lint-bash-prefix /
-  # lint-frontmatter / lint-plan-vehicle-hooks / jq-empty-manifests /
-  # shellcheck / shfmt). The only checks lint-all.sh adds on top —
-  # `bash -n` full-glob and `shellharden` — are covered by shellcheck
-  # (parse-time errors fail there too) and by CI's lint-extra job
-  # (shellharden requires a local install we don't mandate). CI's
-  # `task lint` still runs the full sweep on every PR as the
-  # authoritative safety net.
+  # lint-all (full sweep) at pre-push as the delete-aware safety net.
+  # pre-commit's `--diff-filter=ACMRTUXB` excludes deleted paths from
+  # the staged set, so `files:`-scoped hooks above are blind to
+  # delete-only commits. The delete-sensitive checks (lint-hook-ids,
+  # lint-docs-drift, lint-review-rubric, lint-plan-vehicle-hooks all
+  # validate that referenced files still exist) must therefore re-run
+  # in `always_run` mode somewhere local. Pre-push is the cheapest
+  # place: it runs once per push, not per commit. CI's `task lint`
+  # remains the authoritative full-sweep gate.
+  - repo: local
+    hooks:
+      - id: lint-all
+        name: lint-all (pre-push safety net)
+        entry: bash scripts/lint-all.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
 
   # Dashboard biome lint at pre-push — mirrors dashboard-ci.yml's lint
   # step. `--error-on-warnings` upgrades any warning to a non-zero exit,
