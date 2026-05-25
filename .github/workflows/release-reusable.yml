@@ -67,13 +67,8 @@ jobs:
           python-version: "3.14"
 
       - name: semgrep
-        # Pinned independently of review-reusable.yml's semgrep (1.111.0):
-        # release-time scan prioritises current OWASP / security-audit rule
-        # coverage at tag-cut time, while the review pipeline's semgrep is
-        # frozen at 1.111.0 to keep AI grounding signal stable across runs.
-        # See .github/requirements/semgrep-release/requirements.in for the
-        # regen command; the other pin moves on its own cadence via
-        # .github/requirements/semgrep-review/.
+        # See .github/requirements/semgrep-release/requirements.in for
+        # the regen command.
         run: |
           python3 -m pip install --quiet --require-hashes -r .github/requirements/semgrep-release/requirements.txt
           semgrep --error --config=p/owasp-top-ten --config=p/security-audit --severity=ERROR .

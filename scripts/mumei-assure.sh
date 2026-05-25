@@ -13,8 +13,8 @@ set -u
 
 # Anchor cwd to the project root so .mumei/specs/<feature>/ and
 # .mumei/plans/<feature>/ resolve correctly when invoked from a
-# subdirectory (Codex C3 / C4 fix — `/mumei:assure` previously
-# returned "feature not found" from any nested working dir). Prefer
+# subdirectory (`/mumei:assure` previously returned "feature not found"
+# from any nested working dir). Prefer
 # Claude Code's CLAUDE_PROJECT_DIR env, then fall back to git
 # toplevel, then leave cwd alone.
 if [[ -n "${CLAUDE_PROJECT_DIR:-}" && -d "$CLAUDE_PROJECT_DIR" ]]; then

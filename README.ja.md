@@ -81,7 +81,7 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
 - CI/CD ツールではありません。Hook は Claude Code の中でしか動きません。
 - コードレビューサービスではありません。reviewer はあなたの Claude Code 契約でローカル実行します。
 - SDD adapter ではありません。mumei は独自の spec フォーマットを持っています。
-- マルチツール対応ではありません。Cursor / Codex / Aider はサポート外。物理的な強制レイヤーは Claude Code Hook に固有です。
+- マルチツール対応ではありません。物理的な強制レイヤーは Claude Code Hook に固有で、他の CLI エージェントはサポート外です。
 - ストレージシステムではありません。state は plain file。DB なし、MCP server なし。
 
 ## 関連ツール

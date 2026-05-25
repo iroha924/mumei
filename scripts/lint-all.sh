@@ -45,7 +45,6 @@ _mumei_run "frontmatter check (agents/skills)" bash "$here/lint-frontmatter.sh"
 _mumei_run "plan-vehicle hooks registration" bash "$here/lint-plan-vehicle-hooks.sh"
 _mumei_run "Hook ID consistency" bash "$here/lint-hook-ids.sh"
 _mumei_run "docs ↔ filesystem drift" bash "$here/lint-docs-drift.sh"
-_mumei_run "review rubric parity" bash "$here/lint-review-rubric.sh"
 
 printf '\n'
 if [[ "$fail" == "0" ]]; then

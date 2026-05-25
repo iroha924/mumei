@@ -217,19 +217,17 @@ creates a topic branch in this repo.
 7. CI runs on the PR. The relevant workflows are `ci.yml` (`lint`,
    `lint-extra`, `bats` on macOS / Ubuntu, `codeql`), `pr.yml`
    (`mutable-tag-guard`, `pr-target-guard`), `gitleaks.yml`,
-   `plugin-json-validate.yml`, `claude-review.yml`, and `dashboard-ci.yml`
-   (path-triggered). Address failures before merge.
+   `plugin-json-validate.yml`, and `dashboard-ci.yml` (path-triggered).
+   Address failures before merge.
 8. Monitor the PR after opening. CI green is necessary but not
-   sufficient — automated reviewers also post feedback:
+   sufficient — Graphite also posts review feedback:
    - `task pr:watch` — wait for the latest CI run on this branch
    - `gh pr checks <N>` — CI status snapshot
-   - **GitHub PR UI** — review findings from automated reviewers. Gemini
-     Code Assist comments on PR open (a re-review after a push needs a
-     manual `/gemini review` comment); OpenAI Codex comments on PR open
-     and on each push; Claude Code Action (`claude-review.yml`) comments on
-     PR open and on each push. Triage them, push fix commits, and resolve
-     the threads before merging. Reviewer monitoring is the PR author's
-     responsibility; an AI agent driving the PR watches CI only.
+   - **Graphite PR UI** (`app.graphite.com`) — Graphite reviews each
+     PR on open and on every push, posting findings inline. Triage
+     them, push fix commits, and resolve the threads before merging.
+     Reviewer monitoring is the PR author's responsibility; an AI
+     agent driving the PR watches CI only.
 9. Self-merge via squash or rebase (linear history; merge commits should
    be avoided). No required approval count.
 

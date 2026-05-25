@@ -16,7 +16,7 @@ fi
 
 # Resolve the log directory for a feature using state.json presence
 # (not bare directory existence), so a stale empty .mumei/specs/<slug>/
-# dir does NOT shadow the real plan-vehicle state.json (Codex C7 fix).
+# dir does NOT shadow the real plan-vehicle state.json.
 # Falls back to directory-existence check for projects that pre-date
 # state.json (defensive), then to the spec path as the final default.
 mumei_reliability_log_dir() {
@@ -103,8 +103,8 @@ mumei_reliability_append() {
     # Corruption-tolerant streaming count: parse each line with
     # `fromjson? | objects`, skip non-object / malformed lines silently,
     # then count rows matching (wave, task_id). Single corrupt line no
-    # longer blocks the entire feature's append path (Claude review
-    # MEDIUM / Gemini G2 / Codex C6 — F-006 write-side extension).
+    # longer blocks the entire feature's append path (F-006 write-side
+    # extension).
     trial_n="$(jq -nR --arg w "$wave" --arg t "$task_id" \
       'reduce (inputs | fromjson? | objects) as $i (0;
          if $i.wave == $w and $i.task_id == $t then . + 1 else . end) + 1' \
@@ -169,7 +169,7 @@ mumei_reliability_passk() {
   fi
 
   # Take the last <window> non-empty lines, parse as jsonl, compute pass rate.
-  # Strict boolean check on .pass (Codex C12 fix): a schema-invalid row
+  # Strict boolean check on .pass: a schema-invalid row
   # like `{"pass": "false"}` would otherwise be counted as a pass by
   # truthy evaluation. fromjson? | objects also filters malformed lines
   # without aborting the whole pipeline.
@@ -206,8 +206,7 @@ mumei_reliability_recent() {
   fi
 
   # fromjson? | objects filters non-object rows so downstream consumers
-  # (scripts/mumei-assure.sh table render) never see scalar JSON values
-  # (Codex C14 fix).
+  # (scripts/mumei-assure.sh table render) never see scalar JSON values.
   tail -n "$limit" "$logfile" |
     jq -Rs -c '[split("\n")[] | select(length > 0) | fromjson? | objects]' 2>/dev/null ||
     printf '[]'

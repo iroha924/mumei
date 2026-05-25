@@ -14,8 +14,8 @@ set -u
 
 # Anchor cwd to the project root so .mumei/current and
 # .mumei/specs|plans/<feature>/ resolve correctly when invoked from a
-# subdirectory (Codex C3 / C4 fix — `/mumei:present` previously
-# printed "no active feature" from any nested working dir). Prefer
+# subdirectory (`/mumei:present` previously printed "no active
+# feature" from any nested working dir). Prefer
 # Claude Code's CLAUDE_PROJECT_DIR env, then fall back to git
 # toplevel, then leave cwd alone.
 if [[ -n "${CLAUDE_PROJECT_DIR:-}" && -d "$CLAUDE_PROJECT_DIR" ]]; then

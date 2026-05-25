@@ -47,7 +47,7 @@ if [[ "$EVENT" == "TaskCompleted" ]]; then
       _rel_wave=""
       # Use mumei_state_active_vehicle (spec precedence) so that a
       # dual-state repo records the spec-vehicle current_wave instead
-      # of falling through to plan-empty (Codex C5 fix).
+      # of falling through to plan-empty.
       _rel_vehicle="$(mumei_state_active_vehicle "$SLUG" 2>/dev/null || echo "")"
       if [[ "$_rel_vehicle" == "spec" ]]; then
         _rel_wave="$(mumei_state_read_any "$SLUG" '.current_wave' 2>/dev/null || echo "")"
@@ -58,14 +58,13 @@ if [[ "$EVENT" == "TaskCompleted" ]]; then
       # because they record gitleaks / lint / checkout exit codes, not
       # test results — adversarial F-008). Bound to a 600 s freshness
       # window so a TaskCompleted long after the last test run does not
-      # reuse a stale row (Codex C3 / D fix). Bound the scan with tail
-      # to avoid O(verify-log size) per TaskCompleted (F-010).
+      # reuse a stale row. Bound the scan with tail to avoid
+      # O(verify-log size) per TaskCompleted (F-010).
       _rel_now_epoch="$(date -u +%s 2>/dev/null || echo 0)"
       # Use -R raw input + fromjson? | objects to stream-parse line-by
       # -line: a single corrupt verify-log row can no longer abort the
       # whole jq pipeline and silently flip pass derivation to "skip".
-      # Parens around fromdateiso8601 keep precedence explicit
-      # (Gemini portability follow-up).
+      # Parens around fromdateiso8601 keep precedence explicit.
       _rel_exit="$(tail -n 1000 "${_rel_log_dir}/verify-log.jsonl" 2>/dev/null |
         jq -rR --argjson now "$_rel_now_epoch" \
           'fromjson? | objects
@@ -77,10 +76,9 @@ if [[ "$EVENT" == "TaskCompleted" ]]; then
         [[ "$_rel_exit" -eq 0 ]] && _rel_pass="true" || _rel_pass="false"
         # Subshell-isolate the call so reliability.sh's internal trap
         # manipulation (EXIT/INT/TERM) cannot disturb this script's own
-        # cleanup trap installed later for the plan-vehicle lock
-        # (Gemini HIGH on post-task-event.sh:68 — even though the trap
-        # is installed AFTER this point today, the subshell keeps the
-        # boundary explicit for any future caller).
+        # cleanup trap installed later for the plan-vehicle lock.
+        # Even though the trap is installed AFTER this point today,
+        # the subshell keeps the boundary explicit for any future caller.
         (mumei_reliability_append "$SLUG" "$_rel_wave" "$_rel_task_id" "$_rel_pass") || true
       fi
     fi
