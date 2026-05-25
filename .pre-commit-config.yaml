@@ -106,9 +106,13 @@ repos:
         entry: bash -c 'trufflehog filesystem --no-update --fail --no-verification --results=verified .'
         language: system
 
-  # Hook ID + docs drift linters (REQ-11.1 / REQ-11.2). Run on every
-  # commit because they are fast (whole-repo grep / awk) and catch the
-  # W-02 / W-03 regression class deterministically before push.
+  # Hook ID + docs drift + review rubric parity linters.
+  # Each hook scopes itself to the file set it actually validates via
+  # `files:` (rather than `always_run: true`). When none of the watched
+  # files is staged, the hook skips — keeping per-commit cost down on
+  # PRs that touch unrelated areas. CI's `task lint` runs every check
+  # unconditionally as the safety net, so a local skip cannot let a
+  # drift through to merge.
   - repo: local
     hooks:
       - id: lint-hook-ids
@@ -116,19 +120,43 @@ repos:
         entry: bash scripts/lint-hook-ids.sh
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(ARCHITECTURE\.md|README\.md|hooks/[^/]*\.sh|scripts/[^/]*\.sh|tests/hooks/.*\.bats|docs/mumei-decisions\.md)$
       - id: lint-docs-drift
         name: lint-docs-drift (REQ-11.2)
         entry: bash scripts/lint-docs-drift.sh
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(ARCHITECTURE\.md|README\.md|agents/[^/]*\.md|skills/.*/SKILL\.md|hooks/(_lib/)?[^/]*\.sh|scripts/[^/]*\.sh)$
       - id: lint-review-rubric
         name: lint-review-rubric (REQ-24.4)
         entry: bash scripts/lint-review-rubric.sh
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(\.github/review-rubric\.md|AGENTS\.md|\.gemini/styleguide\.md|\.github/workflows/review-reusable\.yml|scripts/lint-review-rubric\.sh)$
+      - id: lint-bash-prefix
+        name: lint-bash-prefix (mumei_ / _mumei_)
+        entry: bash scripts/lint-bash-prefix.sh
+        language: system
+        pass_filenames: false
+        files: ^((hooks/|scripts/)[^/]*\.sh|hooks/_lib/[^/]*\.sh)$
+      - id: lint-frontmatter
+        name: lint-frontmatter (agents / skills)
+        entry: bash scripts/lint-frontmatter.sh
+        language: system
+        pass_filenames: false
+        files: ^(agents/[^/]*\.md|skills/.*/SKILL\.md|scripts/lint-frontmatter\.sh)$
+      - id: lint-plan-vehicle-hooks
+        name: lint-plan-vehicle-hooks (registration)
+        entry: bash scripts/lint-plan-vehicle-hooks.sh
+        language: system
+        pass_filenames: false
+        files: ^(hooks/hooks\.json|hooks/(pre-exitplan-guard|post-task-event)\.sh|skills/examine/SKILL\.md|scripts/lint-plan-vehicle-hooks\.sh)$
+      - id: jq-empty-manifests
+        name: jq empty (plugin.json + hooks.json)
+        entry: bash -c 'jq empty .claude-plugin/plugin.json && jq empty hooks/hooks.json'
+        language: system
+        pass_filenames: false
+        files: ^(\.claude-plugin/plugin\.json|hooks/hooks\.json)$
 
   # Run the project's own bats suite at pre-push time so test failures
   # land before reaching CI without paying the cost on every commit.
@@ -159,16 +187,19 @@ repos:
         stages: [pre-push]
         files: '\.md$'
 
-  # Full lint at pre-push — calls scripts/lint-all.sh, which is the
-  # SAME entry point CI's `lint` job uses (via individual sub-script
-  # calls). Catches "passes locally but fails CI" issues *before* push:
-  # missing `mumei_` prefix, broken hooks.json registration, frontmatter
-  # drift, etc. always_run because the checks are full-glob (independent
-  # of which files changed in the commits being pushed).
+  # lint-all (full sweep) at pre-push as the delete-aware safety net.
+  # pre-commit's `--diff-filter=ACMRTUXB` excludes deleted paths from
+  # the staged set, so `files:`-scoped hooks above are blind to
+  # delete-only commits. The delete-sensitive checks (lint-hook-ids,
+  # lint-docs-drift, lint-review-rubric, lint-plan-vehicle-hooks all
+  # validate that referenced files still exist) must therefore re-run
+  # in `always_run` mode somewhere local. Pre-push is the cheapest
+  # place: it runs once per push, not per commit. CI's `task lint`
+  # remains the authoritative full-sweep gate.
   - repo: local
     hooks:
       - id: lint-all
-        name: lint-all (CI parity)
+        name: lint-all (pre-push safety net)
         entry: bash scripts/lint-all.sh
         language: system
         pass_filenames: false

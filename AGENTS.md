@@ -278,7 +278,11 @@ Two independent axes — every finding declares both.
 
   \*Minor × High would otherwise be advisory, but is omitted by default to
   keep the advisory tier (Major × Medium/Low only) consistent under
-  single-threshold tool filtering. Surface it via Override.
+  single-threshold tool filtering. If the reviewer judges a specific Minor ×
+  High finding important enough to surface, they may upgrade it to **Major**
+  at their discretion; otherwise it is filtered. Findings on the
+  AI-introduced-defects checklist are handled by the Override below and do
+  not need this manual upgrade.
 
   Override: when a finding that would otherwise be omitted (Minor × any,
   Nit × any) lands on the AI-introduced-defects checklist above, **promote it
