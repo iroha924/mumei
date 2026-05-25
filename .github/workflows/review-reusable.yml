@@ -253,6 +253,53 @@ jobs:
           - Subjective style already consistent with the surrounding code.
           - Hypotheticals with no evidence in the change.
           <!-- END universal-review-rubric -->
+
+          ## Output format
+
+          Emit every badge directly as markdown image syntax (`![alt](url)`).
+          Do NOT wrap any badge in backticks, code fences, or any other
+          markup — backticks would prevent GitHub from rendering the image.
+
+          Begin your review with exactly one status badge on its own line,
+          picking the highest-severity bucket that applies:
+
+          Apply each finding's **final** severity × confidence (after any
+          Override promotion has been resolved) when matching it against the
+          rules below — Override changes the severity of a finding, so a
+          promoted Minor × High becomes a Major × High and is classified by
+          the Major × High rule, not by the original Minor.
+
+          The status bucket mirrors the Decision matrix's verdict column for
+          the highest-ranked reported finding: `omit` → PASS, `advisory` →
+          ADVISORY, `triage` → ACTION-REQUIRED, `block merge` → BLOCKER.
+
+          - ![status-PASS](https://img.shields.io/badge/status-PASS-brightgreen) when no Major or higher finding is reported
+          - ![status-ADVISORY](https://img.shields.io/badge/status-ADVISORY-yellow) when the highest-ranked finding is advisory (Major × Medium/Low only) — no Major × High, no Blocker
+          - ![status-ACTION-REQUIRED](https://img.shields.io/badge/status-ACTION%20REQUIRED-orange) when the highest-ranked finding requires human triage (Major × High, or Blocker × Medium/Low) — no Blocker × High
+          - ![status-BLOCKER](https://img.shields.io/badge/status-BLOCKER-critical) when at least one Blocker × High is reported (block merge)
+
+          Then for each finding, start the finding's heading line with exactly
+          two badges (severity first, then confidence) emitted as raw markdown
+          image syntax without backticks, side by side. Pick one from each
+          list — use only the URLs below verbatim, do not invent new badge
+          URLs, colors, or labels.
+
+          Severity (pick one):
+
+          - ![Blocker](https://img.shields.io/badge/severity-Blocker-critical)
+          - ![Major](https://img.shields.io/badge/severity-Major-important)
+          - ![Minor](https://img.shields.io/badge/severity-Minor-yellow)
+          - ![Nit](https://img.shields.io/badge/severity-Nit-lightgrey)
+
+          Confidence (pick one):
+
+          - ![High](https://img.shields.io/badge/confidence-High-informational)
+          - ![Medium](https://img.shields.io/badge/confidence-Medium-blue)
+          - ![Low](https://img.shields.io/badge/confidence-Low-lightgrey)
+
+          After the two badges, cite `file:line` and write the finding body
+          (Rationale + Suggested fix). End the entire review with the Honest
+          ceiling line as the closing paragraph.
           MUMEI_RUBRIC_INLINE_EOF
           # The heredoc preserves leading indentation from the YAML block; strip it
           # so the rubric reads as a flat markdown block in the prompt. Bash 'EOF'
