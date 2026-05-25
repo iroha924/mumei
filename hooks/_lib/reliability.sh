@@ -94,9 +94,15 @@ mumei_reliability_append() {
 
   local trial_n
   if [[ -f "$logfile" ]]; then
-    trial_n="$(jq -s --arg w "$wave" --arg t "$task_id" \
-      '[.[] | select(.wave == $w and .task_id == $t)] | length + 1' \
-      "$logfile" 2>/dev/null)" || trial_n=""
+    # Corruption-tolerant streaming count: parse each line with
+    # `fromjson? | objects`, skip non-object / malformed lines silently,
+    # then count rows matching (wave, task_id). Single corrupt line no
+    # longer blocks the entire feature's append path (Claude review
+    # MEDIUM / Gemini G2 / Codex C6 — F-006 write-side extension).
+    trial_n="$(jq -nR --arg w "$wave" --arg t "$task_id" \
+      'reduce (inputs | fromjson? | objects) as $i (0;
+         if $i.wave == $w and $i.task_id == $t then . + 1 else . end) + 1' \
+      <"$logfile" 2>/dev/null)" || trial_n=""
   else
     trial_n="1"
   fi

@@ -33,10 +33,11 @@ if [[ -f .mumei/current ]]; then
 fi
 [[ -n "$SLUG" ]] || exit 0
 
-# REQ-25.3.1 — Reliability append (両 vehicle 対応、plan-vehicle gate より前)
-# Purely additive: failures emit warnings but never block the caller. Source
-# the lib best-effort and gate on function availability so plugin upgrades /
-# downgrades that lack reliability.sh degrade cleanly to the legacy behavior.
+# REQ-25.3.1 — Reliability append (covers both vehicles; runs BEFORE the
+# plan-vehicle gate below). Purely additive: failures emit warnings but
+# never block the caller. Source the lib best-effort and gate on function
+# availability so plugin upgrades / downgrades that lack reliability.sh
+# degrade cleanly to the legacy behavior.
 if [[ "$EVENT" == "TaskCompleted" ]]; then
   # shellcheck source=_lib/reliability.sh disable=SC1091
   source "${PLUGIN_ROOT}/hooks/_lib/reliability.sh" 2>/dev/null || true
@@ -48,14 +49,19 @@ if [[ "$EVENT" == "TaskCompleted" ]]; then
         _rel_wave="$(mumei_state_read_any "$SLUG" '.current_wave' 2>/dev/null || echo "")"
       fi
       _rel_log_dir="$(mumei_reliability_log_dir "$SLUG")"
-      # REQ-25.3.1 (post-iter-2 fix): derive pass from the latest
-      # commit-gate or agent-run row's exit_code (test signals only;
-      # tool-gate / worktree-clean rows are excluded because they
-      # record gitleaks / lint / worktree-checkout exit codes, not
-      # test results — adversarial F-008). Bound the scan with tail
+      # Derive pass from the latest commit-gate / agent-run row's exit_code
+      # (test signals only; tool-gate / worktree-clean rows are excluded
+      # because they record gitleaks / lint / checkout exit codes, not
+      # test results — adversarial F-008). Bound to a 600 s freshness
+      # window so a TaskCompleted long after the last test run does not
+      # reuse a stale row (Codex C3 / D fix). Bound the scan with tail
       # to avoid O(verify-log size) per TaskCompleted (F-010).
+      _rel_now_epoch="$(date -u +%s 2>/dev/null || echo 0)"
       _rel_exit="$(tail -n 100 "${_rel_log_dir}/verify-log.jsonl" 2>/dev/null |
-        jq -r 'select(.exit_code != null and (.source == "commit-gate" or .source == "agent-run")) | .exit_code' \
+        jq -r --argjson now "$_rel_now_epoch" \
+          'select(.exit_code != null and (.source == "commit-gate" or .source == "agent-run"))
+           | select($now == 0 or ((.ts | fromdateiso8601? // 0) > ($now - 600)))
+           | .exit_code' \
           2>/dev/null | tail -n1)"
       if [[ -n "$_rel_exit" && "$_rel_exit" =~ ^-?[0-9]+$ ]]; then
         [[ "$_rel_exit" -eq 0 ]] && _rel_pass="true" || _rel_pass="false"

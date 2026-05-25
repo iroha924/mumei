@@ -41,6 +41,12 @@ _init_plan_feature() {
   printf '%s\n' "$slug" >.mumei/current
 }
 
+# Helper: emit a fresh ISO 8601 Z timestamp for the test seed. The
+# 600s freshness window in post-task-event.sh excludes stale rows, so
+# tests cannot use a hard-coded date — the row would always fall
+# outside the window when the test runs.
+_now_ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
 # Helper: write a minimal spec-vehicle state.json for feature key $1.
 _init_spec_feature() {
   local feature="$1"
@@ -59,7 +65,7 @@ _init_spec_feature() {
 @test "TaskCompleted appends a reliability-log row for plan vehicle (verify-log pass)" {
   _init_plan_feature "fix-login"
   # Real verify-log shape: {ts, feature, vehicle, source, command, exit_code}.
-  printf '%s\n' '{"ts":"2026-05-25T00:00:00Z","feature":"fix-login","vehicle":"plan","source":"commit-gate","command":"npm test","exit_code":0}' \
+  printf '%s\n' '{"ts":"'"$(_now_ts)"'","feature":"fix-login","vehicle":"plan","source":"commit-gate","command":"npm test","exit_code":0}' \
     >.mumei/plans/fix-login/verify-log.jsonl
   run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
   [[ "$status" -eq 0 ]]
@@ -76,7 +82,7 @@ _init_spec_feature() {
 
 @test "TaskCompleted appends a reliability-log row for spec vehicle with wave (verify-log pass)" {
   _init_spec_feature "REQ-99-foo"
-  printf '%s\n' '{"ts":"2026-05-25T00:00:00Z","feature":"REQ-99-foo","vehicle":"spec","source":"commit-gate","command":"bats","exit_code":0}' \
+  printf '%s\n' '{"ts":"'"$(_now_ts)"'","feature":"REQ-99-foo","vehicle":"spec","source":"commit-gate","command":"bats","exit_code":0}' \
     >.mumei/specs/REQ-99-foo/verify-log.jsonl
   run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"2.1"}'
   [[ "$status" -eq 0 ]]
@@ -120,7 +126,7 @@ _init_spec_feature() {
     >.mumei/plans/fix-login/state.json.tmp
   mv .mumei/plans/fix-login/state.json.tmp .mumei/plans/fix-login/state.json
   # Seed verify-log (real schema: exit_code-based pass derivation).
-  printf '%s\n' '{"ts":"2026-05-25T00:00:00Z","feature":"fix-login","vehicle":"plan","source":"commit-gate","command":"npm test","exit_code":0}' \
+  printf '%s\n' '{"ts":"'"$(_now_ts)"'","feature":"fix-login","vehicle":"plan","source":"commit-gate","command":"npm test","exit_code":0}' \
     >.mumei/plans/fix-login/verify-log.jsonl
 
   _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
@@ -165,7 +171,7 @@ _init_spec_feature() {
 @test "TaskCompleted reads pass=false from verify-log.jsonl's latest row exit_code != 0" {
   _init_plan_feature "fix-login"
   # Real verify-log schema: pass derived from the latest row's exit_code.
-  printf '%s\n' '{"ts":"2026-05-25T00:00:00Z","feature":"fix-login","vehicle":"plan","source":"commit-gate","command":"npm test","exit_code":1}' \
+  printf '%s\n' '{"ts":"'"$(_now_ts)"'","feature":"fix-login","vehicle":"plan","source":"commit-gate","command":"npm test","exit_code":1}' \
     >.mumei/plans/fix-login/verify-log.jsonl
   _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
   local pass
@@ -174,6 +180,18 @@ _init_spec_feature() {
     echo "expected false, got $pass"
     return 1
   }
+}
+
+@test "TaskCompleted SKIPS reliability append when latest verify-log row is older than 600s (Codex C3 / D fix)" {
+  _init_plan_feature "fix-login"
+  # Seed an OLD row (1 hour ago) — outside the 600s freshness window,
+  # so post-task-event.sh must skip the reliability append rather than
+  # reusing the stale exit_code.
+  printf '%s\n' "{\"ts\":\"$(date -u -v-1H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)\",\"feature\":\"fix-login\",\"vehicle\":\"plan\",\"source\":\"commit-gate\",\"command\":\"npm test\",\"exit_code\":0}" \
+    >.mumei/plans/fix-login/verify-log.jsonl
+  run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
+  [[ "$status" -eq 0 ]]
+  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]]
 }
 
 @test "TaskCompleted end-to-end via real mumei_verify_log_append (adversarial F-001 regression)" {

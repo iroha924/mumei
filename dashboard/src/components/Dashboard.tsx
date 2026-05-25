@@ -51,6 +51,9 @@ const SECTION_INVALIDATIONS: Record<string, ReadonlyArray<readonly (string | num
   hero: [['meta'], ['meta', 'stats']],
   trends: [['trend', 'tokens', 14]],
   activity: [['activity', 50]],
+  // queryKey uses prefix matching; ['reliability'] invalidates both the
+  // active-only and ?include_archive=true variants of useReliability.
+  reliability: [['reliability']],
   detail: [],
 }
 
