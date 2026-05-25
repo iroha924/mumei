@@ -33,7 +33,30 @@ if [[ -f .mumei/current ]]; then
 fi
 [[ -n "$SLUG" ]] || exit 0
 
-# Only act when this is a plan-vehicle feature.
+# REQ-25.3.1 — Reliability append (両 vehicle 対応、plan-vehicle gate より前)
+# Purely additive: failures emit warnings but never block the caller. Source
+# the lib best-effort and gate on function availability so plugin upgrades /
+# downgrades that lack reliability.sh degrade cleanly to the legacy behavior.
+if [[ "$EVENT" == "TaskCompleted" ]]; then
+  # shellcheck source=_lib/reliability.sh disable=SC1091
+  source "${PLUGIN_ROOT}/hooks/_lib/reliability.sh" 2>/dev/null || true
+  if declare -F mumei_reliability_append >/dev/null 2>&1; then
+    _rel_task_id="$(printf '%s' "$INPUT" | jq -r '.task_id // empty')"
+    if [[ -n "$_rel_task_id" ]]; then
+      _rel_wave=""
+      if ! mumei_state_is_plan_vehicle "$SLUG" 2>/dev/null; then
+        _rel_wave="$(mumei_state_read_any "$SLUG" '.current_wave' 2>/dev/null || echo "")"
+      fi
+      _rel_log_dir="$(mumei_reliability_log_dir "$SLUG")"
+      _rel_pass="$(jq -r --arg t "$_rel_task_id" 'select(.task_id == $t) | .pass' \
+        "${_rel_log_dir}/verify-log.jsonl" 2>/dev/null | tail -n1)"
+      [[ -z "$_rel_pass" ]] && _rel_pass="true"
+      mumei_reliability_append "$SLUG" "$_rel_wave" "$_rel_task_id" "$_rel_pass" || true
+    fi
+  fi
+fi
+
+# Only act on counter / pending_review logic when this is a plan-vehicle feature.
 mumei_state_is_plan_vehicle "$SLUG" || exit 0
 
 # Counter mutation must be serialized — without a lock, two concurrent
