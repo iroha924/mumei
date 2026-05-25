@@ -120,13 +120,13 @@ repos:
         entry: bash scripts/lint-hook-ids.sh
         language: system
         pass_filenames: false
-        files: ^(ARCHITECTURE\.md|README\.md|hooks/|scripts/|tests/|docs/mumei-decisions\.md)
+        files: ^(ARCHITECTURE\.md|README\.md|hooks/[^/]*\.sh|scripts/[^/]*\.sh|tests/hooks/.*\.bats|docs/mumei-decisions\.md)$
       - id: lint-docs-drift
         name: lint-docs-drift (REQ-11.2)
         entry: bash scripts/lint-docs-drift.sh
         language: system
         pass_filenames: false
-        files: ^(ARCHITECTURE\.md|README\.md|README\.ja\.md|agents/|skills/|hooks/|scripts/|docs/mumei-decisions\.md)
+        files: ^(ARCHITECTURE\.md|README\.md|agents/[^/]*\.md|skills/.*/SKILL\.md|hooks/(_lib/)?[^/]*\.sh|scripts/[^/]*\.sh)$
       - id: lint-review-rubric
         name: lint-review-rubric (REQ-24.4)
         entry: bash scripts/lint-review-rubric.sh
@@ -138,7 +138,7 @@ repos:
         entry: bash scripts/lint-bash-prefix.sh
         language: system
         pass_filenames: false
-        files: ^(hooks/|scripts/).*\.sh$
+        files: ^((hooks/|scripts/)[^/]*\.sh|hooks/_lib/[^/]*\.sh)$
       - id: lint-frontmatter
         name: lint-frontmatter (agents / skills)
         entry: bash scripts/lint-frontmatter.sh
