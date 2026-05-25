@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# Append-only reliability log accumulator + pass^k aggregator.
+# Each row in reliability-log.jsonl captures one TaskCompleted trial:
+#   {feature, wave, task_id, trial_n, pass, ts}
+# Schema: schemas/reliability-log.schema.json (TypeBox canonical:
+# dashboard/src/schemas/reliability-log.ts).
+# Dependencies: jq
+
+set -u
+
+# Load log.sh on import (guarded against double sourcing)
+if ! declare -F mumei_log_info >/dev/null 2>&1; then
+  # shellcheck disable=SC1091
+  source "$(dirname "${BASH_SOURCE[0]}")/log.sh"
+fi
+
+# Resolve the log directory for a feature. Prefer .mumei/specs/<feature>/
+# over .mumei/plans/<feature>/; fall back to specs even if neither exists
+# (caller's directory creation is the contract).
+mumei_reliability_log_dir() {
+  local feature="$1"
+  if [[ -d ".mumei/specs/${feature}" ]]; then
+    printf '%s' ".mumei/specs/${feature}"
+  elif [[ -d ".mumei/plans/${feature}" ]]; then
+    printf '%s' ".mumei/plans/${feature}"
+  else
+    printf '%s' ".mumei/specs/${feature}"
+  fi
+}
+
+# Append one JSON line to ${log_dir}/reliability-log.jsonl.
+# Args: feature, wave, task_id, pass ("true"/"false"), [log_dir]
+# Contract: purely additive. Any failure (jq parse, IO, missing tools)
+# emits a stderr warning and returns 0 so the caller (post-task-event.sh)
+# never gets blocked.
+mumei_reliability_append() {
+  local feature="${1:-}" wave="${2:-}" task_id="${3:-}" pass="${4:-}" log_dir="${5:-}"
+
+  if [[ -z "$feature" || -z "$task_id" || -z "$pass" ]]; then
+    printf '[mumei reliability] append failed: missing required arg (feature/task_id/pass)\n' >&2
+    return 0
+  fi
+  if [[ "$pass" != "true" && "$pass" != "false" ]]; then
+    printf '[mumei reliability] append failed: pass must be true/false (got: %s)\n' "$pass" >&2
+    return 0
+  fi
+
+  [[ -z "$log_dir" ]] && log_dir="$(mumei_reliability_log_dir "$feature")"
+  local logfile="${log_dir}/reliability-log.jsonl"
+
+  if [[ ! -d "$log_dir" ]]; then
+    if ! mkdir -p "$log_dir" 2>/dev/null; then
+      printf '[mumei reliability] append failed: cannot mkdir %s\n' "$log_dir" >&2
+      return 0
+    fi
+  fi
+
+  local trial_n
+  if [[ -f "$logfile" ]]; then
+    trial_n="$(jq -s --arg w "$wave" --arg t "$task_id" \
+      '[.[] | select(.wave == $w and .task_id == $t)] | length + 1' \
+      "$logfile" 2>/dev/null)" || trial_n=""
+  else
+    trial_n="1"
+  fi
+  if [[ -z "$trial_n" || ! "$trial_n" =~ ^[0-9]+$ ]]; then
+    printf '[mumei reliability] append failed: cannot derive trial_n for (%s, %s)\n' "$wave" "$task_id" >&2
+    return 0
+  fi
+
+  local ts
+  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || {
+    printf '[mumei reliability] append failed: date unavailable\n' >&2
+    return 0
+  }
+
+  local line
+  line="$(jq -c -n \
+    --arg feature "$feature" \
+    --arg wave "$wave" \
+    --arg task_id "$task_id" \
+    --argjson trial_n "$trial_n" \
+    --argjson pass "$pass" \
+    --arg ts "$ts" \
+    '{feature: $feature, wave: $wave, task_id: $task_id, trial_n: $trial_n, pass: $pass, ts: $ts}' \
+    2>/dev/null)" || {
+    printf '[mumei reliability] append failed: jq error building row\n' >&2
+    return 0
+  }
+
+  if ! printf '%s\n' "$line" >>"$logfile" 2>/dev/null; then
+    printf '[mumei reliability] append failed: cannot write to %s\n' "$logfile" >&2
+    return 0
+  fi
+  return 0
+}
+
+# Compute pass^k over the most recent <window> trials.
+# Args: feature, k, window, [log_dir]
+# Stdout: single-line JSON {n_trials, k, window, value, evaluable}.
+# - value is the arithmetic mean (sum of pass=true count / n_trials),
+#   or the literal string "N/A" when n_trials < k or no log exists.
+# - evaluable is true iff n_trials >= k.
+# Never fails — missing/empty/corrupt log returns the N/A shape with exit 0.
+mumei_reliability_passk() {
+  local feature="${1:-}" k="${2:-3}" window="${3:-10}" log_dir="${4:-}"
+
+  [[ -z "$log_dir" ]] && log_dir="$(mumei_reliability_log_dir "$feature")"
+  local logfile="${log_dir}/reliability-log.jsonl"
+
+  if [[ ! -f "$logfile" ]] || [[ ! -s "$logfile" ]]; then
+    jq -c -n --argjson k "$k" --argjson window "$window" \
+      '{n_trials: 0, k: $k, window: $window, value: "N/A", evaluable: false}'
+    return 0
+  fi
+
+  # Take the last <window> non-empty lines, parse as jsonl, compute pass rate.
+  tail -n "$window" "$logfile" |
+    jq -s -c --argjson k "$k" --argjson window "$window" \
+      '
+          . as $rows
+          | ($rows | length) as $n
+          | if $n < $k then
+              {n_trials: $n, k: $k, window: $window, value: "N/A", evaluable: false}
+            else
+              ($rows | map(if .pass then 1 else 0 end) | add / length) as $rate
+              | {n_trials: $n, k: $k, window: $window, value: $rate, evaluable: true}
+            end
+        ' \
+      2>/dev/null ||
+    jq -c -n --argjson k "$k" --argjson window "$window" \
+      '{n_trials: 0, k: $k, window: $window, value: "N/A", evaluable: false}'
+  return 0
+}
+
+# Return the most recent <limit> trial rows as a JSON array (newest last).
+# Args: feature, limit, [log_dir]
+# Stdout: JSON array. Empty array when log absent/empty/corrupt.
+mumei_reliability_recent() {
+  local feature="${1:-}" limit="${2:-10}" log_dir="${3:-}"
+
+  [[ -z "$log_dir" ]] && log_dir="$(mumei_reliability_log_dir "$feature")"
+  local logfile="${log_dir}/reliability-log.jsonl"
+
+  if [[ ! -f "$logfile" ]] || [[ ! -s "$logfile" ]]; then
+    printf '[]'
+    return 0
+  fi
+
+  tail -n "$limit" "$logfile" | jq -s -c '.' 2>/dev/null || printf '[]'
+  return 0
+}

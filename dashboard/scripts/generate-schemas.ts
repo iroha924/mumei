@@ -18,6 +18,7 @@ import { CostLogEntrySchema } from '../src/schemas/cost-log.ts'
 import { FeatureDetailSchema } from '../src/schemas/feature-detail.ts'
 import { FeatureSummarySchema } from '../src/schemas/feature-summary.ts'
 import { MetaSchema, MetaStatsSchema } from '../src/schemas/meta.ts'
+import { ReliabilityLogEntrySchema } from '../src/schemas/reliability-log.ts'
 import { ReviewSchema } from '../src/schemas/review.ts'
 import { SseEventSchema } from '../src/schemas/sse-event.ts'
 import { StateSchema } from '../src/schemas/state.ts'
@@ -45,6 +46,7 @@ const targets: Target[] = [
   { filename: 'activity-event.schema.json', schema: ActivityEventSchema },
   { filename: 'sse-event.schema.json', schema: SseEventSchema },
   { filename: 'meta.schema.json', schema: { oneOf: [MetaSchema, MetaStatsSchema] } },
+  { filename: 'reliability-log.schema.json', schema: ReliabilityLogEntrySchema },
   {
     filename: 'trends.schema.json',
     schema: { oneOf: [TokensTrendSchema, ReviewsTrendSchema, HooksTrendSchema] },

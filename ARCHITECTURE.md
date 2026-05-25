@@ -53,6 +53,7 @@ mumei/
 │   │   ├── config.sh       # .mumei/config.json: golden-path glob + golden append + tool_gates map (pillar B)
 │   │   ├── gen-control.sh  # pillar E parsing: artifact path + Open Questions section
 │   │   ├── property.sh     # pillar B: _Invariant: structure validation + opt-in AC enum
+│   │   ├── reliability.sh  # append-only pass^k accumulator (TaskCompleted → reliability-log.jsonl) + window pass rate aggregator
 │   │   ├── reviewer-prompt.sh # immutable prefix + variable suffix builder for cache-friendly prompts
 │   │   ├── byte-exact.sh   # CRLF / tab advisory for byte-exact-prone file types
 │   │   ├── hook-stats.sh   # hook decision recorder (.mumei/.hook-stats.jsonl)

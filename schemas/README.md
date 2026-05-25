@@ -28,6 +28,7 @@ producer and consumer.
 | `feature-detail.schema.json`  | `dashboard/server/detail.ts`                     | dashboard frontend (DetailPanel)                         |
 | `activity-event.schema.json`  | `dashboard/server/activity.ts`                   | dashboard frontend (ActivityFeed)                        |
 | `sse-event.schema.json`       | `dashboard/server/sse.ts`                        | dashboard frontend (`useEventStream.ts`)                 |
+| `reliability-log.schema.json` | `hooks/_lib/reliability.sh`                      | dashboard frontend (ReliabilityTab), `/mumei:assure`, `/mumei:present` |
 
 ## How the two sides consume them
 
