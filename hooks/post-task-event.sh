@@ -66,7 +66,7 @@ if [[ "$EVENT" == "TaskCompleted" ]]; then
       # whole jq pipeline and silently flip pass derivation to "skip".
       # Parens around fromdateiso8601 keep precedence explicit
       # (Gemini portability follow-up).
-      _rel_exit="$(tail -n 100 "${_rel_log_dir}/verify-log.jsonl" 2>/dev/null |
+      _rel_exit="$(tail -n 1000 "${_rel_log_dir}/verify-log.jsonl" 2>/dev/null |
         jq -rR --argjson now "$_rel_now_epoch" \
           'fromjson? | objects
            | select(.exit_code != null and (.source == "commit-gate" or .source == "agent-run"))

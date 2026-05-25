@@ -169,15 +169,19 @@ mumei_reliability_passk() {
   fi
 
   # Take the last <window> non-empty lines, parse as jsonl, compute pass rate.
+  # Strict boolean check on .pass (Codex C12 fix): a schema-invalid row
+  # like `{"pass": "false"}` would otherwise be counted as a pass by
+  # truthy evaluation. fromjson? | objects also filters malformed lines
+  # without aborting the whole pipeline.
   tail -n "$window" "$logfile" |
-    jq -s -c --argjson k "$k" --argjson window "$window" \
+    jq -Rs -c --argjson k "$k" --argjson window "$window" \
       '
-          . as $rows
+          [split("\n")[] | select(length > 0) | fromjson? | objects] as $rows
           | ($rows | length) as $n
           | if $n < $k then
               {n_trials: $n, k: $k, window: $window, value: "N/A", evaluable: false}
             else
-              ($rows | map(if .pass then 1 else 0 end) | add / length) as $rate
+              ($rows | map(if .pass == true then 1 else 0 end) | add / length) as $rate
               | {n_trials: $n, k: $k, window: $window, value: $rate, evaluable: true}
             end
         ' \
@@ -201,6 +205,11 @@ mumei_reliability_recent() {
     return 0
   fi
 
-  tail -n "$limit" "$logfile" | jq -s -c '.' 2>/dev/null || printf '[]'
+  # fromjson? | objects filters non-object rows so downstream consumers
+  # (scripts/mumei-assure.sh table render) never see scalar JSON values
+  # (Codex C14 fix).
+  tail -n "$limit" "$logfile" |
+    jq -Rs -c '[split("\n")[] | select(length > 0) | fromjson? | objects]' 2>/dev/null ||
+    printf '[]'
   return 0
 }

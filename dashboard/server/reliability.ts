@@ -163,8 +163,11 @@ async function readOneFeature(
   const recent = rows.slice(-WINDOW)
   const n = recent.length
   const evaluable = n >= K
+  // Strict boolean check (Codex C13): a schema-invalid row like
+  // `"pass": "false"` must NOT be counted as a pass. Use === true so
+  // any non-boolean value contributes 0.
   const pass_rate: number | typeof PASS_VALUE_NA = evaluable
-    ? recent.reduce((acc, r) => acc + (r.pass ? 1 : 0), 0) / n
+    ? recent.reduce((acc, r) => acc + (r.pass === true ? 1 : 0), 0) / n
     : PASS_VALUE_NA
 
   let last_updated: string | null = null
