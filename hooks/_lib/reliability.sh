@@ -14,12 +14,18 @@ if ! declare -F mumei_log_info >/dev/null 2>&1; then
   source "$(dirname "${BASH_SOURCE[0]}")/log.sh"
 fi
 
-# Resolve the log directory for a feature. Prefer .mumei/specs/<feature>/
-# over .mumei/plans/<feature>/; fall back to specs even if neither exists
-# (caller's directory creation is the contract).
+# Resolve the log directory for a feature using state.json presence
+# (not bare directory existence), so a stale empty .mumei/specs/<slug>/
+# dir does NOT shadow the real plan-vehicle state.json (Codex C7 fix).
+# Falls back to directory-existence check for projects that pre-date
+# state.json (defensive), then to the spec path as the final default.
 mumei_reliability_log_dir() {
   local feature="$1"
-  if [[ -d ".mumei/specs/${feature}" ]]; then
+  if [[ -f ".mumei/specs/${feature}/state.json" ]]; then
+    printf '%s' ".mumei/specs/${feature}"
+  elif [[ -f ".mumei/plans/${feature}/state.json" ]]; then
+    printf '%s' ".mumei/plans/${feature}"
+  elif [[ -d ".mumei/specs/${feature}" ]]; then
     printf '%s' ".mumei/specs/${feature}"
   elif [[ -d ".mumei/plans/${feature}" ]]; then
     printf '%s' ".mumei/plans/${feature}"

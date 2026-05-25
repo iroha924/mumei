@@ -120,6 +120,68 @@ describe('listReliability', () => {
     expect(r.features[0]?.n_trials).toBe(2)
   })
 
+  it('Codex C6: dedups dual-state features (same slug in specs/ + plans/) with spec precedence', async () => {
+    const slug = 'dual-state-slug'
+    // Place the same slug under BOTH .mumei/specs/ and .mumei/plans/
+    // with divergent log content. The response must surface ONE row
+    // and that row MUST be the spec-vehicle data (precedence).
+    const specDir = path.join(projectRoot, '.mumei', 'specs', slug)
+    const planDir = path.join(projectRoot, '.mumei', 'plans', slug)
+    await mkdir(specDir, { recursive: true })
+    await mkdir(planDir, { recursive: true })
+    const specRows = [
+      {
+        feature: slug,
+        wave: '1',
+        task_id: '1.1',
+        trial_n: 1,
+        pass: true,
+        ts: '2026-05-25T01:00:00Z',
+      },
+      {
+        feature: slug,
+        wave: '1',
+        task_id: '1.2',
+        trial_n: 1,
+        pass: true,
+        ts: '2026-05-25T01:00:01Z',
+      },
+      {
+        feature: slug,
+        wave: '1',
+        task_id: '1.3',
+        trial_n: 1,
+        pass: true,
+        ts: '2026-05-25T01:00:02Z',
+      },
+    ]
+    await writeFile(
+      path.join(specDir, 'reliability-log.jsonl'),
+      specRows.map((r) => JSON.stringify(r)).join('\n') + '\n',
+    )
+    const planRows = [
+      {
+        feature: slug,
+        wave: '',
+        task_id: '1',
+        trial_n: 1,
+        pass: false,
+        ts: '2026-05-25T02:00:00Z',
+      },
+    ]
+    await writeFile(
+      path.join(planDir, 'reliability-log.jsonl'),
+      planRows.map((r) => JSON.stringify(r)).join('\n') + '\n',
+    )
+
+    const r = await listReliability({ projectRoot })
+    expect(r.features).toHaveLength(1)
+    expect(r.features[0]?.feature).toBe(slug)
+    expect(r.features[0]?.vehicle).toBe('spec')
+    expect(r.features[0]?.n_trials).toBe(3)
+    expect(r.features[0]?.pass_rate).toBe(1)
+  })
+
   it('REQ-25.4.2: sets per-feature error field on corrupt JSONL (no crash)', async () => {
     const featDir = path.join(projectRoot, '.mumei', 'specs', 'REQ-1-corrupt')
     await mkdir(featDir, { recursive: true })

@@ -45,7 +45,26 @@ export async function listReliability(args: {
     }
   }
 
-  const rows = await Promise.all(sources.map((s) => readOneFeature(s.dir, s.vehicle)))
+  // Codex C6 fix: deduplicate dual-state features (same slug appears
+  // under both .mumei/specs/ and .mumei/plans/). The repo treats this
+  // transitional state as a single feature with spec precedence — match
+  // that contract by keeping spec > plan > archive on slug collision.
+  const PRECEDENCE: Record<ReliabilityFeatureRow['vehicle'], number> = {
+    spec: 0,
+    plan: 1,
+    archive: 2,
+  }
+  const dedup = new Map<string, (typeof sources)[number]>()
+  for (const s of sources) {
+    const slug = path.basename(s.dir)
+    const existing = dedup.get(slug)
+    if (!existing || PRECEDENCE[s.vehicle] < PRECEDENCE[existing.vehicle]) {
+      dedup.set(slug, s)
+    }
+  }
+  const deduped = [...dedup.values()]
+
+  const rows = await Promise.all(deduped.map((s) => readOneFeature(s.dir, s.vehicle)))
   // Sort by last_updated descending (most recent first); rows with no
   // log land at the bottom alphabetically.
   rows.sort((a, b) => {
