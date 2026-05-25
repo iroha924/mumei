@@ -60,8 +60,19 @@ mumei_reliability_append() {
   # Acquire reliability-specific mkdir lock to serialize the
   # read-trial_n / write-row critical section. Up to ~5s with 200ms
   # back-off matches the existing post-task-event.sh counter lock cadence.
+  # Install trap BEFORE the loop, gated on the acquired flag, so a SIGTERM/
+  # SIGINT landing between mkdir-success and any explicit unlock can never
+  # leak the lock dir (adversarial F-007 fix; mirrors post-task-event.sh).
   local rel_lock="${log_dir}/.rel-lock"
   local _rel_acquired=0
+  # shellcheck disable=SC2317,SC2329
+  _mumei_reliability_trap_cleanup() {
+    trap - EXIT INT TERM
+    if [[ "$_rel_acquired" == "1" ]]; then
+      rmdir "$rel_lock" 2>/dev/null || true
+    fi
+  }
+  trap _mumei_reliability_trap_cleanup EXIT INT TERM
   local _rel_i
   for _rel_i in {1..25}; do
     if mkdir "$rel_lock" 2>/dev/null; then
@@ -71,13 +82,15 @@ mumei_reliability_append() {
     sleep 0.2
   done
   if [[ "$_rel_acquired" -eq 0 ]]; then
-    printf '[mumei reliability] append failed: cannot acquire lock %s within 5s\n' "$rel_lock" >&2
+    printf '[mumei reliability] append failed: cannot acquire lock %s within 5s; if a previous session crashed, remove %s manually\n' "$rel_lock" "$rel_lock" >&2
+    trap - EXIT INT TERM
     return 0
   fi
-  # Cleanup on every exit path below — even SIGKILL would leak the dir,
-  # but other signals release it. Subshell-style trap not used because
-  # this function is sourced into the caller's shell.
-  _mumei_reliability_unlock() { rmdir "$rel_lock" 2>/dev/null || true; }
+  _mumei_reliability_unlock() {
+    rmdir "$rel_lock" 2>/dev/null || true
+    _rel_acquired=0
+    trap - EXIT INT TERM
+  }
 
   local trial_n
   if [[ -f "$logfile" ]]; then
