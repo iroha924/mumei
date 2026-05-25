@@ -167,18 +167,22 @@ AI-generated code typically fails by referencing things that look real but
 don't exist. Verify, don't trust.
 
 - **Symbol existence** — resolve in order: (a) the codebase, (b) a dependency
-  declared in the project's manifest (package.json / requirements.txt /
-  Cargo.toml / go.mod / pyproject.toml / etc) and **pinned by its lockfile**
-  (package-lock.json / pnpm-lock.yaml / yarn.lock / Cargo.lock / go.sum /
-  poetry.lock / uv.lock / etc) at that exact version, (c) a verifiable public
-  API at the pinned version. The manifest alone (which often declares ranges)
-  is not sufficient — the resolved version comes from the lockfile. If (b) and
-  (c) disagree, the lockfile pin wins — flag the diff with a "lockfile vs
+  at the exact resolved version. The resolution source is the lockfile in
+  ecosystems that have one (npm `package-lock.json` / pnpm `pnpm-lock.yaml` /
+  yarn `yarn.lock`, Cargo `Cargo.lock`, Python `poetry.lock` / `uv.lock` /
+  pip `requirements.txt` with hashes) and `go.mod` for Go modules (where
+  versions come from MVS selection; `go.sum` only records integrity
+  checksums, and `vendor/modules.txt` records resolved versions for vendored
+  layouts). A bare manifest like `package.json` / `Cargo.toml` /
+  `pyproject.toml` typically declares ranges and is not sufficient. Then
+  (c) a verifiable public API at that pinned version. If (b) and (c)
+  disagree, the resolved-version source wins — flag the diff with a "pin vs
   upstream-docs mismatch" note. Any reference that resolves through none of
   these is a finding.
 - **API shape** — signatures, argument order, return types, and option keys
-  match the library version resolved by the lockfile, not a memorized variant
-  from another version. If unsure, label "needs version-specific verification".
+  match the resolved version above (lockfile / `go.mod` / etc), not a memorized
+  variant from another version. If unsure, label "needs version-specific
+  verification".
 - **Phantom identifiers** — every referenced env var, config key, secret name,
   file path, route, and command flag is defined or registered somewhere in the
   diff or the existing codebase. Invented identifiers count as a finding.
@@ -269,10 +273,14 @@ Two independent axes — every finding declares both.
   | --------------------- | ----------- | -------- | -------- |
   | Blocker               | block merge | triage   | triage   |
   | Major                 | triage      | advisory | advisory |
-  | Minor                 | advisory    | omit     | omit     |
+  | Minor                 | omit\*      | omit     | omit     |
   | Nit                   | omit        | omit     | omit     |
 
-  Override: when a finding that would otherwise be omitted (Minor × Medium/Low,
+  \*Minor × High would otherwise be advisory, but is omitted by default to
+  keep the advisory tier (Major × Medium/Low only) consistent under
+  single-threshold tool filtering. Surface it via Override.
+
+  Override: when a finding that would otherwise be omitted (Minor × any,
   Nit × any) lands on the AI-introduced-defects checklist above, **promote it
   to Major** so tools with single-threshold filtering still surface it.
 
@@ -363,7 +371,7 @@ above). mumei-specific mapping examples:
 
 If you cannot articulate a concrete failure scenario, do not raise the finding.
 Hypothetical concerns without a chain to user impact are filtered out at
-validator time per the same rule `agents/issue-validator.md` applies.
+validator time by the same rule applied in `agents/issue-validator.md`.
 
 ## Security considerations
 
