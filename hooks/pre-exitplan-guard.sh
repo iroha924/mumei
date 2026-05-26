@@ -11,8 +11,16 @@
 # This hook never blocks. Failures emit a warning to stderr
 # and the hook exits 0 so plan mode is never broken by mumei.
 #
-# Slug derivation:
-#   - if .mumei/current exists, use its first line as slug
+# Opt-in contract (README "Kuroko stance" — issue #104):
+#   Presence of `.mumei/current` is the opt-in marker. If the file is
+#   absent, this hook is a true no-op — it must NOT create `.mumei/`,
+#   state.json, or any other artifact. The marker is established by
+#   `/mumei:arrange` (creates an empty `.mumei/current`) or by
+#   `/mumei:proceed` (writes the resolved slug). Plan mode in projects
+#   that never opted in stays untouched.
+#
+# Slug derivation (only reached when `.mumei/current` exists):
+#   - if `.mumei/current` is non-empty, use its first line as slug
 #   - else, derive from basename of tool_input.planFilePath (stripping .md)
 
 set -u
@@ -21,6 +29,16 @@ set -u
 # in the right place when invoked from a subdir (monorepo dev).
 # shellcheck source=_lib/anchor.sh disable=SC1091
 source "${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(realpath "$0")")")}/hooks/_lib/anchor.sh"
+
+# Opt-in gate: bail before doing anything (including reading stdin or
+# sourcing further libs) when the project has not opted in. Honors the
+# README L66 contract: "No `.mumei/current` = every Hook is a no-op."
+# Placed immediately after the anchor so MUMEI_BYPASS handling and cwd
+# anchoring still run, but no plan-vehicle state is created.
+if [[ ! -f .mumei/current ]]; then
+  exit 0
+fi
+
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/log.sh"
 # shellcheck disable=SC1091
