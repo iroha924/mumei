@@ -73,9 +73,13 @@ mumei_http_post() {
   local url="$1"
   shift
   local response status
+  # Worst-case wall time = (retry+1) * max-time + retry * retry-delay.
+  # Keep it well under the workflow's 8-minute job timeout so a slow
+  # provider response doesn't snowball into a job-kill with no meta.json:
+  #   retry=2, max-time=90, retry-delay=2 → 2*90 + 1*2 = 182s.
   set +e
-  response=$(curl -sS --retry 3 --retry-delay 2 --retry-connrefused \
-    --max-time 120 --fail-with-body \
+  response=$(curl -sS --retry 2 --retry-delay 2 --retry-connrefused \
+    --max-time 90 --fail-with-body \
     "${url}" "$@")
   status=$?
   set -e
