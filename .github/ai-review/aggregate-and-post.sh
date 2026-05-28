@@ -145,14 +145,56 @@ provider_rows=$(printf '%s' "${metas_json}" | jq -r --argjson clusters "${cluste
 ')
 
 render_finding() {
+  # Cluster → rich markdown block with badges (tier / severity / confidence)
+  # for at-a-glance scanability, plus fenced code blocks for evidence and
+  # diff blocks for suggested fixes. Layout:
+  #
+  #   ### `file:line` — Title
+  #   [CONSENSUS] [severity:high] [confidence:high]
+  #
+  #   #### Gemini 3.1 Pro · `phantom_api`
+  #   Description prose.
+  #
+  #   <details><summary>Evidence</summary>
+  #
+  #   ```
+  #   <evidence>
+  #   ```
+  #   </details>
+  #
+  #   ```diff
+  #   <suggested_fix>
+  #   ```
+  #
+  # Highest severity in the cluster drives the cluster-level severity
+  # badge so a CONSENSUS issue with mixed severities surfaces the worst.
   printf '%s' "$1" | jq -r '
-    "<sub>**[\(.tier | ascii_upcase)] " + (.providers | join("·")) + "</sub>**  \n" +
-    "**`\(.file):\(.start_line)" + (if .start_line == .end_line then "" else "-\(.end_line)" end) + "`** — " +
-    "**\(.findings[0].title)**\n\n" +
+    # Map severity / confidence / tier to shields.io colour names.
+    def sev_color: { "critical": "8B0000", "high": "red", "medium": "orange", "low": "lightgrey" }[.] // "lightgrey";
+    def conf_color: { "high": "brightgreen", "medium": "yellow", "low": "lightgrey" }[.] // "lightgrey";
+    def tier_color: { "consensus": "blue", "majority": "yellow", "individual": "lightgrey" }[.] // "lightgrey";
+    def sev_rank: { "critical": 0, "high": 1, "medium": 2, "low": 3 }[.] // 4;
+
+    # Cluster-level severity = highest across all findings in the cluster.
+    ([.findings[].severity] | min_by(sev_rank)) as $cluster_sev
+    | ([.findings[].confidence] | min_by({ "high": 0, "medium": 1, "low": 2 }[.] // 3)) as $cluster_conf
+    | "### `\(.file):\(.start_line)" + (if .start_line == .end_line then "" else "-\(.end_line)" end) + "` — \(.findings[0].title)\n\n" +
+
+    # Badge row
+    "![tier](https://img.shields.io/badge/\(.tier | ascii_upcase)-\(.tier | tier_color)) " +
+    "![severity](https://img.shields.io/badge/severity-\($cluster_sev)-\($cluster_sev | sev_color)) " +
+    "![confidence](https://img.shields.io/badge/confidence-\($cluster_conf)-\($cluster_conf | conf_color)) " +
+    "![providers](https://img.shields.io/badge/by-\(.providers | join("%20%2B%20"))-grey)\n\n" +
+
+    # Per-LLM block
     ([.findings[] |
-      "> **\(._display)** · `\(.category)` · severity=**\(.severity)** · confidence=**\(.confidence)**  \n> \(.description | gsub("\n";" ")) " +
-      (if .suggested_fix and (.suggested_fix | length) > 0 then "\n>\n> _Fix:_ `\(.suggested_fix | gsub("\n";" ▸ "))`" else "" end)
-    ] | join("\n\n")) + "\n"
+      "#### \(._display) · `\(.category)`\n\n" +
+      "\(.description)\n\n" +
+      "<details><summary>Evidence</summary>\n\n```\n\(.evidence)\n```\n</details>\n\n" +
+      (if .suggested_fix and (.suggested_fix | length) > 0
+       then "**Suggested fix**\n\n```diff\n\(.suggested_fix)\n```\n"
+       else "" end)
+    ] | join("\n"))
 '
 }
 
@@ -224,20 +266,30 @@ fi
 inline_count=$(printf '%s' "${clusters}" | jq '[.[] | select(.tier != "individual")] | length')
 if [ "${inline_count}" -gt 0 ]; then
   inline_comments=$(printf '%s' "${clusters}" | jq -c '
+    def sev_color: { "critical": "8B0000", "high": "red", "medium": "orange", "low": "lightgrey" }[.] // "lightgrey";
+    def conf_color: { "high": "brightgreen", "medium": "yellow", "low": "lightgrey" }[.] // "lightgrey";
+    def tier_color: { "consensus": "blue", "majority": "yellow", "individual": "lightgrey" }[.] // "lightgrey";
+    def sev_rank: { "critical": 0, "high": 1, "medium": 2, "low": 3 }[.] // 4;
     [ .[]
       | select(.tier != "individual")
+      | ([.findings[].severity] | min_by(sev_rank)) as $sev
+      | ([.findings[].confidence] | min_by({ "high": 0, "medium": 1, "low": 2 }[.] // 3)) as $conf
       | {
           path: .file,
           line: .end_line,
           side: "RIGHT",
           body: (
-            "**[" + (.tier | ascii_upcase) + "] " + (.providers | join("·")) + "** · " +
-            (.findings[0].category) + " · severity=" + (.findings[0].severity) + "\n\n" +
-            .findings[0].title + "\n\n" +
-            ([.findings[] | "_" + ._display + ":_ " + .description] | join("\n\n")) +
-            (if .findings[0].suggested_fix and (.findings[0].suggested_fix | length) > 0
-             then "\n\n```suggestion\n" + .findings[0].suggested_fix + "\n```"
-             else "" end)
+            "**\(.findings[0].title)**\n\n" +
+            "![tier](https://img.shields.io/badge/\(.tier | ascii_upcase)-\(.tier | tier_color)) " +
+            "![severity](https://img.shields.io/badge/severity-\($sev)-\($sev | sev_color)) " +
+            "![confidence](https://img.shields.io/badge/confidence-\($conf)-\($conf | conf_color))\n\n" +
+            ([.findings[] |
+              "**\(._display)** · `\(.category)`\n\n" +
+              "\(.description)" +
+              (if .suggested_fix and (.suggested_fix | length) > 0
+               then "\n\n```suggestion\n\(.suggested_fix)\n```"
+               else "" end)
+            ] | join("\n\n---\n\n"))
           )
         }
     ]')
