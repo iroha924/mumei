@@ -249,20 +249,15 @@ body_file=$(mktemp)
 } >"${body_file}"
 
 # ---------------------------------------------------------------------------
-# Post or update the status comment (marker-based persistence).
+# Post a fresh status comment per run (no in-place update). The marker is
+# kept in the body so a future iteration can switch to "update in place"
+# without changing the rendered output. Per-push history stays visible in
+# the PR timeline — useful for tracking how findings evolved across
+# pushes.
 # ---------------------------------------------------------------------------
-existing_id=$(gh api "/repos/${REPO}/issues/${PR}/comments" \
-  --jq ".[] | select(.body | contains(\"${STATUS_MARKER}\")) | .id" | head -1)
-
-if [ -n "${existing_id}" ]; then
-  jq -n --rawfile body "${body_file}" '{body: $body}' |
-    gh api -X PATCH "/repos/${REPO}/issues/comments/${existing_id}" --input - >/dev/null
-  echo "[ai-review] updated status comment ${existing_id}"
-else
-  new_id=$(jq -n --rawfile body "${body_file}" '{body: $body}' |
-    gh api -X POST "/repos/${REPO}/issues/${PR}/comments" --input - --jq '.id')
-  echo "[ai-review] posted status comment ${new_id}"
-fi
+new_id=$(jq -n --rawfile body "${body_file}" '{body: $body}' |
+  gh api -X POST "/repos/${REPO}/issues/${PR}/comments" --input - --jq '.id')
+echo "[ai-review] posted status comment ${new_id}"
 
 # ---------------------------------------------------------------------------
 # Post inline review comments. We only post for consensus + majority clusters
