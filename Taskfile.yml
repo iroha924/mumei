@@ -229,6 +229,15 @@ tasks:
         check git        "comes with macOS dev tools"
         check node       "brew install node@22 (for dashboard)"
         check npm        "ships with node"
+        check python3    "comes with macOS; lint-frontmatter strict-parses YAML via PyYAML"
+        if command -v python3 >/dev/null 2>&1; then
+          if python3 -c "import yaml" 2>/dev/null; then
+            printf "  ✓ %-14s %s\n" "python3-yaml" "(PyYAML importable)"
+          else
+            printf "  ✗ %-14s MISSING — pip3 install pyyaml\n" "python3-yaml"
+            missing=$((missing + 1))
+          fi
+        fi
         echo
         echo "Optional (CI parity locally):"
         check gitleaks   "brew install gitleaks"

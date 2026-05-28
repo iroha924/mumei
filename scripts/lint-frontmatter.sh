@@ -34,14 +34,18 @@ mumei_parse_frontmatter() {
   python3 - "$file" <<'PY'
 import sys, yaml
 path = sys.argv[1]
-with open(path, encoding="utf-8") as fh:
+# utf-8-sig strips a UTF-8 BOM if present (Windows editors often add one);
+# without this the literal '﻿---' bytes hide the opening frontmatter
+# delimiter and every check reports "missing frontmatter".
+with open(path, encoding="utf-8-sig") as fh:
     lines = fh.readlines()
-if not lines or lines[0].rstrip("\n") != "---":
+# rstrip("\r\n") so CRLF (Windows) line endings also match the "---" delimiter.
+if not lines or lines[0].rstrip("\r\n") != "---":
     print("__no_frontmatter__")
     sys.exit(0)
 fm_lines = []
 for line in lines[1:]:
-    if line.rstrip("\n") == "---":
+    if line.rstrip("\r\n") == "---":
         break
     fm_lines.append(line)
 else:

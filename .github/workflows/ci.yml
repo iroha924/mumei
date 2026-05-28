@@ -81,6 +81,13 @@ jobs:
       - name: plan-vehicle hooks.json registration check
         run: task lint:plan-vehicle
 
+      # scripts/lint-frontmatter.sh strict-parses YAML via python3 + PyYAML.
+      # ubuntu-latest ships python3, but PyYAML availability is not
+      # contractually pinned in actions/runner-images — install it
+      # explicitly so the lint gate is reproducible across image revisions.
+      - name: install PyYAML (for lint:frontmatter)
+        run: python3 -m pip install --quiet --break-system-packages pyyaml
+
       - name: agent + skill frontmatter check
         run: task lint:frontmatter
 
