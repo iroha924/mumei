@@ -1,0 +1,90 @@
+{
+  "type": "object",
+  "required": ["overall_assessment", "summary", "findings"],
+  "properties": {
+    "overall_assessment": {
+      "type": "string",
+      "enum": ["PASS", "MINOR_ISSUES", "MAJOR_ISSUES"],
+      "description": "PASS = no high-confidence issues. MINOR_ISSUES = only medium/low severity. MAJOR_ISSUES = at least one high-confidence critical or high severity finding."
+    },
+    "summary": {
+      "type": "string",
+      "description": "One paragraph (2-5 sentences) summarising what the PR does and the headline review conclusion. No bullet lists."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Concrete, evidence-backed defects. Empty array when the diff is clean. Do NOT pad with low-confidence hunches.",
+      "items": {
+        "type": "object",
+        "required": [
+          "file",
+          "start_line",
+          "end_line",
+          "category",
+          "severity",
+          "confidence",
+          "title",
+          "description",
+          "evidence",
+          "suggested_fix"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Path of the affected file as it appears in the diff (repo-root-relative)."
+          },
+          "start_line": {
+            "type": "integer",
+            "description": "First line of the offending hunk in the NEW file (post-PR). Minimum 1."
+          },
+          "end_line": {
+            "type": "integer",
+            "description": "Last line of the offending hunk in the NEW file (post-PR). May equal start_line."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "hallucination",
+              "phantom_api",
+              "silent_inversion",
+              "incomplete_error_handling",
+              "async_race",
+              "type_drift",
+              "defensive_overengineering",
+              "security",
+              "performance",
+              "logic",
+              "other"
+            ],
+            "description": "Defect category — first 7 are AI-generated-code specific patterns from arxiv 2512.05239 / 2601.19106."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "How sure the reviewer is. Low-confidence findings are de-emphasized in the rendered output."
+          },
+          "title": {
+            "type": "string",
+            "description": "Short headline (< 80 chars). Imperative or noun phrase."
+          },
+          "description": {
+            "type": "string",
+            "description": "2-4 sentences explaining what the defect is, why it matters, and the realistic scenario it triggers under."
+          },
+          "evidence": {
+            "type": "string",
+            "description": "The exact code snippet (1-10 lines) from the diff that demonstrates the issue. Verbatim, no paraphrasing."
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "Concrete fix sketch (code, not prose). Set to an empty string when no obvious fix exists. Must be present — OpenAI strict mode requires every property in `required`."
+          }
+        }
+      }
+    }
+  }
+}
