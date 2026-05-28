@@ -59,6 +59,11 @@ try:
 except yaml.YAMLError as e:
     print(f"__parse_error__: {str(e).splitlines()[0]}")
     sys.exit(0)
+# yaml.safe_load("") and `# comment only` both return None. Surface that as
+# empty frontmatter (downstream bash detects no keys → distinct error) rather
+# than the misleading "got NoneType" parse-error message.
+if data is None:
+    data = {}
 if not isinstance(data, dict):
     print(f"__parse_error__: frontmatter is not a mapping (got {type(data).__name__})")
     sys.exit(0)

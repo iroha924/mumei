@@ -67,6 +67,51 @@ _minimal_agent() {
   [[ "$output" == *"missing frontmatter"* ]]
 }
 
+@test "empty frontmatter (between --- ---) reports empty, not NoneType parse error" {
+  # yaml.safe_load("") returns None — verify we surface that as an
+  # "empty frontmatter" error rather than the misleading
+  # "frontmatter is not a mapping (got NoneType)" parse error message.
+  mkdir -p skills/empty-fm
+  {
+    printf -- '---\n'
+    printf -- '---\n'
+    printf '# Body\n'
+  } >skills/empty-fm/SKILL.md
+  run bash "$_lint_script"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"empty frontmatter"* ]]
+  [[ "$output" != *"NoneType"* ]]
+}
+
+@test "comment-only frontmatter reports empty, not NoneType parse error" {
+  mkdir -p skills/comment-only
+  {
+    printf -- '---\n'
+    printf '# just a comment, no fields\n'
+    printf -- '---\n'
+  } >skills/comment-only/SKILL.md
+  run bash "$_lint_script"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"empty frontmatter"* ]]
+  [[ "$output" != *"NoneType"* ]]
+}
+
+@test "non-mapping frontmatter (e.g. YAML list) reports parse error with type" {
+  # A YAML list is not a mapping — we should still flag it as a parse
+  # error, distinct from the None case above.
+  mkdir -p skills/list-fm
+  {
+    printf -- '---\n'
+    printf -- '- one\n'
+    printf -- '- two\n'
+    printf -- '---\n'
+  } >skills/list-fm/SKILL.md
+  run bash "$_lint_script"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not a mapping"* ]]
+  [[ "$output" == *"list"* ]]
+}
+
 @test "fails on frontmatter missing the closing ---" {
   mkdir -p skills/no-close
   {
