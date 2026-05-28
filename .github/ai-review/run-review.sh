@@ -212,14 +212,16 @@ openai)
       elif type == "array" then map(add_ap)
       else . end;
     add_ap')
-  # GPT-5.5 is a reasoning model; the Responses API is the recommended
-  # entry point and accepts reasoning.effort. Chat Completions is still
-  # supported but discards reasoning hints, so the model defaults to
-  # `medium` effort and burns more tokens than needed for a structured
-  # review pass. We use the lowest non-zero effort to keep latency / cost
-  # in line with the Gemini side. See:
-  #   <https://developers.openai.com/api/docs/guides/reasoning>
-  #   <https://developers.openai.com/api/docs/guides/structured-outputs>
+  # GPT-5.5 also accepts reasoning_effort via Chat Completions (verified in
+  # docs/guides/reasoning). We stay on Chat Completions for two reasons:
+  #   1. Branch protection checks the ai-review workflow against the BASE
+  #      ref, so any Responses-API regression would not surface until after
+  #      merge — effectively a blind merge. Chat Completions has been
+  #      exercised on this repo across many runs.
+  #   2. The Responses API SDK / curl shape (text.format vs response_format,
+  #      output_parsed vs output[].content[].text) is currently inconsistent
+  #      between the two relevant OpenAI guide pages, which raises the
+  #      probability of a silent payload-shape bug we can't catch in CI.
   request=$(jq -n \
     --arg model "${LLM_MODEL}" \
     --arg sys "${system_prompt}" \
@@ -227,40 +229,28 @@ openai)
     --argjson schema "${schema_oai}" \
     '{
         model: $model,
-        reasoning: { effort: "low" },
-        instructions: $sys,
-        input: [
+        reasoning_effort: "low",
+        messages: [
+          { role: "system", content: $sys },
           { role: "user", content: $usr }
         ],
-        text: {
-          format: {
-            type: "json_schema",
+        response_format: {
+          type: "json_schema",
+          json_schema: {
             name: "code_review",
             strict: true,
             schema: $schema
           }
         }
       }')
-  raw=$(mumei_http_post https://api.openai.com/v1/responses \
+  raw=$(mumei_http_post https://api.openai.com/v1/chat/completions \
     -H "Authorization: Bearer ${OPENAI_KEY}" \
     -H "Content-Type: application/json" \
     -d "${request}")
-  # The Responses API can return the structured payload either as
-  # `output_parsed` (already deserialised) or as `output[].content[].text`
-  # for type=output_text. We accept either to stay robust to API surface
-  # changes between preview releases.
-  findings_text=$(mumei_jq_or_default "${raw}" '
-    if .output_parsed then (.output_parsed | tojson)
-    elif (.output // [] | length) > 0 then
-      [.output[]?
-       | select(.type == "message")
-       | .content[]?
-       | select(.type == "output_text")
-       | .text] | join("")
-    else empty end // empty' "")
-  prompt_tokens=$(mumei_jq_or_default "${raw}" '.usage.input_tokens // 0' "0")
-  completion_tokens=$(mumei_jq_or_default "${raw}" '.usage.output_tokens // 0' "0")
-  cached_tokens=$(mumei_jq_or_default "${raw}" '.usage.input_tokens_details.cached_tokens // 0' "0")
+  findings_text=$(mumei_jq_or_default "${raw}" '.choices[0].message.content // empty' "")
+  prompt_tokens=$(mumei_jq_or_default "${raw}" '.usage.prompt_tokens // 0' "0")
+  completion_tokens=$(mumei_jq_or_default "${raw}" '.usage.completion_tokens // 0' "0")
+  cached_tokens=$(mumei_jq_or_default "${raw}" '.usage.prompt_tokens_details.cached_tokens // 0' "0")
   ;;
 
 *)
