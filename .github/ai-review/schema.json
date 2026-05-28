@@ -56,7 +56,7 @@
               "logic",
               "other"
             ],
-            "description": "Defect category — first 7 are AI-generated-code specific patterns from arxiv 2512.05239 / 2601.19106."
+            "description": "Defect category — first 7 are AI-generated-code specific patterns synthesised from arxiv 2512.05239 (survey of bugs in AI-generated code) and arxiv 2601.19106 (deterministic AST analysis for LLM hallucinations)."
           },
           "severity": {
             "type": "string",

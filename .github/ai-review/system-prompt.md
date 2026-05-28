@@ -41,7 +41,7 @@ review prioritises them.
     above: off-by-one, wrong sign, wrong operator, wrong constant.
 11. **other** — last resort when the issue is real but doesn't fit.
 
-## Method (semi-formal reasoning, per Meta 2026 / arxiv 2511.05874)
+## Method (semi-formal reasoning, per Meta's "Agentic Code Reasoning", arxiv 2603.01896)
 
 Before writing the JSON, internally:
 

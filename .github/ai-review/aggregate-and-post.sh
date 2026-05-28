@@ -60,42 +60,10 @@ findings_flat=$(printf '%s' "${findings_all}" | jq 'add // []')
 # ---------------------------------------------------------------------------
 provider_count=$(printf '%s' "${metas_json}" | jq 'length')
 
-clusters=$(printf '%s' "${findings_flat}" | jq --argjson n "${provider_count}" '
-  # Sort findings so deterministic clustering is possible.
-  sort_by(.file, .start_line, ._provider)
-  | reduce .[] as $f ([];
-      if length == 0 then [[$f]]
-      else
-        .[-1][0] as $head
-        | if ($head.file == $f.file
-              and (($head.start_line - 2) <= $f.start_line)
-              and ($f.start_line <= ($head.end_line + 2)))
-          then (.[:-1] + [.[-1] + [$f]])
-          else (. + [[$f]])
-          end
-      end)
-  | map({
-      file: .[0].file,
-      start_line: ([.[].start_line] | min),
-      end_line: ([.[].end_line] | max),
-      providers: ([.[]._provider] | unique),
-      provider_displays: ([.[]._display] | unique),
-      findings: .,
-      tier: (
-        ([.[]._provider] | unique | length) as $unique_providers
-        # Consensus requires both >= total provider count AND at least 2
-        # providers actually participating. Without the >=2 floor, a
-        # degraded run where only one reviewer artifact uploaded would
-        # promote every single-provider finding to consensus (the only
-        # provider trivially satisfies "all flagged"). Caught by GPT-5.5
-        # in its own review of this file.
-        | if ($unique_providers >= $n and $n >= 2) then "consensus"
-          elif $unique_providers >= 2 then "majority"
-          else "individual"
-          end
-      )
-    })
-')
+# Clustering algorithm lives in cluster.jq so it can be golden-tested
+# independently of gh / curl. See tests/scripts/ai-review-cluster.bats.
+clusters=$(printf '%s' "${findings_flat}" |
+  jq --argjson n "${provider_count}" -f "$(dirname "$0")/cluster.jq")
 
 # ---------------------------------------------------------------------------
 # Compose the status comment.
@@ -172,8 +140,9 @@ render_finding() {
   #   <suggested_fix>
   #   ```
   #
-  # Highest severity in the cluster drives the cluster-level severity
-  # badge so a CONSENSUS issue with mixed severities surfaces the worst.
+  # The cluster surfaces the WORST severity in the cluster — `min_by(sev_rank)`
+  # picks the lowest rank, and rank 0 = critical (see sev_rank below), so the
+  # `min_by` reads inverted but is correct.
   printf '%s' "$1" | jq -r '
     # Map severity / confidence / tier to shields.io colour names.
     def sev_color: { "critical": "8B0000", "high": "red", "medium": "orange", "low": "lightgrey" }[.] // "lightgrey";
@@ -181,12 +150,15 @@ render_finding() {
     def tier_color: { "consensus": "blue", "majority": "yellow", "individual": "lightgrey" }[.] // "lightgrey";
     def sev_rank: { "critical": 0, "high": 1, "medium": 2, "low": 3 }[.] // 4;
 
-    # Cluster-level severity = highest across all findings in the cluster.
+    # Cluster-level severity = worst across all findings in the cluster
+    # (lowest rank wins; rank 0 = critical, see sev_rank above).
     ([.findings[].severity] | min_by(sev_rank)) as $cluster_sev
     | ([.findings[].confidence] | min_by({ "high": 0, "medium": 1, "low": 2 }[.] // 3)) as $cluster_conf
     | "### `\(.file):\(.start_line)" + (if .start_line == .end_line then "" else "-\(.end_line)" end) + "` — \(.findings[0].title)\n\n" +
 
-    # Badge row
+    # Badge row. shields.io needs spaces / `+` URL-encoded in the path —
+    # literal characters render inconsistently across GitHub markdown
+    # rendering modes.
     "![tier](https://img.shields.io/badge/\(.tier | ascii_upcase)-\(.tier | tier_color)) " +
     "![severity](https://img.shields.io/badge/severity-\($cluster_sev)-\($cluster_sev | sev_color)) " +
     "![confidence](https://img.shields.io/badge/confidence-\($cluster_conf)-\($cluster_conf | conf_color)) " +
@@ -249,24 +221,60 @@ body_file=$(mktemp)
 } >"${body_file}"
 
 # ---------------------------------------------------------------------------
-# Post a fresh status comment per run (no in-place update). The marker is
-# kept in the body so a future iteration can switch to "update in place"
-# without changing the rendered output. Per-push history stays visible in
-# the PR timeline — useful for tracking how findings evolved across
-# pushes.
+# Sticky status comment: find the previous one by STATUS_MARKER and PATCH it
+# so the PR timeline stays clean across pushes. Falls back to POST on the
+# first run. Paginate so older PRs with > 30 comments still match.
 # ---------------------------------------------------------------------------
-new_id=$(jq -n --rawfile body "${body_file}" '{body: $body}' |
-  gh api -X POST "/repos/${REPO}/issues/${PR}/comments" --input - --jq '.id')
-echo "[ai-review] posted status comment ${new_id}"
+# `gh api --paginate` concatenates per-page JSON; `--jq` would apply to each
+# page separately and emit a newline-joined id list across pages. Slurp the
+# combined stream with `jq -s` and flatten before filtering so the result is
+# a single id (or empty).
+existing_id=$(gh api --paginate "/repos/${REPO}/issues/${PR}/comments" |
+  jq -s -r --arg marker "${STATUS_MARKER}" '
+    add // [] | [.[] | select(.body | contains($marker)) | .id] | last // empty
+  ')
+
+payload=$(jq -n --rawfile body "${body_file}" '{body: $body}')
+if [ -n "${existing_id}" ]; then
+  printf '%s' "${payload}" |
+    gh api -X PATCH "/repos/${REPO}/issues/comments/${existing_id}" --input - --jq '.id' >/dev/null
+  echo "[ai-review] updated status comment ${existing_id}"
+else
+  new_id=$(printf '%s' "${payload}" |
+    gh api -X POST "/repos/${REPO}/issues/${PR}/comments" --input - --jq '.id')
+  echo "[ai-review] posted status comment ${new_id}"
+fi
 
 # ---------------------------------------------------------------------------
 # Post inline review comments. We only post for consensus + majority clusters
 # (individual observations stay in the status comment to avoid noise).
-# Posting strategy: a single Reviews API call with all comments inline.
+#
+# Each comment body includes INLINE_MARKER so the next run can find and
+# delete the previous batch — without this, every push stacks duplicate
+# inline comments, since GitHub's review dismiss API does not apply to
+# event=COMMENT reviews.
 # ---------------------------------------------------------------------------
+INLINE_MARKER="<!-- ai-review-inline -->"
+
+# Delete inline comments from prior runs by INLINE_MARKER. Same paginate
+# caveat as the status comment fetch above — slurp + flatten before filtering.
+prior_inline=$(gh api --paginate "/repos/${REPO}/pulls/${PR}/comments" |
+  jq -s -r --arg marker "${INLINE_MARKER}" '
+    add // [] | [.[] | select(.body | contains($marker)) | .id] | join(" ")
+  ')
+if [ -n "${prior_inline}" ]; then
+  prior_count=0
+  for cid in ${prior_inline}; do
+    if gh api -X DELETE "/repos/${REPO}/pulls/comments/${cid}" >/dev/null 2>&1; then
+      prior_count=$((prior_count + 1))
+    fi
+  done
+  echo "[ai-review] removed ${prior_count} prior inline comment(s)"
+fi
+
 inline_count=$(printf '%s' "${clusters}" | jq '[.[] | select(.tier != "individual")] | length')
 if [ "${inline_count}" -gt 0 ]; then
-  inline_comments=$(printf '%s' "${clusters}" | jq -c '
+  inline_comments=$(printf '%s' "${clusters}" | jq -c --arg marker "${INLINE_MARKER}" '
     def sev_color: { "critical": "8B0000", "high": "red", "medium": "orange", "low": "lightgrey" }[.] // "lightgrey";
     def conf_color: { "high": "brightgreen", "medium": "yellow", "low": "lightgrey" }[.] // "lightgrey";
     def tier_color: { "consensus": "blue", "majority": "yellow", "individual": "lightgrey" }[.] // "lightgrey";
@@ -280,6 +288,7 @@ if [ "${inline_count}" -gt 0 ]; then
           line: .end_line,
           side: "RIGHT",
           body: (
+            $marker + "\n" +
             "**\(.findings[0].title)**\n\n" +
             "![tier](https://img.shields.io/badge/\(.tier | ascii_upcase)-\(.tier | tier_color)) " +
             "![severity](https://img.shields.io/badge/severity-\($sev)-\($sev | sev_color)) " +

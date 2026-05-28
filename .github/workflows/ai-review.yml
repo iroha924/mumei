@@ -16,9 +16,10 @@ name: ai-review
 #   - AI-generated code has defect classes (hallucinated APIs, phantom
 #     parameters, silent inversion, defensive overengineering, type drift)
 #     that off-the-shelf reviewers don't prioritise.
-#   - Multi-LLM ensemble (Mozilla AI "Star Chamber" pattern + arxiv
-#     2602.09341) catches strictly more than single-LLM review at the cost
-#     of running both providers in parallel.
+#   - Multi-LLM ensemble (Mozilla AI "Star Chamber" pattern,
+#     <https://blog.mozilla.ai/the-star-chamber-multi-llm-consensus-for-code-quality/>)
+#     catches strictly more than single-LLM review at the cost of running
+#     both providers in parallel.
 #   - The prompt + schema live in this repo as source files we can iterate
 #     on, not buried in a third-party container.
 #
@@ -32,9 +33,13 @@ name: ai-review
 #   - OPENAI_KEY      (OpenAI Platform)
 # `GITHUB_TOKEN` is supplied automatically.
 #
-# Cost (May 2026 list prices):
-#   - Gemini 3.1 Pro Preview: $2  in / $12 out per 1M tokens
-#   - GPT-5.5:                $5  in / $30 out per 1M tokens
+# Cost (verified 2026-05-28 from provider pricing pages):
+#   - Gemini 3.1 Pro Preview: $2  in / $12 out per 1M tokens (prompts <=200k)
+#     <https://ai.google.dev/gemini-api/docs/pricing>
+#   - GPT-5.5:                $5  in / $30 out per 1M tokens (standard tier)
+#     <https://developers.openai.com/api/docs/pricing>
+# Prompt caching (system + project context) reduces input cost ~10x on both
+# providers (Gemini cached: $0.20/M, OpenAI cached: $0.50/M).
 
 on:
   pull_request:
@@ -42,17 +47,20 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
+  pull-requests: write # also covers issue-comments on PRs (sticky status)
 
 concurrency:
   group: ai-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Skip fork PRs: GitHub does not pass repo secrets to workflows triggered by
+# pull_request from forks, so GEMINI_API_KEY / OPENAI_KEY would be empty and
+# every run would fail with HTTP 401. Maintainers can re-run after merging
+# the fork into a same-repo branch if a review is needed.
 jobs:
   gemini:
     name: review (gemini-3.1-pro)
-    if: ${{ github.event.sender.type != 'Bot' }}
+    if: ${{ github.event.sender.type != 'Bot' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
@@ -97,7 +105,7 @@ jobs:
 
   openai:
     name: review (gpt-5.5)
-    if: ${{ github.event.sender.type != 'Bot' }}
+    if: ${{ github.event.sender.type != 'Bot' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
@@ -133,7 +141,7 @@ jobs:
   aggregate:
     name: aggregate review
     needs: [gemini, openai]
-    if: ${{ always() && github.event.sender.type != 'Bot' }}
+    if: ${{ always() && github.event.sender.type != 'Bot' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
