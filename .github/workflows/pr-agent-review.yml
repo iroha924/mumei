@@ -57,6 +57,13 @@ jobs:
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
           github_action_config.auto_improve: "true"
+          # pr-agent's internal pr_actions allowlist defaults to
+          # ["opened", "reopened", "ready_for_review", "review_requested"]
+          # — note the absence of "synchronize". Without overriding this,
+          # pr-agent exits with "Skipping action: synchronize" on every
+          # push and never re-reviews. Adding synchronize gives the
+          # behaviour the workflow's `on:` block already wires for.
+          github_action_config.pr_actions: '["opened", "synchronize", "reopened", "ready_for_review"]'
           # Identify which LLM authored the review when two run on the
           # same PR (both post as github-actions[bot]).
           pr_reviewer.extra_instructions: |
@@ -79,6 +86,13 @@ jobs:
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
           github_action_config.auto_improve: "true"
+          # pr-agent's internal pr_actions allowlist defaults to
+          # ["opened", "reopened", "ready_for_review", "review_requested"]
+          # — note the absence of "synchronize". Without overriding this,
+          # pr-agent exits with "Skipping action: synchronize" on every
+          # push and never re-reviews. Adding synchronize gives the
+          # behaviour the workflow's `on:` block already wires for.
+          github_action_config.pr_actions: '["opened", "synchronize", "reopened", "ready_for_review"]'
           pr_reviewer.extra_instructions: |
             Begin your review summary with the line `## 🟢 GPT-5.5` so the reader can distinguish this review from the Gemini 3.1 Pro review running in parallel.
           pr_code_suggestions.extra_instructions: |
