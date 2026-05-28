@@ -121,13 +121,24 @@ gemini)
 
 openai)
   : "${OPENAI_KEY:?required for openai}"
-  # OpenAI structured outputs require a wrapping json_schema object. The
-  # `strict: true` flag enables constrained decoding (guaranteed-valid JSON).
+  # OpenAI `strict: true` mandates `additionalProperties: false` on every
+  # nested object (per platform.openai.com/docs/guides/structured-outputs).
+  # The base schema omits it because Gemini v1beta's `responseSchema` does
+  # not accept that field (per ai.google.dev/api/caching#Schema). Inject
+  # it here only for the OpenAI call by walking the schema tree.
+  schema_oai=$(printf '%s' "${schema}" | jq '
+    def add_ap:
+      if type == "object" then
+        (if .type == "object" then . + {additionalProperties: false} else . end)
+        | with_entries(.value |= add_ap)
+      elif type == "array" then map(add_ap)
+      else . end;
+    add_ap')
   request=$(jq -n \
     --arg model "${LLM_MODEL}" \
     --arg sys "${system_prompt}" \
     --arg usr "${user_prompt}" \
-    --argjson schema "${schema}" \
+    --argjson schema "${schema_oai}" \
     '{
         model: $model,
         messages: [
