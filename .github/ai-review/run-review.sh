@@ -38,6 +38,38 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 system_prompt=$(cat "${script_dir}/system-prompt.md")
 schema=$(cat "${script_dir}/schema.json")
 
+# Safely truncate $1 to at most $2 bytes, stripping any partial UTF-8 sequence
+# at the boundary so we never embed an invalid byte in the JSON payload.
+# `head -c` cuts at the byte boundary; `iconv //IGNORE` discards the trailing
+# malformed code point (if any) without affecting valid prefix bytes.
+mumei_truncate_bytes() {
+  printf '%s' "$1" | head -c "$2" | iconv -f UTF-8 -t UTF-8//IGNORE
+}
+
+# HTTP POST to a provider endpoint with retries on transient failures and a
+# hard timeout. `--fail-with-body` makes HTTP >=400 produce a non-zero exit
+# while still streaming the response body to stdout (for diagnostics).
+# `set +e` is needed because the caller runs under `set -e`; we want curl
+# failures to surface through findings_text validation, not abort the script
+# before we can write meta.json.
+#
+# Usage: mumei_http_post URL -H "Header: ..." -d "${request}"
+mumei_http_post() {
+  local url="$1"
+  shift
+  local response status
+  set +e
+  response=$(curl -sS --retry 3 --retry-delay 2 --retry-connrefused \
+    --max-time 120 --fail-with-body \
+    "${url}" "$@")
+  status=$?
+  set -e
+  if [ "${status}" -ne 0 ]; then
+    echo "[ai-review] WARN: curl exit ${status} for ${url}" >&2
+  fi
+  printf '%s' "${response}"
+}
+
 # ---------------------------------------------------------------------------
 # Build the user prompt: PR meta + project context (CLAUDE.md if present) +
 # diff. The diff is fetched from GitHub rather than git so the script also
@@ -47,26 +79,35 @@ pr_json=$(gh api "/repos/${REPO}/pulls/${PR}")
 pr_title=$(printf '%s' "${pr_json}" | jq -r '.title')
 pr_body=$(printf '%s' "${pr_json}" | jq -r '.body // ""')
 
-# Truncate body to 8k to keep prompt size predictable.
-if [ ${#pr_body} -gt 8000 ]; then
-  pr_body="${pr_body:0:8000}…(truncated)"
+# Truncate body to 8k bytes to keep prompt size predictable.
+if [ "${#pr_body}" -gt 8000 ]; then
+  pr_body="$(mumei_truncate_bytes "${pr_body}" 8000)…(truncated)"
 fi
 
 # Optional project context — CLAUDE.md is the convention. Skip silently when
 # absent (this workflow must work in any repo).
 project_context=""
 if [ -f CLAUDE.md ]; then
-  project_context=$(head -c 4000 CLAUDE.md)
+  # head -c may cut mid-codepoint; iconv //IGNORE strips the partial tail.
+  project_context=$(head -c 4000 CLAUDE.md | iconv -f UTF-8 -t UTF-8//IGNORE)
 fi
 
-# The full PR diff, capped at 200k chars to fit context windows. Large PRs
-# beyond this cap fall back to "summary only — review skipped".
-diff_raw=$(gh api -H "Accept: application/vnd.github.v3.diff" \
-  "/repos/${REPO}/pulls/${PR}" 2>/dev/null || true)
-diff_len=${#diff_raw}
+# The full PR diff, capped at 200k bytes to fit both providers' context
+# windows on the cheaper pricing tier. Fail closed if the diff cannot be
+# fetched or is empty — an empty diff would silently produce a PASS review
+# and mask the underlying API failure.
+if ! diff_raw=$(gh api -H "Accept: application/vnd.github.v3.diff" \
+  "/repos/${REPO}/pulls/${PR}"); then
+  echo "[ai-review] ERROR: failed to fetch PR diff from GitHub API" >&2
+  exit 1
+fi
+if [ -z "${diff_raw}" ]; then
+  echo "[ai-review] ERROR: PR diff is empty (PR may be closed or have no changes)" >&2
+  exit 1
+fi
 diff_truncated=false
-if [ "${diff_len}" -gt 200000 ]; then
-  diff_raw="${diff_raw:0:200000}"
+if [ "${#diff_raw}" -gt 200000 ]; then
+  diff_raw=$(mumei_truncate_bytes "${diff_raw}" 200000)
   diff_truncated=true
 fi
 
@@ -110,13 +151,14 @@ gemini)
           responseSchema: $schema
         }
       }')
-  raw=$(curl -sS \
+  raw=$(mumei_http_post \
     "https://generativelanguage.googleapis.com/v1beta/models/${LLM_MODEL}:generateContent?key=${GEMINI_API_KEY}" \
     -H "Content-Type: application/json" \
     -d "${request}")
   findings_text=$(printf '%s' "${raw}" | jq -r '.candidates[0].content.parts[0].text // empty')
   prompt_tokens=$(printf '%s' "${raw}" | jq -r '.usageMetadata.promptTokenCount // 0')
   completion_tokens=$(printf '%s' "${raw}" | jq -r '.usageMetadata.candidatesTokenCount // 0')
+  cached_tokens=$(printf '%s' "${raw}" | jq -r '.usageMetadata.cachedContentTokenCount // 0')
   ;;
 
 openai)
@@ -134,6 +176,14 @@ openai)
       elif type == "array" then map(add_ap)
       else . end;
     add_ap')
+  # GPT-5.5 is a reasoning model; the Responses API is the recommended
+  # entry point and accepts reasoning.effort. Chat Completions is still
+  # supported but discards reasoning hints, so the model defaults to
+  # `medium` effort and burns more tokens than needed for a structured
+  # review pass. We use the lowest non-zero effort to keep latency / cost
+  # in line with the Gemini side. See:
+  #   <https://developers.openai.com/api/docs/guides/reasoning>
+  #   <https://developers.openai.com/api/docs/guides/structured-outputs>
   request=$(jq -n \
     --arg model "${LLM_MODEL}" \
     --arg sys "${system_prompt}" \
@@ -141,26 +191,40 @@ openai)
     --argjson schema "${schema_oai}" \
     '{
         model: $model,
-        messages: [
-          { role: "system", content: $sys },
+        reasoning: { effort: "low" },
+        instructions: $sys,
+        input: [
           { role: "user", content: $usr }
         ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
+        text: {
+          format: {
+            type: "json_schema",
             name: "code_review",
             strict: true,
             schema: $schema
           }
         }
       }')
-  raw=$(curl -sS https://api.openai.com/v1/chat/completions \
+  raw=$(mumei_http_post https://api.openai.com/v1/responses \
     -H "Authorization: Bearer ${OPENAI_KEY}" \
     -H "Content-Type: application/json" \
     -d "${request}")
-  findings_text=$(printf '%s' "${raw}" | jq -r '.choices[0].message.content // empty')
-  prompt_tokens=$(printf '%s' "${raw}" | jq -r '.usage.prompt_tokens // 0')
-  completion_tokens=$(printf '%s' "${raw}" | jq -r '.usage.completion_tokens // 0')
+  # The Responses API can return the structured payload either as
+  # `output_parsed` (already deserialised) or as `output[].content[].text`
+  # for type=output_text. We accept either to stay robust to API surface
+  # changes between preview releases.
+  findings_text=$(printf '%s' "${raw}" | jq -r '
+    if .output_parsed then (.output_parsed | tojson)
+    elif (.output // [] | length) > 0 then
+      [.output[]?
+       | select(.type == "message")
+       | .content[]?
+       | select(.type == "output_text")
+       | .text] | join("")
+    else empty end // empty')
+  prompt_tokens=$(printf '%s' "${raw}" | jq -r '.usage.input_tokens // 0')
+  completion_tokens=$(printf '%s' "${raw}" | jq -r '.usage.output_tokens // 0')
+  cached_tokens=$(printf '%s' "${raw}" | jq -r '.usage.input_tokens_details.cached_tokens // 0')
   ;;
 
 *)
@@ -195,11 +259,30 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Cost = (prompt * in_price + completion * out_price) / 1M, formatted as USD.
+# Cost = ((prompt - cached) * in_price + cached * in_price * 0.1
+#         + completion * out_price) / 1M, formatted as USD.
+# Both Gemini and OpenAI price cached input tokens at roughly 10% of the
+# uncached rate (Gemini $0.20/M vs $2/M, OpenAI $0.50/M vs $5/M), so the
+# 0.1 multiplier is a portable approximation. Override via CACHED_RATIO if
+# a provider diverges.
 # ---------------------------------------------------------------------------
+cached_tokens="${cached_tokens:-0}"
+cached_ratio="${CACHED_RATIO:-0.1}"
 cost_usd=$(awk -v p="${prompt_tokens}" -v c="${completion_tokens}" \
+  -v cached="${cached_tokens}" -v cr="${cached_ratio}" \
   -v ip="${INPUT_PRICE_PER_M}" -v op="${OUTPUT_PRICE_PER_M}" \
-  'BEGIN { printf "%.4f", (p*ip + c*op) / 1000000 }')
+  'BEGIN {
+     non_cached = p - cached
+     if (non_cached < 0) non_cached = 0
+     printf "%.4f", (non_cached * ip + cached * ip * cr + c * op) / 1000000
+   }')
+
+# Warn loudly when the provider returned zero usage info — silent $0 cost
+# masks a degraded provider response (most often the LLM ran but the API
+# response shape changed and we are failing to parse `.usage`).
+if [ "${prompt_tokens}" = "0" ] && [ "${status}" = "ok" ]; then
+  echo "[ai-review] WARN: ${LLM_DISPLAY_NAME} reported 0 prompt tokens — usage shape may have changed" >&2
+fi
 
 jq -n \
   --arg provider "${LLM_PROVIDER}" \
@@ -208,6 +291,7 @@ jq -n \
   --arg status "${status}" \
   --argjson p "${prompt_tokens}" \
   --argjson c "${completion_tokens}" \
+  --argjson cached "${cached_tokens}" \
   --arg cost "${cost_usd}" \
   '{
     provider: $provider,
@@ -216,10 +300,11 @@ jq -n \
     status: $status,
     prompt_tokens: $p,
     completion_tokens: $c,
+    cached_tokens: $cached,
     cost_usd: ($cost | tonumber)
   }' >"${OUT_DIR}/meta.json"
 
-echo "[ai-review] ${LLM_DISPLAY_NAME}: status=${status} prompt=${prompt_tokens} completion=${completion_tokens} cost=\$${cost_usd}"
+echo "[ai-review] ${LLM_DISPLAY_NAME}: status=${status} prompt=${prompt_tokens} cached=${cached_tokens} completion=${completion_tokens} cost=\$${cost_usd}"
 
 # Fail closed so a degraded LLM call surfaces as a failed CI check rather
 # than a silently-skipped review. The aggregate job still runs (it's
