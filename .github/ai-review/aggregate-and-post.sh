@@ -294,9 +294,13 @@ if [ "${inline_count}" -gt 0 ]; then
           )
         }
     ]')
+  # Top-level `body` is recommended by the GitHub Reviews API even for
+  # event=COMMENT; omitting it can produce 422 in some edge cases
+  # (flagged by Gemini self-review).
   payload=$(jq -n --arg sha "${COMMIT_SHA}" --argjson c "${inline_comments}" '{
     commit_id: $sha,
     event: "COMMENT",
+    body: "AI Code Review · inline findings",
     comments: $c
   }')
   printf '%s' "${payload}" |

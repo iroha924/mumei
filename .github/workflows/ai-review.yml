@@ -65,8 +65,15 @@ jobs:
       PR: ${{ github.event.pull_request.number }}
       OUT_DIR: ${{ github.workspace }}/.ai-review-out
     steps:
+      # Check out the BASE ref (not the PR head) so a malicious or
+      # accidentally-broken PR cannot modify run-review.sh to exfiltrate
+      # the LLM API keys this step exposes. The PR diff being reviewed
+      # is fetched via the GitHub API inside the script, so no PR-head
+      # code is executed here. (Flagged as CONSENSUS / critical by both
+      # LLM reviewers — supply-chain security.)
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Run Gemini review
@@ -75,7 +82,12 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: .github/ai-review/run-review.sh
 
+      # `if: always()` so the failure-marker findings.json + meta.json
+      # written by run-review.sh on a non-zero exit also make it to the
+      # aggregate job, which then renders the `⚠ status` row instead of
+      # silently dropping the failed provider.
       - name: Upload review artifact
+        if: always()
         uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4
         with:
           name: ai-review-gemini
@@ -100,6 +112,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Run OpenAI review
@@ -109,6 +122,7 @@ jobs:
         run: .github/ai-review/run-review.sh
 
       - name: Upload review artifact
+        if: always()
         uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4
         with:
           name: ai-review-openai
@@ -131,6 +145,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Download all per-LLM artifacts
