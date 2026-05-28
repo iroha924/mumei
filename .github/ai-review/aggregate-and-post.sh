@@ -61,13 +61,25 @@ findings_flat=$(printf '%s' "${findings_all}" | jq 'add // []')
 provider_count=$(printf '%s' "${metas_json}" | jq 'length')
 
 clusters=$(printf '%s' "${findings_flat}" | jq --argjson n "${provider_count}" '
+  # Group related defect categories so two providers describing the same bug
+  # with different labels (e.g. `type_drift` vs `logic`, `hallucination` vs
+  # `phantom_api`) still cluster as consensus. Unrelated categories on the
+  # same hunk (e.g. `security` next to `defensive_overengineering`) stay
+  # distinct so we never merge two genuinely different findings.
+  def category_group:
+    if . == "hallucination" or . == "phantom_api" then "api"
+    elif . == "silent_inversion" or . == "logic" or . == "type_drift" then "correctness"
+    elif . == "incomplete_error_handling" or . == "async_race" then "error_handling"
+    else . end;
+  map(. + {_group: (.category | category_group)})
   # Sort findings so deterministic clustering is possible.
-  sort_by(.file, .start_line, ._provider)
+  | sort_by(.file, ._group, .start_line, ._provider)
   | reduce .[] as $f ([];
       if length == 0 then [[$f]]
       else
         .[-1][0] as $head
         | if ($head.file == $f.file
+              and ($head._group == $f._group)
               and (($head.start_line - 2) <= $f.start_line)
               and ($f.start_line <= ($head.end_line + 2)))
           then (.[:-1] + [.[-1] + [$f]])
@@ -172,8 +184,9 @@ render_finding() {
   #   <suggested_fix>
   #   ```
   #
-  # Highest severity in the cluster drives the cluster-level severity
-  # badge so a CONSENSUS issue with mixed severities surfaces the worst.
+  # The cluster surfaces the WORST severity in the cluster — `min_by(sev_rank)`
+  # picks the lowest rank, and rank 0 = critical (see sev_rank below), so the
+  # `min_by` reads inverted but is correct.
   printf '%s' "$1" | jq -r '
     # Map severity / confidence / tier to shields.io colour names.
     def sev_color: { "critical": "8B0000", "high": "red", "medium": "orange", "low": "lightgrey" }[.] // "lightgrey";
@@ -181,12 +194,15 @@ render_finding() {
     def tier_color: { "consensus": "blue", "majority": "yellow", "individual": "lightgrey" }[.] // "lightgrey";
     def sev_rank: { "critical": 0, "high": 1, "medium": 2, "low": 3 }[.] // 4;
 
-    # Cluster-level severity = highest across all findings in the cluster.
+    # Cluster-level severity = worst across all findings in the cluster
+    # (lowest rank wins; rank 0 = critical, see sev_rank above).
     ([.findings[].severity] | min_by(sev_rank)) as $cluster_sev
     | ([.findings[].confidence] | min_by({ "high": 0, "medium": 1, "low": 2 }[.] // 3)) as $cluster_conf
     | "### `\(.file):\(.start_line)" + (if .start_line == .end_line then "" else "-\(.end_line)" end) + "` — \(.findings[0].title)\n\n" +
 
-    # Badge row
+    # Badge row. shields.io needs spaces / `+` URL-encoded in the path —
+    # literal characters render inconsistently across GitHub markdown
+    # rendering modes.
     "![tier](https://img.shields.io/badge/\(.tier | ascii_upcase)-\(.tier | tier_color)) " +
     "![severity](https://img.shields.io/badge/severity-\($cluster_sev)-\($cluster_sev | sev_color)) " +
     "![confidence](https://img.shields.io/badge/confidence-\($cluster_conf)-\($cluster_conf | conf_color)) " +
@@ -270,11 +286,31 @@ fi
 # ---------------------------------------------------------------------------
 # Post inline review comments. We only post for consensus + majority clusters
 # (individual observations stay in the status comment to avoid noise).
-# Posting strategy: a single Reviews API call with all comments inline.
+#
+# Each comment body includes INLINE_MARKER so the next run can find and
+# delete the previous batch — without this, every push stacks duplicate
+# inline comments, since GitHub's review dismiss API does not apply to
+# event=COMMENT reviews.
 # ---------------------------------------------------------------------------
+INLINE_MARKER="<!-- ai-review-inline -->"
+
+# Delete inline comments from prior runs by INLINE_MARKER. Use --paginate so
+# busy PRs (>30 comments) still surface every match.
+prior_inline=$(gh api --paginate "/repos/${REPO}/pulls/${PR}/comments" \
+  --jq "[.[] | select(.body | contains(\"${INLINE_MARKER}\")) | .id] | join(\" \")")
+if [ -n "${prior_inline}" ]; then
+  prior_count=0
+  for cid in ${prior_inline}; do
+    if gh api -X DELETE "/repos/${REPO}/pulls/comments/${cid}" >/dev/null 2>&1; then
+      prior_count=$((prior_count + 1))
+    fi
+  done
+  echo "[ai-review] removed ${prior_count} prior inline comment(s)"
+fi
+
 inline_count=$(printf '%s' "${clusters}" | jq '[.[] | select(.tier != "individual")] | length')
 if [ "${inline_count}" -gt 0 ]; then
-  inline_comments=$(printf '%s' "${clusters}" | jq -c '
+  inline_comments=$(printf '%s' "${clusters}" | jq -c --arg marker "${INLINE_MARKER}" '
     def sev_color: { "critical": "8B0000", "high": "red", "medium": "orange", "low": "lightgrey" }[.] // "lightgrey";
     def conf_color: { "high": "brightgreen", "medium": "yellow", "low": "lightgrey" }[.] // "lightgrey";
     def tier_color: { "consensus": "blue", "majority": "yellow", "individual": "lightgrey" }[.] // "lightgrey";
@@ -288,6 +324,7 @@ if [ "${inline_count}" -gt 0 ]; then
           line: .end_line,
           side: "RIGHT",
           body: (
+            $marker + "\n" +
             "**\(.findings[0].title)**\n\n" +
             "![tier](https://img.shields.io/badge/\(.tier | ascii_upcase)-\(.tier | tier_color)) " +
             "![severity](https://img.shields.io/badge/severity-\($sev)-\($sev | sev_color)) " +
