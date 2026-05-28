@@ -225,23 +225,18 @@ creates a topic branch in this repo.
 7. CI runs on the PR. The relevant workflows are `ci.yml` (`lint`,
    `lint-extra`, `bats` on macOS / Ubuntu, `codeql`), `pr.yml`
    (`mutable-tag-guard`, `pr-target-guard`), `gitleaks.yml`,
-   `plugin-json-validate.yml`, `gemini-review.yml` (auto-review on
-   push), and `dashboard-ci.yml` (path-triggered). Address failures
-   before merge. (`claude-review.yml` is on disk but disabled — see the
-   file header for why and how to re-enable.)
+   `plugin-json-validate.yml`, and `dashboard-ci.yml` (path-triggered).
+   Address failures before merge. (`claude-review.yml` is on disk but
+   disabled — see the file header for why and how to re-enable.)
 8. Monitor the PR after opening. CI green is necessary but not
    sufficient — automated reviewers also post feedback:
    - `task pr:watch` — wait for the latest CI run on this branch
    - `gh pr checks <N>` — CI status snapshot
-   - **GitHub PR UI** — review findings from automated reviewers.
-     **Gemini Code Assist** comments on PR open (the GitHub App); the
-     local `gemini-review.yml` workflow re-runs Gemini on each push
-     (`synchronize`) so subsequent commits are auto-reviewed without a
-     manual `/gemini review` comment, and adds a 👍 PR reaction when
-     no new inline findings are posted. **OpenAI Codex** comments on
-     PR open and on each push. Triage them, push fix commits, and
-     resolve the threads before merging. Reviewer monitoring is the
-     PR author's
+   - **GitHub PR UI** — review findings from automated reviewers. Gemini
+     Code Assist comments on PR open (a re-review after a push needs a
+     manual `/gemini review` comment); OpenAI Codex comments on PR open
+     and on each push. Triage them, push fix commits, and resolve
+     the threads before merging. Reviewer monitoring is the PR author's
      responsibility; an AI agent driving the PR watches CI only.
 9. Self-merge via squash or rebase (linear history; merge commits should
    be avoided). No required approval count.
