@@ -60,54 +60,10 @@ findings_flat=$(printf '%s' "${findings_all}" | jq 'add // []')
 # ---------------------------------------------------------------------------
 provider_count=$(printf '%s' "${metas_json}" | jq 'length')
 
-clusters=$(printf '%s' "${findings_flat}" | jq --argjson n "${provider_count}" '
-  # Group related defect categories so two providers describing the same bug
-  # with different labels (e.g. `type_drift` vs `logic`, `hallucination` vs
-  # `phantom_api`) still cluster as consensus. Unrelated categories on the
-  # same hunk (e.g. `security` next to `defensive_overengineering`) stay
-  # distinct so we never merge two genuinely different findings.
-  def category_group:
-    if . == "hallucination" or . == "phantom_api" then "api"
-    elif . == "silent_inversion" or . == "logic" or . == "type_drift" then "correctness"
-    elif . == "incomplete_error_handling" or . == "async_race" then "error_handling"
-    else . end;
-  map(. + {_group: (.category | category_group)})
-  # Sort findings so deterministic clustering is possible.
-  | sort_by(.file, ._group, .start_line, ._provider)
-  | reduce .[] as $f ([];
-      if length == 0 then [[$f]]
-      else
-        .[-1][0] as $head
-        | if ($head.file == $f.file
-              and ($head._group == $f._group)
-              and (($head.start_line - 2) <= $f.start_line)
-              and ($f.start_line <= ($head.end_line + 2)))
-          then (.[:-1] + [.[-1] + [$f]])
-          else (. + [[$f]])
-          end
-      end)
-  | map({
-      file: .[0].file,
-      start_line: ([.[].start_line] | min),
-      end_line: ([.[].end_line] | max),
-      providers: ([.[]._provider] | unique),
-      provider_displays: ([.[]._display] | unique),
-      findings: .,
-      tier: (
-        ([.[]._provider] | unique | length) as $unique_providers
-        # Consensus requires both >= total provider count AND at least 2
-        # providers actually participating. Without the >=2 floor, a
-        # degraded run where only one reviewer artifact uploaded would
-        # promote every single-provider finding to consensus (the only
-        # provider trivially satisfies "all flagged"). Caught by GPT-5.5
-        # in its own review of this file.
-        | if ($unique_providers >= $n and $n >= 2) then "consensus"
-          elif $unique_providers >= 2 then "majority"
-          else "individual"
-          end
-      )
-    })
-')
+# Clustering algorithm lives in cluster.jq so it can be golden-tested
+# independently of gh / curl. See tests/scripts/ai-review-cluster.bats.
+clusters=$(printf '%s' "${findings_flat}" |
+  jq --argjson n "${provider_count}" -f "$(dirname "$0")/cluster.jq")
 
 # ---------------------------------------------------------------------------
 # Compose the status comment.
