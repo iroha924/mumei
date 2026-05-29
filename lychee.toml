@@ -78,4 +78,4 @@ exclude_loopback = true
 # GitHub Actions cache: lychee re-uses the cache across runs to avoid hammering
 # external services on every push. The cache is keyed on the URL set.
 cache = true
-max_cache_age = "1d"
+max_cache_age = "7d"
