@@ -235,3 +235,113 @@ teardown() {
   [[ "$(jq -r '.[0].task_id' <<<"$out")" == "1.3" ]]
   [[ "$(jq -r '.[-1].task_id' <<<"$out")" == "1.5" ]]
 }
+
+# ============================================================
+# mumei_reliability_derive_pass
+# ============================================================
+
+# Write a verify-log.jsonl row into the given dir.
+_rel_test_vrow() {
+  local dir="$1" source="$2" exit_code="$3" ts="$4"
+  mkdir -p "$dir"
+  jq -c -n --arg s "$source" --argjson e "$exit_code" --arg ts "$ts" \
+    '{source: $s, exit_code: $e, ts: $ts}' >>"$dir/verify-log.jsonl"
+}
+
+@test "derive_pass: empty log_dir arg returns empty" {
+  run mumei_reliability_derive_pass ""
+  [[ "$status" -eq 0 ]]
+  [[ -z "$output" ]]
+}
+
+@test "derive_pass: missing verify-log returns empty" {
+  mkdir -p "d"
+  run mumei_reliability_derive_pass "d"
+  [[ -z "$output" ]]
+}
+
+@test "derive_pass: latest commit-gate exit 0 -> true" {
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  _rel_test_vrow "d" "commit-gate" 0 "$now"
+  run mumei_reliability_derive_pass "d"
+  [[ "$output" == "true" ]]
+}
+
+@test "derive_pass: latest commit-gate non-zero -> false" {
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  _rel_test_vrow "d" "commit-gate" 1 "$now"
+  run mumei_reliability_derive_pass "d"
+  [[ "$output" == "false" ]]
+}
+
+@test "derive_pass: agent-run row is honored when no commit-gate" {
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  _rel_test_vrow "d" "agent-run" 0 "$now"
+  run mumei_reliability_derive_pass "d"
+  [[ "$output" == "true" ]]
+}
+
+@test "derive_pass: tool-gate / worktree-clean rows are NOT test signals" {
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  _rel_test_vrow "d" "tool-gate" 0 "$now"
+  _rel_test_vrow "d" "worktree-clean" 0 "$now"
+  run mumei_reliability_derive_pass "d"
+  [[ -z "$output" ]]
+}
+
+@test "derive_pass: uses the most recent test row (later overrides earlier)" {
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  _rel_test_vrow "d" "commit-gate" 0 "$now"
+  _rel_test_vrow "d" "commit-gate" 1 "$now"
+  run mumei_reliability_derive_pass "d"
+  [[ "$output" == "false" ]]
+}
+
+@test "derive_pass: stale row outside freshness window is excluded" {
+  _rel_test_vrow "d" "commit-gate" 0 "2000-01-01T00:00:00Z"
+  run mumei_reliability_derive_pass "d" 600
+  [[ -z "$output" ]]
+}
+
+@test "derive_pass: corrupt line is tolerated, valid row still derived" {
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  mkdir -p "d"
+  printf 'not json at all\n' >>"d/verify-log.jsonl"
+  _rel_test_vrow "d" "commit-gate" 0 "$now"
+  run mumei_reliability_derive_pass "d"
+  [[ "$output" == "true" ]]
+}
+
+# ============================================================
+# mumei_reliability_has_row
+# ============================================================
+
+@test "has_row: missing log returns exit 1" {
+  run mumei_reliability_has_row "REQ-1-foo" "1" "1.1"
+  [[ "$status" -eq 1 ]]
+}
+
+@test "has_row: existing (wave, task_id) returns exit 0" {
+  mkdir -p ".mumei/specs/REQ-1-foo"
+  mumei_reliability_append "REQ-1-foo" "1" "1.1" "true"
+  run mumei_reliability_has_row "REQ-1-foo" "1" "1.1"
+  [[ "$status" -eq 0 ]]
+}
+
+@test "has_row: different (wave, task_id) returns exit 1" {
+  mkdir -p ".mumei/specs/REQ-1-foo"
+  mumei_reliability_append "REQ-1-foo" "1" "1.1" "true"
+  run mumei_reliability_has_row "REQ-1-foo" "2" "2.1"
+  [[ "$status" -eq 1 ]]
+}
+
+@test "has_row: missing required args returns exit 1" {
+  run mumei_reliability_has_row "REQ-1-foo" "1" ""
+  [[ "$status" -eq 1 ]]
+}

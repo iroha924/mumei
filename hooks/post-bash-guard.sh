@@ -199,6 +199,53 @@ if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];|&])git[[:space:]]+commit([[
   # so a subsequent failed commit cannot replay this advance.
   mumei_state_set_observed_head "$FEATURE" "$POST_HEAD" >/dev/null 2>&1 || true
 
+  # REQ-26: spec-vehicle reliability append. Fires on every confirmed Wave
+  # commit (triple-gate passed) so partial-Wave commits still log the tasks
+  # they completed. Append one row per completed-but-unlogged task, deriving
+  # pass from this commit's verify-log signal via the shared helper; skip the
+  # whole append when no test signal exists (REQ-26.3 — never fabricate pass).
+  # Enumeration is log-based (mumei_reliability_has_row dedup), NOT git diff of
+  # tasks.md: .mumei/ is gitignored in mumei's own dogfood repo (= the #97
+  # repro), so a tasks.md diff would be empty there. Purely additive: source
+  # best-effort and gate on function availability so a plugin downgrade that
+  # lacks reliability.sh degrades to the legacy (no-append) behavior.
+  _rel_log_dir=".mumei/specs/${FEATURE}"
+  # shellcheck source=_lib/reliability.sh disable=SC1091
+  source "${PLUGIN_ROOT}/hooks/_lib/reliability.sh" 2>/dev/null || true
+  if declare -F mumei_reliability_append >/dev/null 2>&1; then
+    _rel_pass="$(mumei_reliability_derive_pass "$_rel_log_dir" 600)"
+    if [[ -z "$_rel_pass" ]]; then
+      # No in-window test signal — skip the whole append (REQ-26.3). Emit a
+      # log + stat so a "/mumei:assure shows N/A forever" investigation can
+      # tell a no-signal skip apart from a source failure (adversarial F-003).
+      mumei_log_info "post-bash-guard: reliability append skipped for ${FEATURE} (no test signal in window)"
+      if [[ -f "${CLAUDE_PLUGIN_ROOT:-}/hooks/_lib/hook-stats.sh" ]]; then
+        # shellcheck disable=SC1091
+        source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/hook-stats.sh"
+        mumei_hook_stats_record "X3" "warn" "Bash" "reliability skip (no test signal)"
+      fi
+    else
+      _rel_appended=0
+      while IFS= read -r _rel_tid; do
+        [[ -n "$_rel_tid" ]] || continue
+        [[ "$(mumei_tasks_status "$FEATURE" "$_rel_tid" 2>/dev/null)" == "complete" ]] || continue
+        _rel_wave="${_rel_tid%%.*}"
+        mumei_reliability_has_row "$FEATURE" "$_rel_wave" "$_rel_tid" "$_rel_log_dir" && continue
+        if (mumei_reliability_append "$FEATURE" "$_rel_wave" "$_rel_tid" "$_rel_pass" "$_rel_log_dir"); then
+          _rel_appended=$((_rel_appended + 1))
+        fi
+      done < <(mumei_tasks_list_ids "$FEATURE" 2>/dev/null)
+      if [[ "$_rel_appended" -gt 0 ]]; then
+        mumei_log_info "post-bash-guard: appended ${_rel_appended} reliability row(s) for ${FEATURE} (pass=${_rel_pass})"
+        if [[ -f "${CLAUDE_PLUGIN_ROOT:-}/hooks/_lib/hook-stats.sh" ]]; then
+          # shellcheck disable=SC1091
+          source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/hook-stats.sh"
+          mumei_hook_stats_record "X3" "pass" "Bash" "reliability appended ${_rel_appended}"
+        fi
+      fi
+    fi
+  fi
+
   # A commit just landed. Recompute the current Wave: smallest Wave
   # number whose tasks include any [ ]. If every Wave is complete, this
   # returns the empty string and we transition phase=review.

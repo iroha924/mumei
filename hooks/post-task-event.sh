@@ -53,28 +53,14 @@ if [[ "$EVENT" == "TaskCompleted" ]]; then
         _rel_wave="$(mumei_state_read_any "$SLUG" '.current_wave' 2>/dev/null || echo "")"
       fi
       _rel_log_dir="$(mumei_reliability_log_dir "$SLUG")"
-      # Derive pass from the latest commit-gate / agent-run row's exit_code
-      # (test signals only; tool-gate / worktree-clean rows are excluded
-      # because they record gitleaks / lint / checkout exit codes, not
-      # test results — adversarial F-008). Bound to a 600 s freshness
-      # window so a TaskCompleted long after the last test run does not
-      # reuse a stale row (Codex C3 / D fix). Bound the scan with tail
-      # to avoid O(verify-log size) per TaskCompleted (F-010).
-      _rel_now_epoch="$(date -u +%s 2>/dev/null || echo 0)"
-      # Use -R raw input + fromjson? | objects to stream-parse line-by
-      # -line: a single corrupt verify-log row can no longer abort the
-      # whole jq pipeline and silently flip pass derivation to "skip".
-      # Parens around fromdateiso8601 keep precedence explicit
-      # (Gemini portability follow-up).
-      _rel_exit="$(tail -n 1000 "${_rel_log_dir}/verify-log.jsonl" 2>/dev/null |
-        jq -rR --argjson now "$_rel_now_epoch" \
-          'fromjson? | objects
-           | select(.exit_code != null and (.source == "commit-gate" or .source == "agent-run"))
-           | select($now == 0 or (((.ts | fromdateiso8601?) // 0) > ($now - 600)))
-           | .exit_code' \
-          2>/dev/null | tail -n1)"
-      if [[ -n "$_rel_exit" && "$_rel_exit" =~ ^-?[0-9]+$ ]]; then
-        [[ "$_rel_exit" -eq 0 ]] && _rel_pass="true" || _rel_pass="false"
+      # Derive pass from the latest commit-gate / agent-run row within a
+      # 600 s freshness window via the shared helper in reliability.sh.
+      # The helper excludes tool-gate / worktree-clean rows (not test
+      # signals — F-008), stream-parses corrupt lines, and returns "" when
+      # no usable signal exists so a stale TaskCompleted skips cleanly
+      # (Codex C3 / D). The spec-vehicle X3 path uses the same helper.
+      _rel_pass="$(mumei_reliability_derive_pass "$_rel_log_dir" 600)"
+      if [[ -n "$_rel_pass" ]]; then
         # Subshell-isolate the call so reliability.sh's internal trap
         # manipulation (EXIT/INT/TERM) cannot disturb this script's own
         # cleanup trap installed later for the plan-vehicle lock

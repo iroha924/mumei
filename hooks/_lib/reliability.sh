@@ -34,6 +34,64 @@ mumei_reliability_log_dir() {
   fi
 }
 
+# Derive pass ("true"/"false") from the most recent commit-gate / agent-run
+# row in ${log_dir}/verify-log.jsonl within a freshness window.
+# Args: log_dir, [window_s=600]
+# Stdout: "true" | "false" | "" (empty = no usable test signal → caller skips).
+# Test signals only: tool-gate / worktree-clean rows are excluded because they
+# record gitleaks / lint / checkout exit codes, not test results (F-008). Rows
+# are stream-parsed (fromjson? | objects) so a single corrupt line cannot abort
+# the pipeline and silently flip the derivation. Extracted from the inline
+# post-task-event.sh logic so post-bash-guard.sh X3 reuses the same derivation.
+mumei_reliability_derive_pass() {
+  local log_dir="${1:-}" window="${2:-600}"
+  [[ -n "$log_dir" ]] || {
+    printf ''
+    return 0
+  }
+  local logfile="${log_dir}/verify-log.jsonl"
+  [[ -f "$logfile" ]] || {
+    printf ''
+    return 0
+  }
+  local now_epoch exit_code
+  now_epoch="$(date -u +%s 2>/dev/null || echo 0)"
+  # Bound the scan with tail to avoid O(verify-log size) per call. Parens
+  # around fromdateiso8601 keep precedence explicit (portability).
+  exit_code="$(tail -n 1000 "$logfile" 2>/dev/null |
+    jq -rR --argjson now "$now_epoch" --argjson window "$window" \
+      'fromjson? | objects
+       | select(.exit_code != null and (.source == "commit-gate" or .source == "agent-run"))
+       | select($now == 0 or (((.ts | fromdateiso8601?) // 0) > ($now - $window)))
+       | .exit_code' \
+      2>/dev/null | tail -n1)"
+  if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
+    [[ "$exit_code" -eq 0 ]] && printf 'true' || printf 'false'
+  else
+    printf ''
+  fi
+  return 0
+}
+
+# Return exit 0 if a row for (wave, task_id) already exists in the feature's
+# reliability-log.jsonl, exit 1 otherwise. Used by the spec-vehicle append
+# path (post-bash-guard.sh X3) for dedup so a task already recorded at its own
+# commit is not re-appended on a later X3 fire (REQ-26.4).
+# Args: feature, wave, task_id, [log_dir]
+mumei_reliability_has_row() {
+  local feature="${1:-}" wave="${2:-}" task_id="${3:-}" log_dir="${4:-}"
+  [[ -n "$feature" && -n "$task_id" ]] || return 1
+  [[ -z "$log_dir" ]] && log_dir="$(mumei_reliability_log_dir "$feature")"
+  local logfile="${log_dir}/reliability-log.jsonl"
+  [[ -f "$logfile" ]] || return 1
+  local count
+  count="$(jq -nR --arg w "$wave" --arg t "$task_id" \
+    'reduce (inputs | fromjson? | objects) as $i (0;
+       if $i.wave == $w and $i.task_id == $t then . + 1 else . end)' \
+    <"$logfile" 2>/dev/null)" || return 1
+  [[ -n "$count" && "$count" =~ ^[0-9]+$ && "$count" -gt 0 ]]
+}
+
 # Append one JSON line to ${log_dir}/reliability-log.jsonl.
 # Args: feature, wave, task_id, pass ("true"/"false"), [log_dir]
 # Contract: purely additive. Any failure (jq parse, IO, missing tools)
