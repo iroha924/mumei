@@ -425,11 +425,13 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         env:
           REPO_AGENTS: ${{ github.workspace }}/AGENTS.md
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -u
           {
-            echo "REPO: ${{ github.repository }}"
-            echo "PR NUMBER: ${{ github.event.pull_request.number }}"
+            echo "REPO: ${REPO}"
+            echo "PR NUMBER: ${PR_NUMBER}"
             echo ""
             echo "You are an automated reviewer for this pull request. Apply the"
             echo "universal review rubric below. If an AGENTS.md is present in"
@@ -508,10 +510,12 @@ jobs:
           GROUNDING_OSV_STATUS: ${{ steps.grounding.outputs.osv_status }}
           CI_ARTIFACTS_PRESENT: ${{ steps.grounding.outputs.ci_artifacts_present }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           set -u
           ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          sha="${{ github.event.pull_request.head.sha }}"
+          sha="${PR_HEAD_SHA:-}"
           if [ "${SKIP:-}" = "true" ]; then
             perspectives_line="- perspectives_run: SKIPPED (gate reason=${SKIP_REASON:-unknown})"
             grounding_block="- grounding: not run (gated)"
@@ -528,7 +532,7 @@ jobs:
             echo ""
             echo "- reviewed SHA: \`${sha:-unset}\`"
             echo "- timestamp: ${ts}"
-            echo "- workflow_ref: ${{ github.workflow_ref }}"
+            echo "- workflow_ref: ${WORKFLOW_REF}"
             echo "${grounding_block}"
             echo "${perspectives_line}"
             echo "- ci_artifacts_present: ${CI_ARTIFACTS_PRESENT:-false}"
