@@ -172,7 +172,7 @@ repos:
         pass_filenames: false
         stages: [pre-push]
         types_or: [shell, file]
-        files: '^(hooks/|scripts/|tests/|.pre-commit-config\.yaml$)'
+        files: "^(hooks/|scripts/|tests/)"
 
   # Run lychee link check at pre-push time. HTTP fetches are inherently
   # slow even with .lycheecache; per-commit cost was disrupting the dev
