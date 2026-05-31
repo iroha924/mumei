@@ -231,6 +231,40 @@ mumei_review_apply_surface_cap() {
   ' <<<"$surfaced_json" 2>/dev/null || printf '{"kept":[],"overflow":[]}'
 }
 
+# Assemble a standalone (detached) review report on stdout for /mumei:review.
+# Runs the deterministic verdict math on already-collected surfaced findings +
+# reviewer verdicts and returns the full report JSON — NO .mumei writes, no
+# feature dir, no ledger / memory / phase side effects (REQ-27.1). Surfaced
+# findings are advisory-downgraded (fail-open), severity-capped by diff size,
+# and the overflow is disclosed via residual rather than dropped (REQ-27.14).
+# Requires residual.sh to be sourced. Returns 1 on malformed surfaced input.
+# Args: $1 surfaced_json  $2 reviewer_verdicts_json  $3 diff_line_count
+mumei_review_detached_report() {
+  local surfaced_json="${1:-[]}" reviewer_verdicts_json="${2:-}" diff_lines="${3:-0}"
+  [[ -n "$reviewer_verdicts_json" ]] || reviewer_verdicts_json='{}'
+  local downgraded
+  downgraded="$(mumei_review_apply_advisory_downgrade "$surfaced_json")" || return 1
+  local gt_high cap split kept overflow verdict residual ceiling
+  gt_high="$(mumei_review_ground_truth_high_count "$downgraded")"
+  cap="$(mumei_review_surface_cap "$diff_lines")"
+  split="$(mumei_review_apply_surface_cap "$downgraded" "$cap")"
+  kept="$(jq -c '.kept' <<<"$split")"
+  overflow="$(jq -c '.overflow' <<<"$split")"
+  verdict="$(mumei_review_aggregate_verdict "$gt_high" "$kept" "$reviewer_verdicts_json")"
+  ceiling="$(mumei_review_ceiling_disclaimer)"
+  # Overflow is disclosed as residual (treated as filtered_out for collection).
+  residual="$(mumei_residual_collect "$kept" "$overflow" "$ceiling" 2>/dev/null || printf '[]')"
+  jq -nc \
+    --arg verdict "$verdict" \
+    --argjson surfaced "$kept" \
+    --argjson overflow "$overflow" \
+    --argjson residual "$residual" \
+    --arg ceiling "$ceiling" \
+    '{mode: "standalone", verdict: $verdict,
+      findings_surfaced: $surfaced, findings_overflow: $overflow,
+      residual: $residual, confidence_ceiling: $ceiling}'
+}
+
 # Aggregate the final verdict from inputs.
 # Args:
 #   $1 high_count                  (integer — GROUND_TRUTH HIGH/CRITICAL count
