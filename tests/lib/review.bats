@@ -380,3 +380,12 @@ EOF
   gt="$(mumei_review_ground_truth_high_count "$out")"
   [ "$(mumei_review_aggregate_verdict "$gt" "$out" '{}')" = "NEEDS_IMPROVEMENT" ]
 }
+
+# --- Wave 5: evidence strength ranking (REQ-27.16) ---
+
+@test "evidence_rank: deterministic > execution > trace > none" {
+  [ "$(mumei_review_evidence_rank '{"precision_class":"ground_truth"}')" = "3" ]
+  [ "$(mumei_review_evidence_rank '{"validator":{"axes":{"evidence_type":"execution"}}}')" = "2" ]
+  [ "$(mumei_review_evidence_rank '{"validator":{"axes":{"evidence_type":"trace"}}}')" = "1" ]
+  [ "$(mumei_review_evidence_rank '{}')" = "0" ]
+}

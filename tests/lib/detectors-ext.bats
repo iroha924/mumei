@@ -120,3 +120,40 @@ teardown() {
   run jq 'length' finds.json
   [ "$output" = "0" ]
 }
+
+# --- Wave 5: Tier2 opt-in detectors (REQ-27.7) ---
+
+@test "Tier2 detectors register as tier 2 candidate" {
+  for d in opengrep gosec brakeman codeql bandit; do
+    [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" $d "* ]]
+    [ "$(mumei_detector_meta "$d")" = "2 candidate" ]
+  done
+}
+
+@test "Tier2 SARIF collect: error level -> HIGH candidate tier2" {
+  printf '%s' '{"runs":[{"results":[{"level":"error","ruleId":"go-sqli","message":{"text":"sqli"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"main.go"},"region":{"startLine":9}}}]}]}]}' >out.json
+  printf '[]' >finds.json
+  _mumei_det_sarif_collect out.json finds.json gosec
+  [ "$(jq -r '.[0].severity' finds.json)" = "HIGH" ]
+  [ "$(jq -r '.[0].precision_class' finds.json)" = "candidate" ]
+  [ "$(jq -r '.[0].tier' finds.json)" = "2" ]
+  [ "$(jq -r '.[0].location.line' finds.json)" = "9" ]
+}
+
+@test "Tier2 bandit collect: native JSON -> candidate tier2" {
+  printf '%s' '{"results":[{"filename":"app.py","line_number":5,"issue_severity":"high","test_id":"B602","issue_text":"shell=True"}]}' >out.json
+  printf '[]' >finds.json
+  _mumei_det_bandit_collect out.json finds.json
+  [ "$(jq -r '.[0].source' finds.json)" = "bandit" ]
+  [ "$(jq -r '.[0].severity' finds.json)" = "HIGH" ]
+  [ "$(jq -r '.[0].precision_class' finds.json)" = "candidate" ]
+}
+
+@test "Tier2 codeql run without MUMEI_CODEQL_DB -> skipped, no crash" {
+  out="$(mktemp)"
+  errf="$(mktemp)"
+  MUMEI_CODEQL_DB="" run _mumei_det_codeql_run "$out" "$errf"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.skipped' "$errf")" = "true" ]
+  rm -f "$out" "$errf"
+}

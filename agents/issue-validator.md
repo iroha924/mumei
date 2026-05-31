@@ -117,6 +117,23 @@ The REPRODUCIBLE axis does NOT change the `valid`/`invalid`/`unsure` decision. I
 - For all other findings (reproducible HIGH/CRITICAL, or MEDIUM/LOW), set `severity_action: "block"`.
 - A HIGH/CRITICAL finding is NEVER auto-dropped on grounding grounds. The maximum action is `report_only`. (A genuine false positive is handled by `decision: "invalid"`, which is a different judgment — the concern is not real at all.)
 
+### Evidence strength (`axes.evidence_type`, REQ-27.16)
+
+When you set `axes.reproducible: true`, also record HOW you confirmed it in
+`axes.evidence_type`, strongest first:
+
+- `"execution"` — a failing test or minimal PoC reproduces the finding when run
+  (the strongest confirmation; prefer this for HIGH/CRITICAL security or
+  correctness findings, and note that the orchestrator may record the run to
+  `verify-log.jsonl`).
+- `"trace"` — a static data-flow source→sink quoted from the diff, or the exact
+  spec line violated.
+
+A finding with neither (an unproven assertion) keeps `reproducible: false` and is
+downgraded to advisory. `evidence_type` does not change the `decision`; it lets
+the orchestrator order surfaced findings by how hard the evidence is
+(`mumei_review_evidence_rank`).
+
 # What you do NOT do
 
 - You do NOT generate new findings.

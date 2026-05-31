@@ -274,7 +274,133 @@ _mumei_det_test_check_collect() {
   mv "${findings_tmp}.new" "$findings_tmp"
 }
 
+# ---------------------------------------------------------------------------
+# Tier2 (opt-in) detectors — run only when MUMEI_DETECTOR_TIER2=1.
+# meta_ext's else branch already classifies these as "2 candidate", so every
+# Tier2 finding flows through the adjudication gate (never auto-blocks).
+# Shared SARIF collector keeps per-tool code to a thin run wrapper.
+# ---------------------------------------------------------------------------
+
+# Generic SARIF collector — .runs[].results[] → tagged candidate findings
+# (level error→HIGH / warning→MEDIUM / note→LOW). Args: <out_sarif> <findings_tmp> <source>
+_mumei_det_sarif_collect() {
+  local out="$1" findings_tmp="$2" source="$3"
+  [[ -s "$out" ]] || return 0
+  jq -e '.runs' <"$out" >/dev/null 2>&1 || return 0
+  local items n i it finding
+  items="$(jq -c '[.runs[]?.results[]? | {
+      severity: (if .level == "error" then "HIGH" elif .level == "warning" then "MEDIUM" else "LOW" end),
+      rule: (.ruleId // "sarif"),
+      msg: (.message.text // ""),
+      file: (.locations[0]?.physicalLocation?.artifactLocation?.uri // ""),
+      line: (.locations[0]?.physicalLocation?.region?.startLine // 0)
+    }]' <"$out" 2>/dev/null || echo '[]')"
+  n="$(jq 'length' <<<"$items")"
+  for ((i = 0; i < n; i++)); do
+    it="$(jq -c ".[$i]" <<<"$items")"
+    finding="$(jq -n --arg src "$source" --argjson it "$it" '{
+      source: $src, severity: $it.severity, raw_severity: $it.rule,
+      precision_class: "candidate", tier: 2,
+      location: { file: $it.file, line: $it.line }, message: $it.msg, rule_id: $it.rule
+    }')"
+    jq --argjson f "$finding" '. + [$f]' <"$findings_tmp" >"${findings_tmp}.new"
+    mv "${findings_tmp}.new" "$findings_tmp"
+  done
+}
+
+# Thin SARIF run wrapper. Args: <out> <err> <detector_name> <command...>
+_mumei_det_sarif_run() {
+  local out="$1" err="$2" name="$3"
+  shift 3
+  local rc=0
+  "$@" >/dev/null 2>"${out}.log" || rc=$?
+  if ((rc >= 2)); then
+    jq -n --arg d "$name" --arg m "exit=${rc}: $(tail -n 3 "${out}.log" 2>/dev/null | tr '\n' ' ')" \
+      '{detector: $d, message: $m}' >>"$err"
+    rm -f "${out}.log"
+    return 1
+  fi
+  rm -f "${out}.log"
+  [[ -s "$out" ]] && jq -e '.runs' <"$out" >/dev/null 2>&1 || printf '{"runs":[]}' >"$out"
+  return 0
+}
+
+# opengrep (semgrep-compatible) — SARIF.
+_mumei_det_opengrep_probe() { command -v opengrep >/dev/null 2>&1; }
+_mumei_det_opengrep_run() { _mumei_det_sarif_run "$1" "$2" opengrep opengrep --config=auto --sarif -o "$1" .; }
+_mumei_det_opengrep_collect() { _mumei_det_sarif_collect "$1" "$2" opengrep; }
+
+# gosec (Go) — SARIF.
+_mumei_det_gosec_probe() { command -v gosec >/dev/null 2>&1 && [[ -f go.mod ]]; }
+_mumei_det_gosec_run() { _mumei_det_sarif_run "$1" "$2" gosec gosec -quiet -fmt=sarif -out="$1" ./...; }
+_mumei_det_gosec_collect() { _mumei_det_sarif_collect "$1" "$2" gosec; }
+
+# brakeman (Ruby/Rails) — SARIF.
+_mumei_det_brakeman_probe() { command -v brakeman >/dev/null 2>&1 && [[ -f Gemfile ]]; }
+_mumei_det_brakeman_run() { _mumei_det_sarif_run "$1" "$2" brakeman brakeman -q -f sarif -o "$1" .; }
+_mumei_det_brakeman_collect() { _mumei_det_sarif_collect "$1" "$2" brakeman; }
+
+# codeql — requires a pre-built database (MUMEI_CODEQL_DB); DB build is too
+# heavy to run inline, so probe demands it and run skips with guidance otherwise.
+_mumei_det_codeql_probe() { command -v codeql >/dev/null 2>&1; }
+_mumei_det_codeql_run() {
+  local out="$1" err="$2"
+  if [[ -z "${MUMEI_CODEQL_DB:-}" ]] || [[ ! -d "${MUMEI_CODEQL_DB:-/nonexistent}" ]]; then
+    jq -n --arg d codeql --arg m "set MUMEI_CODEQL_DB to a pre-built CodeQL database to enable (inline DB build is too heavy)" \
+      '{detector: $d, message: $m, skipped: true}' >>"$err"
+    printf '{"runs":[]}' >"$out"
+    return 0
+  fi
+  _mumei_det_sarif_run "$out" "$err" codeql \
+    codeql database analyze "$MUMEI_CODEQL_DB" --format=sarif-latest --output="$out"
+}
+_mumei_det_codeql_collect() { _mumei_det_sarif_collect "$1" "$2" codeql; }
+
+# bandit (Python) — native JSON (no built-in SARIF), dedicated collector.
+_mumei_det_bandit_probe() {
+  command -v bandit >/dev/null 2>&1 && [[ -n "$(find . -name '*.py' -not -path '*/.*' -print -quit 2>/dev/null)" ]]
+}
+_mumei_det_bandit_run() {
+  local out="$1" err="$2" rc=0
+  bandit -r . -f json -o "$out" -q >/dev/null 2>"${out}.log" || rc=$?
+  if ((rc >= 2)); then
+    jq -n --arg d bandit --arg m "exit=${rc}" '{detector: $d, message: $m}' >>"$err"
+    rm -f "${out}.log"
+    return 1
+  fi
+  rm -f "${out}.log"
+  [[ -s "$out" ]] || printf '{"results":[]}' >"$out"
+  return 0
+}
+_mumei_det_bandit_collect() {
+  local out="$1" findings_tmp="$2"
+  [[ -s "$out" ]] || return 0
+  local items n i it finding
+  items="$(jq -c '[.results[]? | {
+      severity: (.issue_severity // "MEDIUM" | ascii_upcase),
+      rule: (.test_id // "bandit"), msg: (.issue_text // ""),
+      file: (.filename // ""), line: (.line_number // 0)
+    }]' <"$out" 2>/dev/null || echo '[]')"
+  n="$(jq 'length' <<<"$items")"
+  for ((i = 0; i < n; i++)); do
+    it="$(jq -c ".[$i]" <<<"$items")"
+    finding="$(jq -n --argjson it "$it" '{
+      source: "bandit", severity: $it.severity, raw_severity: $it.rule,
+      precision_class: "candidate", tier: 2,
+      location: { file: $it.file, line: $it.line }, message: $it.msg, rule_id: $it.rule
+    }')"
+    jq --argjson f "$finding" '. + [$f]' <"$findings_tmp" >"${findings_tmp}.new"
+    mv "${findings_tmp}.new" "$findings_tmp"
+  done
+}
+
 # Register ext detectors into the pluggable registry.
 mumei_detector_register secret-scan
 mumei_detector_register type-check
 mumei_detector_register test-check
+# Tier2 (opt-in via MUMEI_DETECTOR_TIER2=1)
+mumei_detector_register opengrep
+mumei_detector_register gosec
+mumei_detector_register brakeman
+mumei_detector_register codeql
+mumei_detector_register bandit

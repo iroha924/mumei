@@ -265,6 +265,25 @@ mumei_review_detached_report() {
       residual: $residual, confidence_ceiling: $ceiling}'
 }
 
+# Rank a finding's confirmation strength (REQ-27.16). A finding confirmed by a
+# failing test / PoC run (evidence_type="execution") outranks a static
+# data-flow / spec citation ("trace"), which outranks an unproven LLM assertion;
+# ground_truth deterministic detectors are the strongest. Echoes an integer
+# 0-3 so callers can order surfaced findings by how hard the evidence is.
+#   3 deterministic (ground_truth) | 2 execution (test/PoC reproduced)
+#   1 trace (source→sink / spec line) | 0 none (unproven)
+# Args: $1 finding_json
+mumei_review_evidence_rank() {
+  local finding="${1:-}"
+  [[ -n "$finding" ]] || finding='{}'
+  jq -r '
+    if (.precision_class // "") == "ground_truth" then 3
+    else (.validator.axes.evidence_type // "none")
+      | if . == "execution" then 2 elif . == "trace" then 1 else 0 end
+    end
+  ' <<<"$finding" 2>/dev/null || echo 0
+}
+
 # Aggregate the final verdict from inputs.
 # Args:
 #   $1 high_count                  (integer — GROUND_TRUTH HIGH/CRITICAL count
