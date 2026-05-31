@@ -71,16 +71,17 @@ JSON
   grep -q "hooks/pre-review-detector.sh" "$skill"
 }
 
-@test "skill proceed body documents the HIGH > 0 branching rule" {
+@test "skill proceed body documents fail-open: security-reviewer always launches" {
   local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
-  # The body must mention skipping security-reviewer when HIGH count > 0.
-  grep -q "high_count > 0" "$skill"
-  grep -qE "skip.*security-reviewer|security-reviewer.*skip" "$skill"
+  # Under fail-open (REQ-27.9) security-reviewer is NOT skipped on detector HIGH;
+  # candidate detector findings flow through the Stage 4 gate instead.
+  grep -qE "ALWAYS launches" "$skill"
+  grep -qiE "candidate detector" "$skill"
 }
 
-@test "skill proceed body pins MAJOR_ISSUES verdict when HIGH detector findings present" {
+@test "skill proceed body pins MAJOR_ISSUES on ground_truth detector findings (fail-open)" {
   local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
-  grep -q "HIGH detector findings present" "$skill"
+  grep -q "Ground_truth detector findings present" "$skill"
   grep -q "MAJOR_ISSUES" "$skill"
 }
 
@@ -120,11 +121,13 @@ JSON
 
 # ─── validator skip rule ──────────────────────────────────────
 
-@test "issue-validator agent carries the detector skip rule" {
+@test "issue-validator agent carries the ground-truth skip rule (precision_class)" {
   local agent="$CLAUDE_PLUGIN_ROOT/agents/issue-validator.md"
-  grep -q "Skip rule for detector findings" "$agent"
-  grep -q '"semgrep"' "$agent"
-  grep -q '"osv-scanner"' "$agent"
+  # Fail-open: ground_truth findings skip the gate; noisy candidates (semgrep)
+  # are adjudicated, not auto-trusted.
+  grep -q "Skip rule for ground-truth findings" "$agent"
+  grep -q "precision_class" "$agent"
+  grep -q "ground_truth" "$agent"
 }
 
 @test "issue-validator skip rule produces decision=valid with high confidence" {
