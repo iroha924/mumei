@@ -187,8 +187,14 @@ mumei_review_apply_advisory_downgrade() {
 # NOT the raw detector HIGH count — candidate detectors flow through the gate).
 # Args: $1 surfaced_findings_json (JSON array)
 mumei_review_ground_truth_high_count() {
+  # ground_truth detectors AND structural-integrity findings are both
+  # deterministic and block unconditionally — counting both here means the
+  # MAJOR_ISSUES escalation lives in the shared engine, so every caller
+  # (including the standalone detached_report) gets it without a duplicated
+  # skill-side verdict override.
   jq -r '
-    [.[] | select(((.precision_class // "") == "ground_truth")
+    [.[] | select((((.precision_class // "") == "ground_truth")
+                    or ((.source // "") == "structural-integrity"))
                   and (.severity == "HIGH" or .severity == "CRITICAL"))] | length
   ' <<<"${1:-[]}" 2>/dev/null || echo 0
 }

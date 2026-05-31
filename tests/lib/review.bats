@@ -389,3 +389,13 @@ EOF
   [ "$(mumei_review_evidence_rank '{"validator":{"axes":{"evidence_type":"trace"}}}')" = "1" ]
   [ "$(mumei_review_evidence_rank '{}')" = "0" ]
 }
+
+# F-002 (self-review): structural-integrity HIGH must escalate to MAJOR in the
+# shared engine (not only via skill-side override), so detached_report blocks too.
+@test "structural-integrity HIGH counts as ground-truth-blocking -> MAJOR_ISSUES" {
+  s='[{"source":"structural-integrity","severity":"HIGH","severity_action":"block"}]'
+  [ "$(mumei_review_ground_truth_high_count "$s")" = "1" ]
+  out="$(mumei_review_apply_advisory_downgrade "$s")"
+  gt="$(mumei_review_ground_truth_high_count "$out")"
+  [ "$(mumei_review_aggregate_verdict "$gt" "$out" '{}')" = "MAJOR_ISSUES" ]
+}

@@ -260,7 +260,7 @@ _mumei_det_test_check_collect() {
   exit_code="$(jq -r '.latest.exit_code // empty' <"$out" 2>/dev/null)"
   [[ -n "$exit_code" ]] || return 0
   [[ "$exit_code" != "0" ]] || return 0
-  cmd="$(jq -r '.latest.cmd // "test"' <"$out" 2>/dev/null)"
+  cmd="$(jq -r '.latest.command // .latest.cmd // "test"' <"$out" 2>/dev/null)"
   local finding
   finding="$(jq -n --arg src "test-check" --arg cmd "$cmd" --arg ec "$exit_code" \
     '{

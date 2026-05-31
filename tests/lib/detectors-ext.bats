@@ -121,6 +121,16 @@ teardown() {
   [ "$output" = "0" ]
 }
 
+# F-003 (self-review): verify-log writes the field as `command`; test-check must
+# read it (not the wrong `.cmd`) so the failing command shows in the message.
+@test "test-check collect: reads verify-log 'command' field in the message" {
+  printf '%s' '{"latest":{"command":"task test:bats","exit_code":1,"source":"commit-gate"}}' >out.json
+  printf '[]' >finds.json
+  _mumei_det_test_check_collect out.json finds.json
+  run jq -r '.[0].message' finds.json
+  [[ "$output" == *"task test:bats"* ]]
+}
+
 # --- Wave 5: Tier2 opt-in detectors (REQ-27.7) ---
 
 @test "Tier2 detectors register as tier 2 candidate" {
