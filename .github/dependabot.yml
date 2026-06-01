@@ -13,6 +13,14 @@ updates:
       - "dependencies"
       - "github-actions"
     open-pull-requests-limit: 5
+    # Bundle every GitHub Actions bump (including majors) into one weekly
+    # PR. dependency-type grouping is not supported for github-actions, so
+    # match by pattern. CI (lint / bats / dashboard) + ai-review still gate
+    # each bump inside the grouped PR, and a major breaking change surfaces
+    # as a red check rather than slipping through ungated.
+    groups:
+      all-actions:
+        patterns: ["*"]
 
   - package-ecosystem: "npm"
     directory: "/dashboard"
