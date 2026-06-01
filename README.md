@@ -44,6 +44,10 @@ Prerequisites: `semgrep` + `osv-scanner` for the review-phase detectors. See [do
   </picture>
 </div>
 
+> The diagram shows the **spec** / **plan** vehicles. For a one-shot review
+> outside any vehicle, `/mumei:review` runs the same review engine against the
+> current diff — no `.mumei`, no side effects. See [Commands](#commands).
+
 ## Features
 
 - **Harness, not just prompts** — every phase / Wave / commit / push gate is enforced via Claude Code Hooks at the tool-call boundary. mumei treats the agent's intent as untrusted input and validates at the OS layer.

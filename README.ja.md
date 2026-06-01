@@ -44,6 +44,10 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
   </picture>
 </div>
 
+> 図は **spec** / **plan** の 2 vehicle を示す。vehicle を経由しない単発レビューは
+> `/mumei:review` が同じレビュー engine を現 diff に走らせる — `.mumei` 不要、副作用なし。
+> 詳細は [Commands](#commands) を参照。
+
 ## Features
 
 - **Harness — prompt ではなく Hook で強制** — phase / Wave / commit / push の各 gate は Claude Code Hook で tool 呼び出しの段階で enforce されます。エージェントの意図は untrusted input として OS layer で検証。
