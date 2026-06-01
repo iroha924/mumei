@@ -153,7 +153,7 @@ jobs:
           config: .markdownlint-cli2.jsonc
 
       - name: typos
-        uses: crate-ci/typos@7b04f660f4ee4f048d18fd341887cf28dfbedfe2 # v1.46.3
+        uses: crate-ci/typos@f8a58b6b53f2279f71eb605f03a4ae4d10608f45 # v1.47.0
 
       - name: shfmt (shell format)
         run: |
@@ -186,7 +186,7 @@ jobs:
         shell: bash
 
       - name: gitleaks (secret scan)
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Pin gitleaks binary version to match .pre-commit-config.yaml

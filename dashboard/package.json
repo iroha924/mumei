@@ -62,7 +62,7 @@
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "concurrently": "^9.1.0",
+    "concurrently": "^10.0.1",
     "fast-check": "^4.8.0",
     "fastify": "^5.8.0",
     "jsdom": "^29.1.1",
