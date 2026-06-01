@@ -1,6 +1,6 @@
-# Document Corruption — Why mumei is opt-in and acts as kuroko
+# Document Corruption — Why mumei is opt-in and stays out of your papers
 
-> The rationale for mumei staying invisible (kuroko). When LLM agents work on multi-turn editing tasks, they tend to "helpfully" rewrite existing specs, docs, and state. We call this **document corruption**, and this document maps mumei's structural countermeasures against it onto primary sources from Anthropic engineering.
+> The rationale for mumei staying out of the way (the nameless-butler stance). When LLM agents work on multi-turn editing tasks, they tend to "helpfully" rewrite existing specs, docs, and state. We call this **document corruption**, and this document maps mumei's structural countermeasures against it onto primary sources from Anthropic engineering.
 
 ## What is "document corruption"?
 
@@ -15,7 +15,7 @@ Across multi-turn editing sessions, LLM agents tend to **rewrite existing specs,
 
 This is not hallucination — it is **agency error**: the model maximizes "helpfulness" and overwrites records that should have been preserved. Long sessions, large contexts, and a helpful tone all increase the probability (inferred / high confidence — discussed repeatedly across Anthropic engineering posts). Newer models with stronger optimization toward helpfulness scores show this more visibly: they "fix" things that should not be fixed, as a misdirected prosocial behavior.
 
-mumei answers this by ensuring **the plugin itself does nothing on its own**. This is the kuroko (黒衣) stance. Kuroko in kabuki theater are stagehands present onstage but invisible to the audience and never interfering with the actors' performance. mumei takes the same posture.
+mumei answers this by ensuring **the plugin itself does nothing on its own** — the nameless-butler stance. A good butler never reorganizes the master's study because it "looks untidy"; he leaves every paper exactly where it lies and steps in only to uphold the standards of the house. Document corruption is precisely the failure of an over-eager servant who tidies away what should have been kept — mumei is the butler who knows what not to touch.
 
 ## Primary sources
 
@@ -76,7 +76,7 @@ The following table maps each corruption pattern to a concrete countermeasure an
 | Auto-commit silently advances side effects | mumei **never commits**. Wave completion prompts the user to commit | `skills/proceed/SKILL.md` Don'ts |
 | Spec missing / hallucinated requirements silently pass | `requirements-reviewer` returning **MAJOR_ISSUES** triggers an auto-fix iteration loop (max 3) before the single user approval gate, blocking phase transition until verdict=PASS | `hooks/pre-edit-guard.sh` (P2/P3), `agents/requirements-reviewer.md` |
 
-Every entry is a design decision to **not do something**, not to add another action. That is kuroko. The hook is just a wall; the plugin never speaks unsolicited to the user or the agent. Verdicts are returned as JSON; reasons are fact form. Error messages do not say "do this next"; they only say "this invariant has been violated."
+Every entry is a design decision to **not do something**, not to add another action. That is the butler's restraint. The hook is just a wall; the plugin never speaks unsolicited to the user or the agent. Verdicts are returned as JSON; reasons are fact form. Error messages do not say "do this next"; they only say "this invariant has been violated."
 
 mumei **doing nothing** is itself the structural guarantee against document corruption. This is not a claim that "mumei is safe" — it is a claim that **non-intrusion into the decision space is mumei's design contract**.
 
@@ -129,7 +129,7 @@ A passing run means the countermeasures are **operating in code**. Design intent
 
 ## Trade-offs
 
-The price paid for the opt-in / kuroko stance:
+The price paid for the opt-in / nameless-butler stance:
 
 - **Need for an escape hatch**: `MUMEI_BYPASS=1` exists, but the operational cost is "if you forget it, the hook stops you". Acceptable because "being stopped" is cheaper than corruption. Bypass is restricted to environment variables and cannot be persisted to a settings file or UI, so users do not accidentally end up running in always-bypass mode.
 - **Learning cost**: new users must learn the phase / Wave / commit rules. The `/mumei:arrange` skill walks through setup interactively, but the rules themselves still need to be internalized. This is the price for giving up convenient auto-magic.
@@ -137,7 +137,7 @@ The price paid for the opt-in / kuroko stance:
 - **Constraints on plugin growth**: the "abstract on the third repetition" rule keeps the bar high for adding new skills / agents. This is a safety device against the plugin itself growing complex enough to become a corruption source.
 - **Token economy is a side effect**: the core motivation is corruption suppression; token reduction is a consequence. Parallel reviewers + per-issue validators do create a 5-10x fan-out, but that fan-out buys back fresh context. Without fresh context, reviews degrade and themselves induce corruption — so the fan-out doubles as a safety device.
 - **Limited fit**: mumei targets teams or individuals who want a TDD / spec-driven workflow. It does not fit ad-hoc hack development. "Users it does not fit do not adopt it" is the natural state for an opt-in plugin.
-- **Bus factor risk**: kuroko depends on the user understanding their own workflow. There is no auto-recovery, no "let mumei figure it out" path. If the user is unavailable and a junior teammate cannot interpret a hook deny, the workflow stalls. The mitigation is documentation density (this file plus `README.md`) — not an alternative auto-mode.
+- **Bus factor risk**: the nameless-butler stance depends on the user understanding their own workflow. There is no auto-recovery, no "let mumei figure it out" path. If the user is unavailable and a junior teammate cannot interpret a hook deny, the workflow stalls. The mitigation is documentation density (this file plus `README.md`) — not an alternative auto-mode.
 
 Surfacing these as **design features** lets users adopt mumei knowing what mumei does **not** do for them. Conversely, expectations like "mumei will fix things on its own" or "mumei will tidy up the state" never hold.
 

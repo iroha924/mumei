@@ -368,7 +368,7 @@ HN) is set via the GitHub web UI (the API does not expose a write endpoint
 for repository social preview):
 
 1. Prepare a 1280×640 PNG. Keep it minimal: project name, one-line tagline,
-   and (optionally) the kuroko motif. Avoid screenshots that age fast.
+   and (optionally) the nameless-butler motif. Avoid screenshots that age fast.
 2. Go to **Settings → General → Social preview** of the repo
    (`https://github.com/hir4ta/mumei/settings`).
 3. Click **Upload an image** and select the PNG.

@@ -26,7 +26,7 @@ fi
 # rendered to a one-line string (no embedded newlines). On any failure,
 # emit a stderr warning and return non-zero so the caller can decide.
 #
-# Kuroko stance: silently no-op when `.mumei/` does not exist in cwd
+# Nameless-butler stance: silently no-op when `.mumei/` does not exist in cwd
 # (project has not opted into mumei). This prevents the helper from
 # creating `.mumei/audit-log/` in unrelated projects.
 #
@@ -38,7 +38,7 @@ mumei_audit_log_append() {
   local event_name="$1"
   local json_line="$2"
 
-  # Kuroko gate: only act in opted-in projects.
+  # Opt-in gate: only act in opted-in projects.
   [[ -d .mumei ]] || return 0
 
   if [[ -z "$event_name" ]] || [[ -z "$json_line" ]]; then

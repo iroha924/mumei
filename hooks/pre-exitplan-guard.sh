@@ -11,7 +11,7 @@
 # This hook never blocks. Failures emit a warning to stderr
 # and the hook exits 0 so plan mode is never broken by mumei.
 #
-# Opt-in contract (README "Kuroko stance" — issue #104):
+# Opt-in contract (README "Nameless-butler stance" — issue #104):
 #   Presence of `.mumei/current` is the opt-in marker. If the file is
 #   absent, this hook is a true no-op — it must NOT create `.mumei/`,
 #   state.json, or any other artifact. The marker is established by

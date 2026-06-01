@@ -8,4 +8,4 @@ contact_links:
     about: "README, PRIVACY policy, and Hook rules reference."
   - name: "Design rationale"
     url: "https://github.com/hir4ta/mumei/blob/main/docs/document-corruption.md"
-    about: "kuroko stance, structural countermeasures, and why mumei refuses certain features."
+    about: "nameless-butler stance, structural countermeasures, and why mumei refuses certain features."

@@ -3,7 +3,7 @@
 # `additionalContext` so post-compact context still tracks `.mumei/current`.
 #
 # Emits a one-line JSON summary (slug / phase / current_wave / pending_review).
-# Falls silent when there is no active feature (kuroko stance).
+# Falls silent when there is no active feature (nameless-butler stance).
 # Never blocks compaction.
 #
 # Env knobs:

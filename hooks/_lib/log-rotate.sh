@@ -11,7 +11,7 @@
 # the helper retains the last MUMEI_LOG_MAX_LINES (fixed 5000) lines
 # and atomically replaces the file so concurrent appenders never see a
 # half-written state. MUMEI_BYPASS=1 silently skips the check; the
-# kuroko stance keeps mumei out of unrelated projects.
+# nameless-butler stance keeps mumei out of unrelated projects.
 #
 # `cost-log.jsonl` (per-feature, archived with the feature) is NOT a
 # target of this helper.
@@ -72,7 +72,7 @@ mumei_log_rotate_check_and_truncate() {
 
   # MUMEI_BYPASS=1 silently skips.
   [[ "${MUMEI_BYPASS:-0}" == "1" ]] && return 0
-  # kuroko stance — no-op when the project has not opted in.
+  # nameless-butler stance — no-op when the project has not opted in.
   [[ -d .mumei ]] || return 0
   # No file yet → nothing to rotate.
   [[ -f "$target" ]] || return 0

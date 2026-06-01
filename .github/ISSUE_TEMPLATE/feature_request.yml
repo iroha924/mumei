@@ -6,8 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for proposing a feature. mumei follows a strict KISS / kuroko
-        stance — proposals are weighed against current pain (have you hit it
+        Thanks for proposing a feature. mumei follows a strict KISS /
+        nameless-butler stance — proposals are weighed against current pain (have you hit it
         in real use?) and against [`docs/mumei-decisions.md`](https://github.com/hir4ta/mumei/blob/main/docs/mumei-decisions.md)
         Non-goals. Read those before filing if you can.
 

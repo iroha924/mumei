@@ -18,7 +18,6 @@ extend-ignore-re = [
 # but are intentional in this codebase.
 anc = "anc"  # ancestor abbreviation in pre-edit-guard.sh path-walk loop
 mumei = "mumei"
-kuroko = "kuroko"
 Anthropic = "Anthropic"
 shellharden = "shellharden"
 shfmt = "shfmt"

@@ -7,11 +7,10 @@
 [![Sigstore signed](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/hir4ta/mumei/network/updates)
 
-Quality Enforcement Layer for Claude Code.
-
-Hook-enforced spec phases, Wave commits, and reviews — at the OS boundary, not via prompt-level instructions the agent can ignore.
-
-A Claude Code **harness** — physical enforcement of SDD phases, Wave commits, and review pipelines via Hooks. Skill / agent instructions are advisory; mumei treats the agent's intent as untrusted input and validates at the OS layer.
+**mumei (無名) — the butler with no name.** A quality-enforcement harness for
+Claude Code that upholds your project's standards at the OS boundary — not via
+prompt-level instructions the agent can ignore. It treats the agent's intent as
+untrusted input and validates at the Hook layer.
 
 [日本語版 README](./README.ja.md)
 
@@ -50,20 +49,18 @@ Prerequisites: `semgrep` + `osv-scanner` for the review-phase detectors. See [do
 
 ## Features
 
-- **Harness, not just prompts** — every phase / Wave / commit / push gate is enforced via Claude Code Hooks at the tool-call boundary. mumei treats the agent's intent as untrusted input and validates at the OS layer.
-- **Hook-enforced phases** — phase / Wave / commit / push transitions are denied at the tool-call boundary; the agent cannot prompt its way around them.
-- **Harness state protection (S1)** — `.mumei/current`, `state.json`, and review JSON files are denied to LLM Edit/Write at the Hook layer; harness internal state cannot be corrupted by a runaway agent. Orchestrator bash helpers retain legitimate write access via paths that bypass the hook.
-- **Deterministic ground-truth, class-aware fail-open** — a pluggable detector registry: `semgrep` + `osv-scanner` built in, Tier1 (`secret-scan` / `type-check` / `test-check`) run by default when installed, Tier2 (`opengrep` / `gosec` / `brakeman` / `codeql` / `bandit`) opt-in via `MUMEI_DETECTOR_TIER2=1`. Ground-truth failures (CVE / secret / type error / failing test) pin the verdict to `MAJOR_ISSUES`; noisy SAST candidates pass through the issue-validator adjudication gate and block only when the validator confirms them — so a false-positive semgrep hit never false-merge-blocks. Absent tools are warn-skipped, not fatal.
-- **Clean-HEAD verification integrity** — at commit time the test is re-run against a detached worktree checked out at `HEAD`, so uncommitted tampering (rigged `conftest.py`, monkeypatched `TestReport`, edited bytecode) cannot fake a pass. A working-tree-green / clean-HEAD-red divergence is denied (I3). `golden_paths` in `.mumei/config.json` mark immutable spec/oracle files: Edit/Write is blocked (G1), the obvious Bash write route (redirect / `rm` / `mv` / `cp` dest / `tee` / `truncate` / `sed -i`) is blocked (G2), and the worktree runs against a clean `HEAD` tree where golden files already hold their committed content.
-- **Deterministic tool gates (I5)** — declare `tool_gates` in `.mumei/config.json` (an arbitrary-key map; `typecheck` / `lint` / `semgrep` / `gitleaks` are recommended defaults). Each declared command runs at commit time; a non-zero exit — or exit 127 for a declared-but-absent tool — denies the commit, and every run is recorded to `verify-log.jsonl` (source=tool-gate). XSS / injection / secret detection is delegated to deterministic tools here rather than to probabilistic AI review. Tool presence is the user's responsibility — mumei only invokes and gates.
-- **Blind property-author (pillar B)** — when an AC carries an `_Invariant:` line (`type=roundtrip` / `idempotency` / `invariant-preservation` / `oracle-match`), a `property-author` subagent writes the property test from the invariant declaration and the function signature **alone** — never reading the implementation — so the test cannot be tuned to pass a flawed implementation. The generated test is frozen as a golden file (G1). Opt-in: add e.g. `_Invariant: type=roundtrip fn=encode inverse=decode_` beneath an AC in `requirements.md` to opt in; `/mumei:proceed` proposes candidates while drafting. ACs without an `_Invariant:` line are skipped, so a feature with no invariants still proceeds.
-- **3 spec reviewers + 4-stage review pipeline** — independent `requirements` / `design` / `tasks` reviewers on fresh contexts (auto-iter ≤ 3); `spec-compliance` + `security` parallel, then `adversarial`, then per-issue validator. `requirements-reviewer` audits AC `examples_coverage` (zero examples on high-risk AC, actor-trigger inconsistency) and `requirement_smell` (ambiguity / vagueness / incompleteness).
-- **AI review hardening (pillar C)** — the review pipeline is an assist, and mumei is honest about it. HIGH/CRITICAL findings must carry a falsifiable `trace`; the validator's `REPRODUCIBLE` axis downgrades ungrounded ones to advisory (surfaced, never dropped, never auto-blocking — and a HIGH is never auto-suppressed). `security-reviewer` gets full spec context while `adversarial-reviewer` stays cold (input asymmetry instead of model rotation). An immutable agent-body prefix makes every reviewer ignore "safe"/"reviewed" claims and re-derive from code. A cross-feature `finding-ledger.jsonl` annotates the validator on recurring false positives (annotation only). Every review JSON carries a `confidence_ceiling` disclaimer naming the Claude-family blind spot and detection ceiling — mumei does not claim to make human review unnecessary.
-- **Residual exposition (pillar D)** — mumei tells you exactly what to review by hand. `hooks/_lib/residual.sh` deterministically aggregates every signal objective verification cannot guarantee into a `residual` array on the review JSON: ungrounded advisories, validator `unsure`, validator-skipped self-assertions, and reviewer `needs_dynamic_analysis` / `needs_architecture_review` filter-outs — plus an always-present `ai-blindspot-ceiling` item on every review. Aggregation is pure bash + jq with no AI drop gate (it conservatively over-includes, since a missed residual is worse than an over-reported one); `invalid` false positives are structurally excluded. Each item carries `{category, source, ref, note}` for spot-check. No reduction-ratio KPI is emitted — the claim is "human review is reduced and concentrated onto the residual, not eliminated".
+- **Harness, not prompts** — every phase / Wave / commit / push gate is enforced at the tool-call boundary; the agent can't prompt its way around it.
+- **Protected state** — `.mumei/` state and review verdicts are off-limits to the agent's Edit/Write; only the harness writes them, so a runaway agent can't corrupt them.
+- **Gates that don't false-block** — CVE / secret / type-error / failing-test pin the verdict to `MAJOR_ISSUES`; noisy SAST is run through an adjudication gate and blocks only when confirmed, so a false positive never false-merge-blocks. Absent tools are warn-skipped, not fatal.
+- **Tamper-proof verification** — at commit, tests re-run against a clean `HEAD` worktree, so uncommitted rigging (a doctored `conftest.py`, monkeypatched reporter, edited bytecode) can't fake a pass.
+- **Tests the agent can't game** — invariant properties are written blind, from the spec and signature alone without seeing the implementation, then frozen, so the test can't be tuned to a flawed implementation. Opt-in per AC.
+- **Diverse-lens review** — independent requirements / design / tasks reviewers on fresh contexts, a parallel security + adversarial pass (asymmetric context, not model rotation), and a per-finding validator that downgrades ungrounded findings to advisory.
+- **Honest about its ceiling** — every verdict carries a blind-spot disclaimer and names exactly what to review by hand; mumei never claims to replace human review.
 - **Wave-based commits** — 1 Wave = 1 commit. Hooks cross-check the diff against each task's `_Files:_` to block phantom completion.
-- **Curator-gated reviewer memory** — independent `memory-curator` (sonnet, read-only) scores candidates on a 7-axis rubric; only `≥ 15/21` is persisted.
 - **Signed, attestable releases** — Sigstore keyless signing, SLSA Level 3, CycloneDX SBOM. See [docs/getting-started.md → Security & supply chain](./docs/getting-started.md#security--supply-chain).
-- **Kuroko (黒衣) stance** — zero side effects on projects that have not opted in. No `.mumei/current` = every Hook is a no-op. No telemetry.
+- **Nameless-butler stance** — mumei serves quietly and takes no credit: zero side effects until you opt in (no `.mumei/current` → every Hook is a no-op), no unsolicited speech, fact-form verdicts, no telemetry. Like any proper butler, it also holds the line — _"I'm afraid that won't do"_ — overridable only by `MUMEI_BYPASS=1`.
+
+> Mechanics — hook IDs, the detector tiers, the blind property-author / review-hardening / residual-exposition pillars, the cross-feature finding-ledger, and curator-gated reviewer memory — live in **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
 ## Commands
 
