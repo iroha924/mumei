@@ -102,6 +102,9 @@ jobs:
           path: ${{ env.OUT_DIR }}
           retention-days: 1
           if-no-files-found: error
+          # OUT_DIR is a dot-prefixed dir (.ai-review-out); upload-artifact
+          # excludes hidden paths by default since v4.4, so opt back in.
+          include-hidden-files: true
 
   openai:
     name: review (gpt-5.5)
@@ -137,6 +140,9 @@ jobs:
           path: ${{ env.OUT_DIR }}
           retention-days: 1
           if-no-files-found: error
+          # OUT_DIR is a dot-prefixed dir (.ai-review-out); upload-artifact
+          # excludes hidden paths by default since v4.4, so opt back in.
+          include-hidden-files: true
 
   aggregate:
     name: aggregate review
