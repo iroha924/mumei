@@ -1,6 +1,6 @@
 # Security Policy
 
-mumei is a [Claude Code](https://code.claude.com) plugin distributed as plain
+mumei is a [Claude Code](https://code.claude.com/docs/en/overview) plugin distributed as plain
 shell + jq scripts. It runs entirely on the user's machine; mumei itself
 initiates no outbound requests (see [PRIVACY.md](./PRIVACY.md) for full network
 egress policy).
