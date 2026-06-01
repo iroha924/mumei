@@ -863,13 +863,18 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
 
 - **iter 1 (baseline)** — launch `spec-compliance-reviewer` and
   `security-reviewer` in Stage 1; `adversarial-reviewer` runs in
-  Stage 2 sequentially. Branch on `high_count` from Stage 0:
+  Stage 2 sequentially. Under fail-open (REQ-27.9), candidate detector
+  findings (semgrep / CodeQL / linters) no longer pre-empt the reviewers, so
+  `security-reviewer` ALWAYS launches regardless of detector HIGH count:
 
-  - **`high_count == 0`** — launch both reviewers in parallel:
+  - launch both reviewers in parallel:
     - `Task(subagent_type: "spec-compliance-reviewer", ...)`
     - `Task(subagent_type: "security-reviewer", ...)`
-  - **`high_count > 0`** — skip `security-reviewer` (detector ground truth):
-    - `Task(subagent_type: "spec-compliance-reviewer", ...)`
+
+  Only ground_truth detector findings (osv-scanner / secret-scan / type-check /
+  test-check) are deterministic; they are injected as ground-truth context (see
+  below) and surfaced to block directly. Candidate detector findings flow
+  through the Stage 4 adjudication gate like any other candidate.
 
 - **iter 2+ (focused)** — read `next_iter_reviewers` from the
   previous review JSON for the **same Wave** and **iter N-1**, then
@@ -914,9 +919,10 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   here — by the time Stage 1 of iter 2+ is reached, at least one reviewer
   in `next_iter_reviewers` is guaranteed to need launching.
 
-  When `high_count > 0` for iter 2+, also drop `security` from
-  `next_iter_reviewers` at iter 2+ Stage 1 entry (detector ground truth
-  superseded the LLM reviewer's role for that category).
+  Under fail-open, `security` is NOT dropped on detector HIGH count: candidate
+  detector findings are adjudicated through the Stage 4 gate, not treated as
+  ground truth, so the security reviewer's role is never superseded by a noisy
+  detector.
 
 Pass each reviewer:
 
@@ -1184,13 +1190,23 @@ ground-truth substitute.
 
 Verdict aggregation rules (encoded in `mumei_review_aggregate_verdict`):
 
-- **HIGH detector findings present** (`high_count > 0` from Stage 0) → overall `MAJOR_ISSUES`. This is non-negotiable; the deterministic detector is ground truth.
+- **Ground_truth detector findings present** (osv-scanner / secret-scan /
+  type-check / test-check at HIGH/CRITICAL) → overall `MAJOR_ISSUES`. These are
+  deterministic and block unconditionally (REQ-27.10). Candidate detector
+  findings (semgrep / CodeQL / linters) do NOT auto-block — they pass through
+  the Stage 4 gate and block only when the validator confirms them
+  (fail-open, REQ-27.9).
 - ANY reviewer returns `MAJOR_ISSUES` → overall `MAJOR_ISSUES`.
-- ANY surfaced finding has `severity: CRITICAL` or `HIGH` → at least `NEEDS_IMPROVEMENT`.
+- ANY surfaced HIGH/CRITICAL with `severity_action == "block"` → at least `NEEDS_IMPROVEMENT`.
 - All clean → `PASS`.
 
+Pass the **ground_truth HIGH count** (NOT the raw detector `high_count`) as the
+first argument — derive it from the surfaced findings after the advisory
+downgrade so candidate detector findings are excluded:
+
 ```bash
-verdict="$(mumei_review_aggregate_verdict "$high_count" "$surfaced_json" "$reviewer_verdicts_json")"
+gt_high="$(mumei_review_ground_truth_high_count "$surfaced_json")"
+verdict="$(mumei_review_aggregate_verdict "$gt_high" "$surfaced_json" "$reviewer_verdicts_json")"
 ```
 
 To persist the final review JSON atomically, pipe it through
@@ -1211,23 +1227,37 @@ verify Stage 0 ran:
 { "detector_report": ".mumei/specs/<feature>/reviews/<ts>-detectors.json", ... }
 ```
 
-**Detector findings in `findings_surfaced`**: when `high_count > 0`
-(security-reviewer was skipped), read `.findings.HIGH` from the detector
-report and prepend each entry to `findings_surfaced` before writing the
-review JSON. Preserve each entry's `source` field (`"semgrep"` /
-`"osv-scanner"`) so the issue-validator's detector-skip rule still
-applies on any future iteration. Without this step the verdict is
-correctly `MAJOR_ISSUES` but the user sees no findings explaining why —
-the review JSON appears clean.
+**Detector findings in `findings_surfaced`**: split the detector report's HIGH
+findings by `precision_class` before writing the review JSON:
+
+- **ground_truth** (osv-scanner / secret-scan / type-check / test-check) →
+  prepend to `findings_surfaced` directly with `precision_class: "ground_truth"`
+  preserved. These block the verdict (the issue-validator skips them as
+  deterministic ground truth, and `mumei_review_ground_truth_high_count` counts
+  them).
+- **candidate** (semgrep / CodeQL / linters) → feed into Stage 4 as candidate
+  findings so the issue-validator adjudicates them. Only those the validator
+  confirms (`severity_action == "block"`) pin the verdict; the rest are surfaced
+  as advisory (`severity_action == "report_only"`, fail-open). Preserve each
+  entry's `precision_class` and `source`.
+
+Without this step a real ground-truth failure would have no surfaced finding
+explaining the MAJOR_ISSUES verdict.
 
 ```json
 {
   "verdict": "MAJOR_ISSUES",
   "detector_report": ".mumei/specs/<f>/reviews/<ts>-detectors.json",
   "findings_surfaced": [
-    { "source": "semgrep", "severity": "HIGH", "rule_id": "...", "location": ..., "message": "..." },
-    ...rest of HIGH detector findings...,
-    ...then the LLM reviewer findings...
+    {
+      "source": "osv-scanner",
+      "precision_class": "ground_truth",
+      "severity": "HIGH",
+      "severity_action": "block",
+      "cve_id": "...",
+      "message": "..."
+    },
+    "...candidate findings (semgrep / LLM) with their adjudicated severity_action..."
   ]
 }
 ```

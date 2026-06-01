@@ -174,12 +174,13 @@ Plan vehicle launches the same reviewer set as spec vehicle, including
 the reviewer compares the diff against the user-approved plan markdown
 instead of requirements.md.
 
-- iter 1 baseline:
-  - if `high_count == 0`: launch `spec-compliance-reviewer`,
-    `security-reviewer`, and `adversarial-reviewer` in parallel.
-  - if `high_count > 0`: skip `security-reviewer` (detector ground truth
-    has already produced HIGH findings) and launch
-    `spec-compliance-reviewer` + `adversarial-reviewer`.
+- iter 1 baseline: launch `spec-compliance-reviewer`, `security-reviewer`,
+  and `adversarial-reviewer` in parallel. Under fail-open (REQ-27.9),
+  `security-reviewer` ALWAYS launches regardless of detector HIGH count —
+  candidate detector findings (semgrep / CodeQL / linters) are adjudicated
+  through Step 7's gate, not treated as ground truth. Only ground_truth
+  detectors (osv-scanner / secret-scan / type-check / test-check) block
+  directly.
 - iter 2+ focused: read the previous review JSON's `next_iter_reviewers`
   field and launch only the listed reviewers (always includes
   `adversarial`).
@@ -212,9 +213,11 @@ plan — so it evaluates cold. Keep this asymmetry intact: it is the sole
 diversity mechanism (both run on the same model; model rotation is
 intentionally not used). Do NOT inject the plan into the adversarial prompt.
 
-When `high_count > 0`, inject the HIGH detector findings into all running
-reviewer prompts as a `<detector_findings ground_truth="true">` block
-exactly as Phase 5 does (see `skills/proceed/SKILL.md` Stage 1).
+When ground_truth detectors produce HIGH findings, inject them into all running
+reviewer prompts as a `<detector_findings ground_truth="true">` block exactly as
+Phase 5 does (see `skills/proceed/SKILL.md` Stage 1). Candidate detector findings
+(semgrep / CodeQL / linters) are NOT injected as ground truth — they flow through
+the Step 7 adjudication gate (fail-open, REQ-27.9).
 
 ### Step 7 — Per-issue validation
 
@@ -259,7 +262,11 @@ source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
 # surfaced_json and filtered_json are JSON arrays produced by Step 7.
 # reviewer_verdicts is the per-reviewer status object the reviewers returned.
 
-verdict="$(mumei_review_aggregate_verdict "$high_count" "$surfaced_json" "$reviewer_verdicts_json")"
+# Pass the ground_truth HIGH count (NOT the raw detector high_count) so candidate
+# detector findings flow through the gate rather than auto-blocking (fail-open,
+# REQ-27.9 / REQ-27.10).
+gt_high="$(mumei_review_ground_truth_high_count "$surfaced_json")"
+verdict="$(mumei_review_aggregate_verdict "$gt_high" "$surfaced_json" "$reviewer_verdicts_json")"
 # pass prev_reviewers + slug + iter so the helper applies rotation
 # at the tail (preserves the adversarial invariant).
 prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"

@@ -78,3 +78,20 @@ setup() {
   count="$(grep -c 'security-reviewer' <<<"$full" || true)"
   [ "$count" = "1" ]
 }
+
+# --- Wave 3: metadata quarantine (REQ-27.12) ---
+
+@test "prefix carries the metadata-quarantine instruction" {
+  prefix="$(mumei_reviewer_prompt_prefix "security-reviewer")"
+  [[ "$prefix" == *"Metadata quarantine"* ]]
+  [[ "$prefix" == *"judge ONLY the code"* ]]
+  [[ "$prefix" == *"intent, not reassurance"* ]]
+}
+
+@test "metadata-quarantine instruction is byte-stable across agents (cache-safe)" {
+  # The quarantine wording must be identical in every agent's prefix so the
+  # cache prefix stays stable; only the agent name differs.
+  p1="$(mumei_reviewer_prompt_prefix "security-reviewer" | grep -A6 'Metadata quarantine')"
+  p2="$(mumei_reviewer_prompt_prefix "adversarial-reviewer" | grep -A6 'Metadata quarantine')"
+  [ "$p1" = "$p2" ]
+}

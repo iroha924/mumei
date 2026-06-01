@@ -256,3 +256,69 @@ STUB
   [ "$status" -eq 0 ]
   [ -z "$stderr" ]
 }
+
+# ─── detector registry (Wave 1) ───────────────────────────────
+
+@test "registry: builtin detectors registered by default" {
+  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" semgrep "* ]]
+  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" osv-scanner "* ]]
+}
+
+@test "registry: register is idempotent" {
+  mumei_detector_register newdet
+  mumei_detector_register newdet
+  local n
+  # shellcheck disable=SC2086
+  n="$(printf '%s\n' $MUMEI_DETECTOR_REGISTRY | grep -c '^newdet$')"
+  [ "$n" -eq 1 ]
+}
+
+@test "registry: builtin meta tier/class" {
+  [ "$(mumei_detector_meta semgrep)" = "1 candidate" ]
+  [ "$(mumei_detector_meta osv-scanner)" = "1 ground_truth" ]
+  [ "$(mumei_detector_tier semgrep)" = "1" ]
+  [ "$(mumei_detector_class osv-scanner)" = "ground_truth" ]
+}
+
+@test "registry: unknown detector meta is conservative (opt-in, candidate)" {
+  [ "$(mumei_detector_meta totally-unknown)" = "2 candidate" ]
+}
+
+@test "fnname maps dashes to underscores" {
+  [ "$(_mumei_detector_fnname osv-scanner)" = "osv_scanner" ]
+}
+
+@test "run_one: returns 2 when detector has no probe impl" {
+  local wd finds errs
+  wd="$(mktemp -d)"
+  finds="$(mktemp)"
+  errs="$(mktemp)"
+  printf '[]' >"$finds"
+  run mumei_detector_run_one nonexistent-detector "$wd" "$finds" "$errs"
+  [ "$status" -eq 2 ]
+}
+
+@test "run_one: returns 2 when probe fails (tool absent)" {
+  _mumei_det_faketool_probe() { return 1; }
+  local wd finds errs
+  wd="$(mktemp -d)"
+  finds="$(mktemp)"
+  errs="$(mktemp)"
+  printf '[]' >"$finds"
+  run mumei_detector_run_one faketool "$wd" "$finds" "$errs"
+  [ "$status" -eq 2 ]
+}
+
+@test "run_all: absent tools warn-skip, empty report, rc 0" {
+  _mumei_det_semgrep_probe() { return 1; }
+  _mumei_det_osv_scanner_probe() { return 1; }
+  local wd final
+  wd="$(mktemp -d)"
+  final="$(mktemp)"
+  run mumei_detector_run_all "$wd" "$final" "smoke"
+  [ "$status" -eq 0 ]
+  run jq '.counts.HIGH' "$final"
+  [ "$output" = "0" ]
+  run jq '.detectors_run | length' "$final"
+  [ "$output" = "0" ]
+}

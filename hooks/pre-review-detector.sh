@@ -28,6 +28,8 @@ source "${PLUGIN_ROOT}/hooks/_lib/log.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/state.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/detectors.sh"
+# shellcheck disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/detectors-ext.sh"
 
 # 2.2 — Bypass takes precedence over every other check, including the
 # missing-binary hard fail and the cwd-anchor check that anchor.sh
@@ -50,22 +52,13 @@ fi
 # shellcheck source=_lib/anchor.sh disable=SC1091
 source "${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(realpath "$0")")")}/hooks/_lib/anchor.sh"
 
-# 2.3 — Verify required binaries. Missing binaries produce a hard fail
-# with installation guidance, not a fall-through.
-missing_bins="$(mumei_detector_check_binaries)" || true
-if [[ -n "$missing_bins" ]]; then
-  mumei_log_error "missing required detector binaries:"
-  while IFS= read -r b; do
-    mumei_log_error "  - ${b}"
-  done <<<"$missing_bins"
-  mumei_log_error ""
-  mumei_log_error "install with:"
-  mumei_log_error "  macOS:  brew install ${missing_bins//$'\n'/ }"
-  mumei_log_error "  Linux:  see https://semgrep.dev/docs/getting-started"
-  mumei_log_error "          and https://github.com/google/osv-scanner/releases"
-  mumei_log_error ""
-  mumei_log_error "or set MUMEI_BYPASS=1 to skip detector checks (not recommended)."
-  exit 2
+# 2.3 — Detector availability is warn-skip, not hard-fail (REQ-27.5). The
+# registry runner probes each detector and skips absent ones with a stderr
+# warning, so a missing semgrep/osv no longer aborts the review. Surface
+# install guidance once, up front, when builtin detectors are absent.
+if ! mumei_detector_check_binaries >/dev/null 2>&1; then
+  mumei_log_warn "some builtin detectors are not installed and will be skipped."
+  mumei_log_warn "  macOS: brew install semgrep osv-scanner (also gitleaks for secret scanning)"
 fi
 
 # version warning (warn-only, never blocks).
@@ -122,45 +115,27 @@ _mumei_detector_on_signal() {
 trap 'rm -rf "$WORK_DIR"' EXIT
 trap '_mumei_detector_on_signal SIGINT' INT
 trap '_mumei_detector_on_signal SIGTERM' TERM
-SG_OUT="${WORK_DIR}/semgrep.json"
-OSV_OUT="${WORK_DIR}/osv.json"
-ERR_OUT="${WORK_DIR}/errors.ndjson"
-: >"$ERR_OUT"
-
-# Track detectors that crashed (binary rc>=2). Skips (no lockfile) are
-# NOT failures — those land in the report's detectors_skipped list and
-# the run_* function returns 0.
-# Only true binary crashes propagate here. Fall-through to aggregate so the
-# partial report is still written for triage, but exit 2 at the end so the
-# orchestrator does not silently treat the run as ground truth.
-FAILED_DETECTORS=()
-
-mumei_log_info "running semgrep (this may take a few minutes on large repos)..."
-mumei_detector_run_semgrep "$SG_OUT" "$ERR_OUT" || FAILED_DETECTORS+=("semgrep")
-
-mumei_log_info "running osv-scanner..."
-mumei_detector_run_osv "$OSV_OUT" "$ERR_OUT" || FAILED_DETECTORS+=("osv-scanner")
-
-mumei_log_info "aggregating findings..."
-if ! mumei_detector_aggregate "$SG_OUT" "$OSV_OUT" "$ERR_OUT" "$FINAL_PATH" "$FEATURE"; then
-  mumei_log_error "aggregate failed"
+# Registry-driven detector run (Wave 1). The registry replaces the explicit
+# semgrep/osv invocation: run_all iterates MUMEI_DETECTOR_REGISTRY, probes each
+# detector, runs tier-1 detectors by default (tier-2 only when
+# MUMEI_DETECTOR_TIER2=1), warn-skips absent tools, and assembles the report.
+# Crashed binaries (rc>=2) are recorded in MUMEI_DETECTOR_FAILED.
+MUMEI_DETECTOR_FAILED='[]'
+mumei_log_info "running detectors (registry-driven)..."
+if ! mumei_detector_run_all "$WORK_DIR" "$FINAL_PATH" "$FEATURE"; then
+  mumei_log_error "detector report assembly failed"
   rm -rf "$WORK_DIR"
   exit 2
 fi
 rm -rf "$WORK_DIR"
 
 # 2.6 — Emit a JSON summary on stdout for the skill orchestrator to parse.
-# Always include failed_detectors so the orchestrator can detect partial
-# runs even if it forgets to read the report's errors[] array.
 HIGH_COUNT="$(jq '.counts.HIGH' <"$FINAL_PATH")"
-if ((${#FAILED_DETECTORS[@]} == 0)); then
-  FAILED_JSON='[]'
+FAILED_JSON="${MUMEI_DETECTOR_FAILED:-[]}"
+FAILED_N="$(jq 'length' <<<"$FAILED_JSON")"
+if ((FAILED_N == 0)); then
   DETECTORS_RAN='true'
 else
-  FAILED_JSON="$(printf '%s\n' "${FAILED_DETECTORS[@]}" | jq -R . | jq -s .)"
-  # detectors_ran is false when any detector crashed — the JSON itself
-  # signals a partial run regardless of whether the orchestrator checks
-  # the exit code (defense-in-depth).
   DETECTORS_RAN='false'
 fi
 jq -n \
@@ -170,12 +145,11 @@ jq -n \
   --argjson ran "$DETECTORS_RAN" \
   '{detectors_ran: $ran, high_count: $high, report_path: $path, failed_detectors: $failed}'
 
-# Hard fail when one or more detectors crashed (exit code >=2 from the
-# binary). Treat this the same as missing-binary: surfacing a partial
-# ground-truth signal as if it were complete defeats the design.
-if ((${#FAILED_DETECTORS[@]} > 0)); then
-  mumei_log_error "the following detectors failed (exit code >=2):"
-  printf '  - %s\n' "${FAILED_DETECTORS[@]}" >&2
+# Hard fail only when a detector binary actually crashed (rc>=2). Missing
+# tools are warn-skipped (REQ-27.5) and never reach here.
+if ((FAILED_N > 0)); then
+  mumei_log_error "the following detectors crashed (exit code >=2):"
+  jq -r '.[] | "  - " + .' <<<"$FAILED_JSON" >&2
   mumei_log_error ""
   mumei_log_error "common causes: offline / restricted CI (semgrep --config=auto needs"
   mumei_log_error "  network access), corrupt config, scanner crash."

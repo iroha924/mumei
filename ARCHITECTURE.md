@@ -42,7 +42,8 @@ mumei/
 │   │   ├── state.sh        # .mumei/specs/<feat>/state.json read/write (atomic)
 │   │   ├── tasks.sh        # tasks.md parser (BSD-awk compatible)
 │   │   ├── safe-grep.sh    # null-safe grep + git check-ignore helper
-│   │   ├── detectors.sh    # semgrep / osv-scanner runners + severity normalizer
+│   │   ├── detectors.sh    # detector registry core + builtin semgrep / osv-scanner + severity normalizer
+│   │   ├── detectors-ext.sh # Tier1 (secret-scan / type-check / test-check) + Tier2 opt-in (opengrep / gosec / brakeman / codeql / bandit)
 │   │   ├── review.sh       # shared Phase 5 / /mumei:examine pipeline helpers
 │   │   ├── ledger.sh       # cross-feature finding ledger (pillar C: move-resistant fingerprint + FP annotation, annotate-only)
 │   │   ├── residual.sh     # residual exposition (pillar D: deterministic aggregation of advisory/unsure/needs_*/valid_by_assertion + always-on ai-blindspot-ceiling)
@@ -166,15 +167,12 @@ pipeline. Stages 1, 4 are parallel; the rest are sequential.
 
 ```mermaid
 flowchart TD
-  S0["Stage 0<br/>pre-review-detector.sh<br/>semgrep + osv-scanner"]
-  S0 -->|HIGH = 0| S1A
-  S0 -->|HIGH > 0| S1B
+  S0["Stage 0<br/>pre-review-detector.sh<br/>registry: semgrep + osv + Tier1<br/>(Tier2 opt-in); fail-open"]
+  S0 --> S1A
 
-  S1A["Stage 1 ‖<br/>spec-compliance / security<br/>(2 fresh contexts)"]
-  S1B["Stage 1 ‖ skip security<br/>spec-compliance only<br/>(detector findings = ground truth)"]
+  S1A["Stage 1 ‖<br/>spec-compliance / security<br/>(2 fresh contexts, always)"]
 
   S1A --> S2
-  S1B --> S2
   S2["Stage 2<br/>adversarial-reviewer<br/>(prior_findings injected)"]
   S2 --> S3["Stage 3<br/>aggregate findings"]
   S3 --> S4["Stage 4 ‖<br/>issue-validator × N<br/>(severity-conditional:<br/>HIGH/CRITICAL mandatory,<br/>MEDIUM/LOW skip + ~19% calibration)"]
@@ -188,8 +186,14 @@ flowchart TD
 
 Key constraints:
 
-- **Detector findings are ground truth.** When `high_count > 0`, security-reviewer
-  is skipped and the verdict pins to `MAJOR_ISSUES` regardless of LLM output.
+- **Class-aware fail-open (REQ-27).** Ground_truth detectors (osv-scanner /
+  secret-scan / type-check / test-check) pin the verdict to `MAJOR_ISSUES`;
+  noisy candidate detectors (semgrep / CodeQL / linters) flow through the
+  issue-validator adjudication gate and block only when the validator confirms
+  them (reproducible). security-reviewer always runs — a noisy detector never
+  skips it. HIGH/CRITICAL findings are never auto-suppressed (advisory if
+  ungrounded). The standalone `/mumei:review` skill shares this engine with no
+  `.mumei` side effects.
 - **`spec-compliance-reviewer` accepts a `scope_source` parameter** that the
   orchestrator appends to the reviewer prompt as a literal `scope_source=<path>`
   suffix. The agent body branches on the file extension: `requirements.md`
