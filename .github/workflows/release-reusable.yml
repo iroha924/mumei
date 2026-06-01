@@ -113,9 +113,8 @@ jobs:
           # required check-run, accepting in_progress / queued as
           # transient and only failing on (completed AND not-success) or
           # genuine absence.
-          # `codeql (` covers every CodeQL language (post-CI-consolidation
-          # job names live under ci.yml as `codeql (actions)` /
-          # `codeql (javascript-typescript)`). `scorecard analysis` is
+          # `codeql (` covers every CodeQL language (the job runs under
+          # ci.yml as `codeql (actions)`). `scorecard analysis` is
           # the literal Scorecards run name.
           poll_check_prefix() {
             local prefix="$1"
