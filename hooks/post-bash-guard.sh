@@ -13,7 +13,7 @@
 #     touching node_modules).
 #   - X3 is silent on no-op (current Wave still has [ ] tasks). It only
 #     surfaces output when it actually moved the state forward, so the
-#     hook stays kuroko on partial commits.
+#     hook stays silent on partial commits.
 #   - escape: MUMEI_BYPASS=1 -> exit 0 immediately
 
 set -u

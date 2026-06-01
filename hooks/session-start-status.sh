@@ -2,7 +2,7 @@
 # SessionStart: surface the active feature's status into
 # `additionalContext` at session startup or resume.
 #
-# Falls silent (kuroko stance) when there is no active feature.
+# Falls silent (nameless-butler stance) when there is no active feature.
 # Hooked on matcher `startup|resume` only; clear/compact emit nothing.
 #
 # Env knobs:

@@ -98,9 +98,9 @@ mitigations), [PRIVACY.md](../PRIVACY.md).
 
 ## Philosophy: why "mumei" (無名)
 
-`mumei` (Japanese: 無名, "no name") is a [kuroko](https://en.wikipedia.org/wiki/Kuroko) — the
-Japanese stage assistant dressed in black, invisible by convention,
-whose job is to physically support the actor without being noticed.
+`mumei` (Japanese: 無名, "no name") is the **butler with no name** — present in
+the household and attentive, but unobtrusive: its job is to uphold the
+standards of the house without ever stepping between you and your work.
 
 mumei plays the same role for Claude Code:
 
@@ -117,8 +117,9 @@ mumei plays the same role for Claude Code:
   research like Microsoft Research's
   [DELEGATE-52](./document-corruption.md) — frontier LLMs corrupt 25%
   of document content over 20 delegated edits, and agentic harnesses
-  don't help. mumei's "strict workflow" is the kuroko's hand catching
-  a fall the actor never sees.
+  don't help. mumei's "strict workflow" is the butler quietly staying
+  the hasty hand before it files away a paper you were still using —
+  a corruption you would never have seen.
 
 mumei is judged by what it prevents, not by what it does.
 

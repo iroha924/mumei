@@ -215,59 +215,22 @@ creates a topic branch in this repo.
    that the GitHub web UI would have inserted automatically.
 7. CI runs on the PR. The relevant workflows are `ci.yml` (`lint`,
    `lint-extra`, `bats` on macOS / Ubuntu, `codeql`), `pr.yml`
-   (`mutable-tag-guard`, `pr-target-guard`), `gitleaks.yml`,
-   `plugin-json-validate.yml`, and `ai-review.yml` (custom dual-LLM
-   review). Address failures
-   before merge. (`claude-review.yml` is on disk but disabled — see
-   the file header for why and how to re-enable.)
+   (`mutable-tag-guard`, `pr-target-guard`), `gitleaks.yml`, and
+   `plugin-json-validate.yml`. Address failures before merge.
+   (`claude-review.yml` is on disk but disabled — see the file header
+   for why and how to re-enable.)
 8. Monitor the PR after opening. CI green is necessary but not
    sufficient — automated reviewers also post feedback:
    - `task pr:watch` — wait for the latest CI run on this branch
    - `gh pr checks <N>` — CI status snapshot
-   - **GitHub PR UI** — review findings from `ai-review.yml`. This
-     workflow is home-grown (see `.github/ai-review/` for the
-     prompt + JSON schema + bash orchestration) and runs the same
-     review prompt — tuned for defects characteristic of
-     AI-generated code (hallucinated APIs, phantom parameters,
-     silent inversion, defensive overengineering, type drift) — in
-     parallel through **Gemini 3.1 Pro** and **GPT-5.5**. An
-     aggregate job clusters findings by file + line proximity and
-     tags each cluster as **consensus** (both providers flagged),
-     **majority** (most flagged — only when ≥3 providers
-     configured), or **individual** (one provider only). The PR
-     gets a fresh status comment per push (timeline-friendly,
-     prior reviews stay visible for diffing across pushes) plus
-     inline review comments for consensus / majority findings.
-     Triage findings, push fix commits, and resolve threads before
-     merging. Reviewer monitoring is the PR author's
-     responsibility; an AI agent driving the PR watches CI only.
-     (The previous Codex / Gemini Code Assist / Copilot
-     auto-reviewers are turned off at the GitHub-App / account
-     level by the repo owner.)
+   - **GitHub PR UI** — review findings from the GitHub App reviewers
+     (Codex / Gemini Code Assist / Copilot), enabled at the
+     GitHub-App level by the repo owner. Triage findings, push fix
+     commits, and resolve threads before merging. Reviewer monitoring
+     is the PR author's responsibility; an AI agent driving the PR
+     watches CI only.
 9. Self-merge via squash or rebase (linear history; merge commits should
    be avoided). No required approval count.
-
-### `ai-review.yml` one-time setup
-
-Two repo secrets are required before `ai-review.yml` will run
-successfully (`GITHUB_TOKEN` is supplied automatically):
-
-| Secret name      | Value                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| `GEMINI_API_KEY` | Google AI Studio API key (https://aistudio.google.com/apikey)  |
-| `OPENAI_KEY`     | OpenAI Platform API key (https://platform.openai.com/api-keys) |
-
-Add them via `Settings → Secrets and variables → Actions → New repository secret`.
-Until both are set, the matching job fails at the API call. Other CI
-jobs are independent.
-
-The review prompt is in `.github/ai-review/system-prompt.md` (rooted in
-the defect taxonomy from arxiv:2512.05239 and arxiv:2601.19106 — AI-code
-review research, May 2026). The output schema is in
-`.github/ai-review/schema.json`. Both files are deliberately kept
-mumei-agnostic so the workflow can be copied verbatim into any other
-repo by dropping `.github/ai-review/` and `.github/workflows/ai-review.yml`
-in and configuring the two secrets.
 
 ## Spec-driven changes
 
@@ -368,7 +331,7 @@ HN) is set via the GitHub web UI (the API does not expose a write endpoint
 for repository social preview):
 
 1. Prepare a 1280×640 PNG. Keep it minimal: project name, one-line tagline,
-   and (optionally) the kuroko motif. Avoid screenshots that age fast.
+   and (optionally) the nameless-butler motif. Avoid screenshots that age fast.
 2. Go to **Settings → General → Social preview** of the repo
    (`https://github.com/hir4ta/mumei/settings`).
 3. Click **Upload an image** and select the PNG.

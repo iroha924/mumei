@@ -19,7 +19,7 @@ setup() {
 # even for double-digit MB targets — earlier bash-printf-loop variants
 # routinely deadlocked the bats runner.
 
-@test "kuroko gate: returns 0 silently when .mumei/ is absent" {
+@test "opt-in gate: returns 0 silently when .mumei/ is absent" {
   rm -rf .mumei
   run mumei_log_rotate_check_and_truncate ".mumei/.hook-stats.jsonl"
   [ "$status" -eq 0 ]

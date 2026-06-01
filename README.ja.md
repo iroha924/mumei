@@ -7,11 +7,10 @@
 [![Sigstore signed](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/hir4ta/mumei/network/updates)
 
-Claude Code 用の Quality Enforcement Layer。
-
-spec の phase、Wave 単位の commit、review を Hook で物理的に強制します。プロンプトでお願いするのではなく、エージェントが回避できない OS の境界で tool の呼び出しを止めます。
-
-Claude Code 上の **harness** — skill / agent への指示は advisory に留め、エージェントの意図は untrusted input として OS layer で検証します。SDD phase / Wave commit / review pipeline は Hook で物理強制されます。
+**mumei (無名) — 名前を持たない執事。** Claude Code 用の品質強制 harness。
+プロジェクトの基準を OS の境界で守り抜きます — エージェントが無視できる
+prompt-level の指示ではなく。エージェントの意図は untrusted input として
+Hook 層で検証します。
 
 [English README](./README.md)
 
@@ -50,18 +49,18 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
 
 ## Features
 
-- **Harness — prompt ではなく Hook で強制** — phase / Wave / commit / push の各 gate は Claude Code Hook で tool 呼び出しの段階で enforce されます。エージェントの意図は untrusted input として OS layer で検証。
-- **Hook で phase を物理強制** — phase / Wave / commit / push の遷移を tool 呼び出しの段階で deny します。エージェントは prompt-level で回避できません。
-- **harness state 保護 (S1 rule)** — `.mumei/current` / state.json / review JSON は LLM の Edit/Write を Hook 層で deny します。暴走した agent が内部 state を壊せません。orchestrator の bash helper は hook を経由しない経路で正規 write を保持します。
-- **決定論的 ground-truth + class-aware fail-open** — pluggable な detector registry: `semgrep` + `osv-scanner` 内蔵、Tier1 (`secret-scan` / `type-check` / `test-check`) は install 済なら既定実行、Tier2 (`opengrep` / `gosec` / `brakeman` / `codeql` / `bandit`) は `MUMEI_DETECTOR_TIER2=1` で opt-in。ground-truth の失敗 (CVE / secret / 型エラー / テスト失敗) は verdict を `MAJOR_ISSUES` に固定。ノイズの多い SAST candidate は issue-validator の adjudication gate を通し、validator が確証した時のみ block — semgrep の false-positive 1 件で誤 merge-block しません。不在ツールは warn-skip (fatal にしない)。
-- **clean-HEAD 検証 integrity** — commit 時に、`HEAD` を checkout した detached worktree で test を再実行します。未 commit の改ざん (rig した `conftest.py`、monkeypatch した `TestReport`、いじった bytecode) では pass を偽装できません。working-tree green・clean-HEAD red の食い違いは deny されます (I3)。`.mumei/config.json` の `golden_paths` は不可侵の spec/oracle ファイルを指定します: Edit/Write を block (G1)、明白な Bash 書き込み経路 (redirect / `rm` / `mv` / `cp` の dest / `tee` / `truncate` / `sed -i`) を block (G2)、worktree は golden が既に commit 済み内容を保持する clean な `HEAD` tree で test を実行します。
-- **3 つの spec reviewer + 4 段階の review pipeline** — `requirements` / `design` / `tasks` reviewer が fresh context で独立に走り、最大 3 回まで自動 iterate。続けて `spec-compliance` と `security` を並列、`adversarial` を直列、最後に per-issue validator が回ります。
-- **AI review の補助強化 (柱C)** — review pipeline は補助であり、mumei はそれを誠実に明示します。HIGH/CRITICAL の finding は反証可能な `trace` を必須とし、validator の `REPRODUCIBLE` 軸が反証不能なものを advisory に降格します (surfaced に残し、drop も自動 block もしない。HIGH を自動抑制しない)。`security-reviewer` には full spec context を渡し `adversarial-reviewer` は cold に保ちます (model rotation でなく入力非対称化で多様化)。immutable な agent-body prefix が全 reviewer に diff/PR/comment の "safe"/"reviewed" 主張を無視しコードから再導出させます。cross-feature の `finding-ledger.jsonl` が再発する false positive を validator に注記します (注記のみ)。各 review JSON は Claude family 共有盲点と検出天井を明示する `confidence_ceiling` を持ちます — 人間レビューを不要にするとは主張しません。
-- **残余明示 (柱D)** — mumei は「人間が手で見るべき箇所」を明示します。`hooks/_lib/residual.sh` が、客観検証で保証しきれないシグナル (反証不能な advisory / validator `unsure` / validator-skip の自己申告 / reviewer の `needs_dynamic_analysis`・`needs_architecture_review` filter-out) を review JSON の `residual` 配列へ決定的に集約し、毎 review に `ai-blindspot-ceiling` を 1 件常在させます。集約は bash + jq のみで AI drop gate を持たず保守的に over-include します (見落としは過剰提示より重い)。`invalid` (false positive) は構造的に除外。各 item は `{category, source, ref, note}` を持ち抜き取り検査可能。削減率 KPI は出しません — 主張は「人間レビューを残余に集中させ削減する、不要化ではない」です。
+- **Harness であって prompt ではない** — phase / Wave / commit / push の各 gate は tool 呼び出しの段階で enforce されます。エージェントは prompt-level で回避できません。
+- **state 保護** — `.mumei/` の state と review verdict はエージェントの Edit/Write 対象外です。harness だけが書き込むので、暴走した agent が壊せません。
+- **誤 block しない gate** — CVE / secret / 型エラー / テスト失敗は verdict を `MAJOR_ISSUES` に固定。ノイズの多い SAST は adjudication gate を通し確証時のみ block するので、false-positive で誤 merge-block しません。不在ツールは warn-skip (fatal にしない)。
+- **改ざん不能な検証** — commit 時に test を clean な `HEAD` worktree で再実行します。未 commit の改ざん (rig した `conftest.py`、monkeypatch した reporter、いじった bytecode) では pass を偽装できません。
+- **エージェントが細工できない test** — invariant の property test を、実装を見ずに spec と signature だけから盲目的に生成し、freeze します。欠陥のある実装に合わせて test を調整できません。AC 単位で opt-in。
+- **多様な視点の review** — `requirements` / `design` / `tasks` reviewer が fresh context で独立に走り、続けて `security` と `adversarial` が diff をレビュー (model rotation でなく context 非対称化)、per-finding validator が ungrounded な finding を advisory に降格します。
+- **天井を誠実に明示** — 各 verdict は盲点 disclaimer を持ち、「人間が手で見るべき箇所」を明示します。mumei は人間レビューを不要にするとは主張しません。
 - **Wave 単位の commit** — 1 Wave = 1 commit。Hook が diff を各 task の `_Files:_` と突き合わせ、phantom completion (実装の diff がないのに `[x]` を付ける) を止めます。
-- **curator-gated な reviewer memory** — 独立した `memory-curator` (sonnet、read-only) が候補を 7 軸 rubric で score し、`>= 15/21` の候補だけを永続化します。
 - **署名 + provenance 付きリリース** — Sigstore keyless 署名、SLSA Level 3、CycloneDX SBOM。詳細は [docs/getting-started.ja.md → Security & supply chain](./docs/getting-started.ja.md#security--supply-chain) を参照。
-- **黒子 (kuroko) スタンス** — opt-in していないプロジェクトには副作用ゼロ。`.mumei/current` がなければ Hook はすべて no-op。テレメトリも一切ありません。
+- **名前のない執事のスタンス** — mumei は静かに仕え、手柄を取りません: opt-in するまで副作用ゼロ (`.mumei/current` がなければ Hook はすべて no-op)、不要な発話なし、verdict は事実形式、テレメトリなし。そして一流の執事らしく一線も守ります — _「それはいたしかねます」_ — 越えられるのは `MUMEI_BYPASS=1` のみ。
+
+> 詳細な機構 — hook ID、detector tier、盲目 property-author / review 強化 / 残余明示の各柱、cross-feature の finding-ledger、curator-gated な reviewer memory — は **[ARCHITECTURE.md](./ARCHITECTURE.md)** にあります。
 
 ## Commands
 

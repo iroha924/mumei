@@ -9,7 +9,7 @@
 # created .mumei/plans/<slug>/, .mumei/plans/<slug>/state.json, and
 # wrote a slug to .mumei/current in any project that uses Claude Code
 # plan mode, even when the user never invoked /mumei:arrange or
-# /mumei:proceed. The Kuroko stance promised in README L66 was broken.
+# /mumei:proceed. The nameless-butler stance promised in the README was broken.
 
 bats_require_minimum_version 1.5.0
 

@@ -16,10 +16,8 @@ updates:
     # Bundle every GitHub Actions bump (including majors) into one weekly
     # PR. dependency-type grouping is not supported for github-actions, so
     # match by pattern. The deterministic CI checks (lint / bats / codeql)
-    # gate each bump inside the grouped PR. ai-review is skipped on bot PRs
-    # (the workflow guards on sender.type != 'Bot'), so it does not gate
-    # Dependabot updates; a major breaking change still surfaces as a red CI
-    # check rather than slipping through ungated.
+    # gate each bump inside the grouped PR, so a major breaking change
+    # surfaces as a red CI check rather than slipping through ungated.
     groups:
       all-actions:
         patterns: ["*"]
