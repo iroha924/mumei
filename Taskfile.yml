@@ -243,6 +243,12 @@ tasks:
         check gitleaks   "brew install gitleaks"
         check trufflehog "brew install trufflehog"
         check semgrep    "brew install semgrep"
+        check osv-scanner "brew install osv-scanner (review detector)"
+        check opengrep   "brew install opengrep (Tier2 SAST, opt-in)"
+        check gosec      "brew install gosec (Tier2 Go SAST, opt-in)"
+        check brakeman   "gem install brakeman (Tier2 Rails SAST, opt-in)"
+        check bandit     "pip install bandit (Tier2 Python SAST, opt-in)"
+        check codeql     "codeql-cli-binaries (Tier2, needs MUMEI_CODEQL_DB; opt-in)"
         check lychee     "brew install lychee"
         check shellharden "cargo install shellharden"
         echo

@@ -166,14 +166,24 @@ verdict `PASS` で `phase: done`。`/mumei:retire <feature>` で feature を
 
 ## 前提ツール
 
-mumei の review pipeline は 2 つの決定論的 detector を ground-truth として
-要求します。**hard prerequisite** で、片方でも欠けると review-phase Hook
-が fail-closed します。
+mumei の review pipeline は決定論的 detector を ground-truth として使います
+(pluggable registry)。**不在ツールは warn-skip され fatal にしません (REQ-27.5)**
+— インストール済みのものだけで review は進みます。増やすほど coverage が上がり、
+`semgrep` + `osv-scanner` が推奨ベースラインです。
 
-| ツール                  | 用途                        | インストール                                                                                                   |
-| ----------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `semgrep` (≥ 1.50.0)    | SAST、OWASP Top 10 パターン | `brew install semgrep` (macOS)、`pip install semgrep` (Linux)                                                  |
-| `osv-scanner` (≥ 1.7.0) | CVE / 依存脆弱性チェック    | `brew install osv-scanner` (macOS)、[release バイナリ](https://github.com/google/osv-scanner/releases) (Linux) |
+Built-in + Tier1 (install 済なら既定実行):
+
+| ツール                              | 用途                        | インストール                                                                                                   |
+| ----------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `semgrep` (≥ 1.50.0)                | SAST、OWASP Top 10 パターン | `brew install semgrep` (macOS)、`pip install semgrep` (Linux)                                                  |
+| `osv-scanner` (≥ 1.7.0)             | CVE / 依存脆弱性チェック    | `brew install osv-scanner` (macOS)、[release バイナリ](https://github.com/google/osv-scanner/releases) (Linux) |
+| `gitleaks` または `trufflehog`      | secret scan (`secret-scan`) | `brew install gitleaks` (または `trufflehog`)                                                                 |
+| `tsc` / `mypy` / `go vet` / `cargo` | type-check (`type-check`)   | 言語ごと。プロジェクトから自動検出                                                                            |
+
+Tier2 (`MUMEI_DETECTOR_TIER2=1` で opt-in): `opengrep`、`gosec`、`brakeman`、
+`codeql` (`MUMEI_CODEQL_DB` で事前 build した DB が必要)、`bandit`。standalone の
+`/mumei:review` skill は同じ registry と class-aware fail-open verdict を共有し、
+`.mumei` への副作用はありません。
 
 `MUMEI_DETECTOR_TIMEOUT` (デフォルト `600` 秒) で per-detector の wall-clock
 timeout を調整できます。
@@ -286,7 +296,8 @@ escape hatch は `MUMEI_BYPASS=1` 一つだけ。
 | `git push` が `"verdict: MAJOR_ISSUES"` で deny (R2)                           | `/mumei:proceed` (plan vehicle なら `/mumei:examine`) で findings を解消し、再 review。                                                              |
 | Stop hook で session 終了が block (`R1` review 未実行 / `R3` archive 未実行)   | `/mumei:proceed` で review を開始、verdict PASS 後に `/mumei:retire <feature>`。                                                                   |
 | `Edit` が `.claude/agent-memory/<r>/MEMORY.md` で deny (M1)                    | reviewer memory は curator-gated。review JSON で候補を emit すれば orchestrator が curator スコア後に永続化します。                              |
-| `pre-review-detector.sh` が exit 2 ("missing required detector binaries")      | `semgrep` + `osv-scanner` をインストール ([前提ツール](#前提ツール) 参照)。                                                                      |
+| review は走ったが detector が skip された ("detector X unavailable — skipped") | ツール不在時の正常動作 (warn-skip、fatal ではない)。有効化するには該当ツールを install ([前提ツール](#前提ツール) 参照)。                       |
+| `pre-review-detector.sh` が exit 2 ("detectors crashed")                       | detector binary が crash (rc≥2、例: offline の `semgrep --config=auto`)。report の `errors[]` を確認、または `MUMEI_BYPASS=1`。                  |
 | 単発で Hook を bypass したい                                                   | `MUMEI_BYPASS=1 <command>` をその shell 起動に限って付与。export はしない。詳細は [docs/document-corruption.md](./document-corruption.md)。 |
 
 ## 次に読むもの

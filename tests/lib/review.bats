@@ -262,8 +262,8 @@ EOF
   [ "$(jq -r '.[0].severity_action' <<<"$out")" = "block" ]
 }
 
-@test "advisory: detector ground-truth HIGH is never downgraded" {
-  surfaced='[{"id":"F-1","severity":"HIGH","source":"semgrep","validator":{"axes":{"reproducible":false}}}]'
+@test "advisory: ground_truth HIGH is never downgraded (deterministic blocks)" {
+  surfaced='[{"id":"F-1","severity":"HIGH","precision_class":"ground_truth","source":"osv-scanner","validator":{"axes":{"reproducible":false}}}]'
   out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
   [ "$(jq -r '.[0].severity_action' <<<"$out")" = "block" ]
 }
@@ -326,8 +326,76 @@ EOF
   [ "$(jq -r '.[0].severity_action' <<<"$out")" = "report_only" ]
 }
 
-@test "advisory: real detector source (semgrep) stays block" {
-  surfaced='[{"id":"F-1","severity":"HIGH","source":"semgrep","validator":{"axes":{"reproducible":false}}}]'
+@test "advisory: candidate detector (semgrep) without evidence downgrades to advisory (fail-open)" {
+  surfaced='[{"id":"F-1","severity":"HIGH","precision_class":"candidate","source":"semgrep","validator":{"axes":{"reproducible":false}}}]'
   out="$(mumei_review_apply_advisory_downgrade "$surfaced")"
-  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "block" ]
+  [ "$(jq -r '.[0].severity_action' <<<"$out")" = "report_only" ]
+}
+
+# --- Wave 2: fail-open verdict + class-aware helpers (REQ-27) ---
+
+@test "ground_truth_high_count: counts only ground_truth HIGH/CRITICAL" {
+  s='[{"precision_class":"ground_truth","severity":"HIGH"},{"precision_class":"candidate","severity":"HIGH"},{"precision_class":"ground_truth","severity":"LOW"}]'
+  [ "$(mumei_review_ground_truth_high_count "$s")" = "1" ]
+}
+
+@test "needs_gate: ground_truth skips (rc1), candidate gates (rc0), empty gates" {
+  run mumei_review_finding_needs_gate '{"precision_class":"ground_truth"}'
+  [ "$status" -eq 1 ]
+  run mumei_review_finding_needs_gate '{"precision_class":"candidate"}'
+  [ "$status" -eq 0 ]
+  run mumei_review_finding_needs_gate ''
+  [ "$status" -eq 0 ]
+}
+
+@test "surface_cap: scales with diff size" {
+  [ "$(mumei_review_surface_cap 0)" = "10" ]
+  [ "$(mumei_review_surface_cap 350)" = "13" ]
+}
+
+@test "apply_surface_cap: severity-ranked keep + overflow to residual" {
+  s='[{"severity":"LOW"},{"severity":"HIGH"},{"severity":"MEDIUM"}]'
+  out="$(mumei_review_apply_surface_cap "$s" 1)"
+  [ "$(jq -r '.kept[0].severity' <<<"$out")" = "HIGH" ]
+  [ "$(jq -r '.overflow | length' <<<"$out")" = "2" ]
+}
+
+@test "fail-open: candidate semgrep HIGH without evidence -> PASS (no false-block)" {
+  s='[{"precision_class":"candidate","source":"semgrep","severity":"HIGH"}]'
+  out="$(mumei_review_apply_advisory_downgrade "$s")"
+  gt="$(mumei_review_ground_truth_high_count "$out")"
+  [ "$(mumei_review_aggregate_verdict "$gt" "$out" '{}')" = "PASS" ]
+}
+
+@test "fail-open: ground_truth osv HIGH -> MAJOR_ISSUES" {
+  s='[{"precision_class":"ground_truth","source":"osv-scanner","severity":"HIGH"}]'
+  out="$(mumei_review_apply_advisory_downgrade "$s")"
+  gt="$(mumei_review_ground_truth_high_count "$out")"
+  [ "$(mumei_review_aggregate_verdict "$gt" "$out" '{}')" = "MAJOR_ISSUES" ]
+}
+
+@test "fail-open: candidate HIGH with reproducible=true -> NEEDS_IMPROVEMENT" {
+  s='[{"precision_class":"candidate","source":"adversarial","severity":"HIGH","validator":{"axes":{"reproducible":true}}}]'
+  out="$(mumei_review_apply_advisory_downgrade "$s")"
+  gt="$(mumei_review_ground_truth_high_count "$out")"
+  [ "$(mumei_review_aggregate_verdict "$gt" "$out" '{}')" = "NEEDS_IMPROVEMENT" ]
+}
+
+# --- Wave 5: evidence strength ranking (REQ-27.16) ---
+
+@test "evidence_rank: deterministic > execution > trace > none" {
+  [ "$(mumei_review_evidence_rank '{"precision_class":"ground_truth"}')" = "3" ]
+  [ "$(mumei_review_evidence_rank '{"validator":{"axes":{"evidence_type":"execution"}}}')" = "2" ]
+  [ "$(mumei_review_evidence_rank '{"validator":{"axes":{"evidence_type":"trace"}}}')" = "1" ]
+  [ "$(mumei_review_evidence_rank '{}')" = "0" ]
+}
+
+# F-002 (self-review): structural-integrity HIGH must escalate to MAJOR in the
+# shared engine (not only via skill-side override), so detached_report blocks too.
+@test "structural-integrity HIGH counts as ground-truth-blocking -> MAJOR_ISSUES" {
+  s='[{"source":"structural-integrity","severity":"HIGH","severity_action":"block"}]'
+  [ "$(mumei_review_ground_truth_high_count "$s")" = "1" ]
+  out="$(mumei_review_apply_advisory_downgrade "$s")"
+  gt="$(mumei_review_ground_truth_high_count "$out")"
+  [ "$(mumei_review_aggregate_verdict "$gt" "$out" '{}')" = "MAJOR_ISSUES" ]
 }

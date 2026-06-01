@@ -85,18 +85,19 @@ _init_test_feature() {
   echo "$output" | jq -e '.bypassed == true'
 }
 
-# ─── hard fail on missing binaries ────────────────────────────
+# ─── warn-skip on missing binaries (REQ-27.5) ─────────────────
 
-@test "hard fail: missing semgrep + osv-scanner produces exit 2 with brew guidance" {
-  ORIG_PATH="$PATH"
-  PATH="/usr/bin:/bin"
-  hash -r
-  run bash "$CLAUDE_PLUGIN_ROOT/hooks/pre-review-detector.sh"
-  PATH="$ORIG_PATH"
-  hash -r
-  [ "$status" -eq 2 ]
-  echo "$output" | grep -q "missing required detector binaries"
-  echo "$output" | grep -q "brew install"
+@test "warn-skip: absent detectors are skipped, not a hard fail (REQ-27.5)" {
+  _init_test_feature
+  _build_stubs # semgrep + osv present; ext tools (gitleaks/tsc/...) absent
+  run --separate-stderr bash "$CLAUDE_PLUGIN_ROOT/hooks/pre-review-detector.sh"
+  _restore_path
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.detectors_ran == true'
+  # absent ext detectors are warn-skipped, not fatal
+  echo "$stderr" | grep -q "unavailable"
+  # the old missing-binary hard-fail path is gone
+  ! echo "$stderr" | grep -q "missing required detector binaries"
 }
 
 # ─── hard fail when no active feature ─────────────────────────
@@ -201,6 +202,6 @@ SH
   run env PATH="$STUB_DIR:$PATH" bash "$CLAUDE_PLUGIN_ROOT/hooks/pre-review-detector.sh"
   _restore_path
   [ "$status" -eq 2 ]
-  echo "$output" | grep -q "the following detectors failed"
+  echo "$output" | grep -q "the following detectors crashed"
   echo "$output" | grep -q "semgrep"
 }

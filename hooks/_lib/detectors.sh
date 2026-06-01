@@ -27,6 +27,90 @@ MUMEI_DETECTOR_TIMEOUT="${MUMEI_DETECTOR_TIMEOUT:-600}"
 MUMEI_DETECTOR_SEMGREP_MIN="${MUMEI_DETECTOR_SEMGREP_MIN:-1.100.0}"
 MUMEI_DETECTOR_OSV_SCANNER_MIN="${MUMEI_DETECTOR_OSV_SCANNER_MIN:-2.0.0}"
 
+# --- Detector registry ---------------------------------------------------
+# Pluggable registry: a space-separated list of detector names. Builtin
+# detectors (semgrep / osv-scanner) are registered here; Tier1/Tier2
+# detectors append via mumei_detector_register from detectors-ext.sh.
+#
+# Each registered detector <name> contributes findings tagged with:
+#   - precision_class: "ground_truth" (deterministic, eligible to surface and
+#                      block) or "candidate" (noisy, must pass the adjudication
+#                      gate before it can pin a blocking verdict).
+#   - tier: 1 (run by default when the tool is available) or 2 (opt-in only).
+#
+# Each <name> provides convention-named functions (name's "-" mapped to "_"):
+#   _mumei_det_<fn>_probe              -> 0 if available/applicable, else non-0 (skip)
+#   _mumei_det_<fn>_run OUT ERR        -> run tool, write raw JSON to OUT; rc 0 ok / 1 fail
+#   _mumei_det_<fn>_collect OUT FINDS  -> append normalized+tagged findings to FINDS
+MUMEI_DETECTOR_REGISTRY="${MUMEI_DETECTOR_REGISTRY:-semgrep osv-scanner}"
+
+# Append a detector name to the registry (idempotent). Called by ext modules.
+mumei_detector_register() {
+  local name="$1"
+  case " ${MUMEI_DETECTOR_REGISTRY} " in
+  *" ${name} "*) ;; # already present
+  *) MUMEI_DETECTOR_REGISTRY="${MUMEI_DETECTOR_REGISTRY} ${name}" ;;
+  esac
+}
+
+# Echo "tier class" metadata for a detector name. Builtin detectors resolve
+# here; ext modules extend via mumei_detector_meta_ext.
+mumei_detector_meta() {
+  local name="$1"
+  case "$name" in
+  semgrep) printf '1 candidate' ;;
+  osv-scanner) printf '1 ground_truth' ;;
+  *)
+    if declare -F mumei_detector_meta_ext >/dev/null 2>&1; then
+      mumei_detector_meta_ext "$name"
+    else
+      printf '2 candidate' # unknown → conservative: opt-in, noisy
+    fi
+    ;;
+  esac
+}
+
+# Echo the tier (1|2) for a detector name.
+mumei_detector_tier() { mumei_detector_meta "$1" | awk '{print $1}'; }
+# Echo the precision_class (ground_truth|candidate) for a detector name.
+mumei_detector_class() { mumei_detector_meta "$1" | awk '{print $2}'; }
+# Map a detector name to its function-name stem (- → _).
+_mumei_detector_fnname() { printf '%s' "$1" | tr '-' '_'; }
+
+# Builtin convention wrappers — adapt the existing semgrep/osv runners to the
+# registry's probe/run/collect protocol so pre-review-detector.sh can iterate
+# the registry uniformly across builtin and ext detectors.
+_mumei_det_semgrep_probe() { command -v semgrep >/dev/null 2>&1; }
+_mumei_det_semgrep_run() { mumei_detector_run_semgrep "$1" "$2"; }
+_mumei_det_semgrep_collect() { _mumei_detector_collect_semgrep "$1" "$2"; }
+# osv-scanner probe returns 0 even without a lockfile; _run writes a skip
+# entry and an empty result set when no lockfile is present (existing behavior).
+_mumei_det_osv_scanner_probe() { command -v osv-scanner >/dev/null 2>&1; }
+_mumei_det_osv_scanner_run() { mumei_detector_run_osv "$1" "$2"; }
+_mumei_det_osv_scanner_collect() { _mumei_detector_collect_osv "$1" "$2"; }
+
+# Run a single registered detector by name. Resolves the convention functions,
+# probes availability, runs, and collects tagged findings into <findings_tmp>.
+# Args: <name> <tmp_dir> <findings_tmp> <errors_path>
+# Returns: 0 ran ok / 1 run failed / 2 skipped (probe said unavailable)
+mumei_detector_run_one() {
+  local name="$1" tmpdir="$2" findings_tmp="$3" errors_path="$4"
+  local fn
+  fn="$(_mumei_detector_fnname "$name")"
+  if ! declare -F "_mumei_det_${fn}_probe" >/dev/null 2>&1; then
+    return 2 # not implemented → treat as unavailable
+  fi
+  if ! "_mumei_det_${fn}_probe" 2>/dev/null; then
+    return 2 # tool not available / not applicable → skip
+  fi
+  local out="${tmpdir}/${fn}.json"
+  if ! "_mumei_det_${fn}_run" "$out" "$errors_path"; then
+    return 1 # run failed (error already appended to errors_path)
+  fi
+  "_mumei_det_${fn}_collect" "$out" "$findings_tmp"
+  return 0
+}
+
 # Check that required detector binaries are on PATH.
 # Prints missing binary names (one per line) on stdout. Returns 0 when all
 # are present, 1 when one or more are missing.
@@ -271,6 +355,8 @@ _mumei_detector_collect_semgrep() {
         source: $src,
         severity: $sev,
         raw_severity: $raw,
+        precision_class: "candidate",
+        tier: 1,
         location: { file: $file, line: $line },
         message: $msg,
         rule_id: $rule
@@ -316,6 +402,8 @@ _mumei_detector_collect_osv() {
         source: $src,
         severity: $sev,
         raw_severity: $raw,
+        precision_class: "ground_truth",
+        tier: 1,
         location: { file: "(lockfile)" },
         message: $msg,
         cve_id: $cve,
@@ -414,6 +502,130 @@ mumei_detector_aggregate() {
   fi
   rm -f "$findings_tmp"
   return 0
+}
+
+# Join detector names ($@) into a compact JSON array. Empty -> "[]".
+_mumei_detector_names_json() {
+  if (($# == 0)); then
+    printf '[]'
+    return 0
+  fi
+  printf '%s\n' "$@" | jq -R . | jq -sc .
+}
+
+# Registry-aware report assembly. Like _mumei_detector_assemble_report but
+# takes the ran/skipped/failed name lists explicitly (computed by run_all)
+# instead of deriving them from a hardcoded builtin list. Merges probe-skipped
+# names (no reason) with errors-stream skip entries (with reason).
+# Args: <feature> <findings_tmp> <errors_json> <final_path> <ran_json> <skipped_json> <failed_json>
+_mumei_detector_assemble_report_registry() {
+  local feature="$1" findings_tmp="$2" errors_json="$3" final_path="$4"
+  local ran_json="$5" skipped_json="$6" failed_json="$7"
+
+  local errors_arr="[]"
+  [[ -s "$errors_json" ]] && errors_arr="$(jq -s '.' <"$errors_json")"
+  local err_skipped errors_only
+  err_skipped="$(printf '%s' "$errors_arr" | jq '[.[] | select(.skipped == true) | {name: .detector, reason: .message}]')"
+  errors_only="$(printf '%s' "$errors_arr" | jq '[.[] | select(.skipped != true) | {detector: .detector, message: .message}]')"
+  local skipped_merged
+  skipped_merged="$(jq -n --argjson names "$skipped_json" --argjson wr "$err_skipped" \
+    '($names | map({name: ., reason: "tool unavailable"})) + $wr | unique_by(.name)')"
+
+  local now tmp_final
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  tmp_final="$(mktemp "${final_path}.XXXXXX")"
+  jq -n \
+    --arg feature "$feature" \
+    --arg ran_at "$now" \
+    --argjson findings "$(cat "$findings_tmp")" \
+    --argjson detectors_run "$ran_json" \
+    --argjson detectors_skipped "$skipped_merged" \
+    --argjson detectors_failed "$failed_json" \
+    --argjson errors "$errors_only" \
+    '{
+      feature: $feature,
+      ran_at: $ran_at,
+      detectors_run: $detectors_run,
+      detectors_skipped: $detectors_skipped,
+      detectors_failed: $detectors_failed,
+      findings: {
+        HIGH:   [$findings[] | select(.severity == "HIGH")],
+        MEDIUM: [$findings[] | select(.severity == "MEDIUM")],
+        LOW:    [$findings[] | select(.severity == "LOW")]
+      },
+      counts: {
+        HIGH:   ([$findings[] | select(.severity == "HIGH")] | length),
+        MEDIUM: ([$findings[] | select(.severity == "MEDIUM")] | length),
+        LOW:    ([$findings[] | select(.severity == "LOW")] | length)
+      },
+      errors: $errors
+    }' >"$tmp_final" || {
+    rm -f "$tmp_final"
+    return 1
+  }
+  if ! jq empty <"$tmp_final" 2>/dev/null; then
+    rm -f "$tmp_final"
+    mumei_log_error "registry aggregate produced invalid JSON"
+    return 1
+  fi
+  mv "$tmp_final" "$final_path"
+  return 0
+}
+
+# Run every registered detector and write the final report to <final_path>.
+# Tier-1 detectors run by default when available; tier-2 only when
+# MUMEI_DETECTOR_TIER2=1. Probe failures (tool absent) are warn-skipped, not
+# fatal (REQ-27.5). Sets MUMEI_DETECTOR_FAILED to the JSON array of detectors
+# whose binary crashed (rc>=2). Returns 0 unless report assembly failed.
+# Args: <work_dir> <final_path> <feature>
+mumei_detector_run_all() {
+  local work_dir="$1" final_path="$2" feature="$3"
+  local findings_tmp errors_path
+  findings_tmp="$(mktemp -t mumei-det-find.XXXXXX)"
+  errors_path="$(mktemp -t mumei-det-err.XXXXXX)"
+  printf '[]' >"$findings_tmp"
+  : >"$errors_path"
+
+  local ran=() skipped=() failed=()
+  local name tier rc reg
+  # Split the space-separated registry into an array (shellharden-safe; a bare
+  # `for name in $MUMEI_DETECTOR_REGISTRY` trips shellharden 4.3.1's parser).
+  read -ra reg <<<"$MUMEI_DETECTOR_REGISTRY"
+  for name in "${reg[@]+"${reg[@]}"}"; do
+    tier="$(mumei_detector_tier "$name")"
+    if [[ "$tier" == "2" && "${MUMEI_DETECTOR_TIER2:-0}" != "1" ]]; then
+      continue # opt-in only; not requested this run
+    fi
+    mumei_detector_run_one "$name" "$work_dir" "$findings_tmp" "$errors_path"
+    rc=$?
+    case "$rc" in
+    0) ran+=("$name") ;;
+    2)
+      skipped+=("$name")
+      mumei_log_warn "detector ${name} unavailable — skipped (install it to enable)"
+      ;;
+    *) failed+=("$name") ;;
+    esac
+  done
+
+  local ran_json skipped_json failed_json
+  ran_json="$(_mumei_detector_names_json "${ran[@]+"${ran[@]}"}")"
+  skipped_json="$(_mumei_detector_names_json "${skipped[@]+"${skipped[@]}"}")"
+  failed_json="$(_mumei_detector_names_json "${failed[@]+"${failed[@]}"}")"
+  # Exposed for the caller (pre-review-detector.sh reads this after run_all).
+  # shellcheck disable=SC2034
+  MUMEI_DETECTOR_FAILED="$failed_json"
+
+  if ((${#ran[@]} == 0)); then
+    mumei_log_warn "no detectors ran (none installed/applicable); review proceeds on LLM reviewers only"
+  fi
+
+  _mumei_detector_assemble_report_registry \
+    "$feature" "$findings_tmp" "$errors_path" "$final_path" \
+    "$ran_json" "$skipped_json" "$failed_json"
+  local arc=$?
+  rm -f "$findings_tmp" "$errors_path"
+  return "$arc"
 }
 
 # Self-test entry point. Builds an isolated tmpdir with a synthetic

@@ -178,14 +178,25 @@ the feature under `.mumei/archive/<YYYY-MM>/`.
 
 ## Prerequisites
 
-mumei's review pipeline relies on two deterministic detectors as ground
-truth for security findings. These are **hard prerequisites** — the
-review-phase Hook fails closed when either is missing.
+mumei's review pipeline uses deterministic detectors as ground truth for
+security findings, through a pluggable registry. **Detectors are warn-skipped
+when absent (REQ-27.5), not fatal** — the review proceeds on whatever is
+installed, and installing more raises coverage. `semgrep` + `osv-scanner` are
+the recommended baseline.
 
-| Tool                    | Purpose                              | Install                                                                                                      |
-| ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `semgrep` (≥ 1.50.0)    | SAST, OWASP Top 10 patterns          | `brew install semgrep` (macOS), `pip install semgrep` (Linux)                                                |
-| `osv-scanner` (≥ 1.7.0) | CVE / dependency vulnerability check | `brew install osv-scanner` (macOS), [release binary](https://github.com/google/osv-scanner/releases) (Linux) |
+Built-in + Tier1 (run by default when installed):
+
+| Tool                                | Purpose                              | Install                                                                                                       |
+| ----------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `semgrep` (≥ 1.50.0)                | SAST, OWASP Top 10 patterns          | `brew install semgrep` (macOS), `pip install semgrep` (Linux)                                                 |
+| `osv-scanner` (≥ 1.7.0)             | CVE / dependency vulnerability check | `brew install osv-scanner` (macOS), [release binary](https://github.com/google/osv-scanner/releases) (Linux)  |
+| `gitleaks` or `trufflehog`          | Secret scanning (`secret-scan`)      | `brew install gitleaks` (or `trufflehog`)                                                                     |
+| `tsc` / `mypy` / `go vet` / `cargo` | Type-check (`type-check`)            | per-language; auto-detected from the project                                                                  |
+
+Tier2 (opt-in via `MUMEI_DETECTOR_TIER2=1`): `opengrep`, `gosec`, `brakeman`,
+`codeql` (needs a pre-built DB via `MUMEI_CODEQL_DB`), `bandit`. The standalone
+`/mumei:review` skill shares this registry and the same class-aware fail-open
+verdict, with no `.mumei` side effects.
 
 `MUMEI_DETECTOR_TIMEOUT` (default `600` seconds) tunes the per-detector
 wall-clock timeout; raise for very large repos.
@@ -301,7 +312,8 @@ single escape hatch is `MUMEI_BYPASS=1`.
 | `git push` denied with `"verdict: MAJOR_ISSUES"` (R2)                       | re-run `/mumei:proceed` (or `/mumei:examine` for plan vehicle) to address findings, then re-review                                                             |
 | Stop hook blocks session end (`R1` review pending / `R3` archive pending)   | run `/mumei:proceed` to start review, or `/mumei:retire <feature>` once verdict is PASS                                                                      |
 | `Edit` denied on `.claude/agent-memory/<r>/MEMORY.md` (M1)                  | reviewer memory is curator-gated — emit candidates via your review JSON instead; the orchestrator persists qualifying candidates atomically                |
-| `pre-review-detector.sh` exits 2 with "missing required detector binaries"  | install `semgrep` + `osv-scanner` (see [Prerequisites](#prerequisites))                                                                                    |
+| Review ran but a detector was skipped ("detector X unavailable — skipped")  | expected when the tool is absent (warn-skip, not fatal); install it (see [Prerequisites](#prerequisites)) to enable that detector                          |
+| `pre-review-detector.sh` exits 2 ("detectors crashed")                      | a detector binary crashed (rc≥2), e.g. offline `semgrep --config=auto`; see the report's `errors[]`, or set `MUMEI_BYPASS=1`                                |
 | Need to bypass a Hook for a one-off                                         | `MUMEI_BYPASS=1 <command>` for that single shell invocation. Do not export persistently. See [docs/document-corruption.md](./document-corruption.md).      |
 
 ## Where to next
