@@ -99,7 +99,7 @@
       "type": "integer"
     },
     "review_runs": {
-      "description": "Plan vehicle only. Append-only history of review iterations driven by /mumei:examine. Shape is opaque to the dashboard.",
+      "description": "Plan vehicle only. Append-only history of review iterations driven by /mumei:examine.",
       "type": "array",
       "items": {}
     },

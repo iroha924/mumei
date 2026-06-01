@@ -7,7 +7,7 @@
 #   bash scripts/aggregate-cost.sh                  # use .mumei/current
 #   bash scripts/aggregate-cost.sh REQ-11-foo       # explicit feature/slug
 #   bash scripts/aggregate-cost.sh -f path.jsonl    # arbitrary log file
-#   bash scripts/aggregate-cost.sh --json [feature] # JSON output (dashboard)
+#   bash scripts/aggregate-cost.sh --json [feature] # JSON output
 #
 # Only `phase: "after"` records are tallied. `before` rows carry no
 # token usage and exist only as launch-time bookmarks.
@@ -62,15 +62,14 @@ if [[ ! -f "$log" ]]; then
   exit 0
 fi
 
-# JSON output for dashboard consumption. Emits per-agent / per-iter
-# breakdown plus totals plus cache hit ratio. One JSON object on stdout.
+# JSON output mode. Emits per-agent / per-iter breakdown plus totals
+# plus cache hit ratio. One JSON object on stdout.
 #
 # `_coalesce_dedup` collapses (agent, ts) duplicates by MAX-MERGING the
-# four token fields and last-non-null-wins for metadata (wave, iteration).
-# This MUST match `dashboard/server/features.ts loadCost`'s `Math.max`
-# strategy so the CLI and dashboard agree on totals when the SubagentStop
-# hook (writes wave/iter null) and the optional orchestrator wrap
-# mumei_cost_log_after collide on (agent, ts).
+# four token fields and last-non-null-wins for metadata (wave, iteration)
+# so totals stay correct when the SubagentStop hook (writes wave/iter
+# null) and the optional orchestrator wrap mumei_cost_log_after collide
+# on (agent, ts).
 if [[ "$json_mode" == "1" ]]; then
   jq -s --arg feature "${feature:-unknown}" '
     def _max_or:

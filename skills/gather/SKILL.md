@@ -60,7 +60,7 @@ Use one of these forms:
 - **Gather form**: `- [Event] WHEN ...` / `- [Unwanted] IF ...` / `- [State] WHILE ...` / `- [Optional] WHERE ...`
 - **Mature spec form**: `- REQ-N.M WHEN ...` (only when hand-authoring a scratch that imports into an existing spec; `M` is the AC index within that REQ)
 
-Do NOT use `AC-N.M`. It is silently dropped by the parser AND violates `feature-detail.schema.json` (AC `id` pattern is `^REQ-[0-9]+\.[0-9]+(\.[0-9]+)?$`). Both effects make the scratch invisible to downstream tooling.
+Do NOT use `AC-N.M`. It is silently dropped by the parser, which enforces the AC `id` pattern `^REQ-[0-9]+\.[0-9]+(\.[0-9]+)?$` (see `hooks/_lib/scratch-parser.sh`). This makes the scratch invisible to downstream tooling.
 
 When hand-authoring mature spec form, determine the next REQ id first:
 

@@ -87,7 +87,7 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
 
 ## 関連ツール
 
-- **[mumei-dashboard](./dashboard/README.md)** — ローカル実行のリアルタイム browser ダッシュボード。`.mumei/` を watch し、各 feature の phase / Wave 進捗 / review verdict / token cost / Hook 発火 trend を可視化。任意プロジェクトで `npx mumei-dashboard` で起動。npm 別配布で plugin tarball には同梱されません。
+- **Harness-engineered review workflow** — Claude reviewer を 4 観点 (correctness / security / operability / maintainability) で駆動する、可搬な reusable GitHub Actions workflow。semgrep + osv-scanner 出力に基づき、bias 中和と honest-ceiling 表明を備える。任意のリポジトリが `uses:` 1 行で導入可能。**[docs/review-adoption.md](./docs/review-adoption.md)** 参照。plugin 本体とは独立。
 
 ## ドキュメント
 

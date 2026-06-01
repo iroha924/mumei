@@ -56,7 +56,7 @@ _mumei_pad() {
   fi
 }
 
-# JSON mode: emit a single object suitable for dashboard consumption.
+# JSON mode: emit a single object for programmatic consumption.
 # Includes per-hook_id counts, per-decision counts, top-N rule firings,
 # and (when --trends) month-over-month bucketing.
 if [[ "$json_mode" == "1" ]]; then

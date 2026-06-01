@@ -8,7 +8,7 @@
 #   2. emit a stderr warn line naming the offending hook + path
 #   3. append a hook-stats record with decision="error" in the
 #      caller's cwd .mumei/.hook-stats.jsonl so silent gate bypass
-#      becomes observable in the dashboard trend feed.
+#      becomes observable in the hook-stats log.
 #
 # Representative hooks tested:
 #   - pre-edit-guard.sh (PreToolUse class)
@@ -69,7 +69,7 @@ _run_hook_with_bad_cwd() {
   [ "$(jq -r '.reason' <<<"$rec")" = "cwd-anchor-failed" ]
   # The cwd-anchor block fires BEFORE the hook body parses stdin, so
   # TOOL_NAME is structurally unavailable. We record the literal sentinel
-  # "pre-anchor" instead of ${TOOL_NAME:-unknown} so the dashboard can
+  # "pre-anchor" instead of ${TOOL_NAME:-unknown} so a log reader can
   # tell "value structurally unavailable" apart from "parse failed".
   [ "$(jq -r '.tool_name' <<<"$rec")" = "pre-anchor" ]
 }

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ReliabilityLogEntry",
   "title": "mumei reliability log entry",
-  "description": "One append-only line in .mumei/specs|plans/<feature>/reliability-log.jsonl. Produced by hooks/post-task-event.sh on TaskCompleted; consumed by /mumei:assure, /mumei:present, and the dashboard reliability tab.",
+  "description": "One append-only line in .mumei/specs|plans/<feature>/reliability-log.jsonl. Produced by hooks/post-task-event.sh on TaskCompleted; consumed by /mumei:assure and /mumei:present.",
   "additionalProperties": false,
   "type": "object",
   "required": [

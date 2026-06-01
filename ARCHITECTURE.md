@@ -90,8 +90,7 @@ mumei/
 │   ├── lint-tasks.sh       # X2 (advisory: tasks.md format)
 │   └── cost-backfill.sh    # /mumei:reflect: rebuild cost-log.jsonl from session logs
 ├── tests/                  # bats suite (CI on macOS + Ubuntu)
-├── schemas/                # shared JSON Schemas (state / review / cost-log + dashboard payloads: feature-summary / meta / trends / feature-detail / activity-event / sse-event) — NOT shipped in plugin tarball
-├── dashboard/              # mumei-dashboard — Vite + React 19 + Tailwind v4 + shadcn/ui — NOT shipped in plugin tarball
+├── schemas/                # shared JSON Schemas (state / review / cost-log / config / plugin / reliability-log) — NOT shipped in plugin tarball
 └── README.md / README.ja.md / LICENSE / SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md / PRIVACY.md
 ```
 

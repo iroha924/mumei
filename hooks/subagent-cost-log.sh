@@ -27,8 +27,8 @@
 #     assistant turns), skip the record entirely; aligns with
 #     cost-backfill.sh's behaviour for empty subagent jsonls.
 #   - every failure / skip path records a hook-stats entry so
-#     silent rot is observable via .mumei/.hook-stats.jsonl and
-#     the dashboard hook-stats panel.
+#     silent rot is observable via .mumei/.hook-stats.jsonl
+#     (aggregate with scripts/aggregate-hook-stats.sh).
 #
 # Failure handling: all non-fatal errors emit a single line
 # to stderr and exit 0. No placeholder records are written; an absent

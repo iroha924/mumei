@@ -341,8 +341,6 @@ jobs:
   # and `semgrep` (lint-extra job above) cover bash. CodeQL here scans:
   #   - `actions` for script-injection / untrusted-input flows in
   #     .github/workflows/
-  #   - `javascript-typescript` for the React 19 + Fastify 5 + Node 22
-  #     dashboard subproject.
   # ─────────────────────────────────────────
   codeql:
     name: codeql (${{ matrix.language }})
@@ -354,7 +352,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [actions, javascript-typescript]
+        language: [actions]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:

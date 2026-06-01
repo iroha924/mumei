@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mumei.dev/schemas/config.schema.json",
   "title": "mumei project configuration",
-  "description": "Contents of .mumei/config.json: project-wide mumei settings, vehicle/feature independent. Read by hooks/_lib/config.sh. Validation only — not consumed by the dashboard.",
+  "description": "Contents of .mumei/config.json: project-wide mumei settings, vehicle/feature independent. Read by hooks/_lib/config.sh.",
   "additionalProperties": false,
   "type": "object",
   "properties": {

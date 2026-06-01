@@ -2,8 +2,7 @@
 # Append-only reliability log accumulator + pass^k aggregator.
 # Each row in reliability-log.jsonl captures one TaskCompleted trial:
 #   {feature, wave, task_id, trial_n, pass, ts}
-# Schema: schemas/reliability-log.schema.json (TypeBox canonical:
-# dashboard/src/schemas/reliability-log.ts).
+# Schema: schemas/reliability-log.schema.json (hand-authored).
 # Dependencies: jq
 
 set -u

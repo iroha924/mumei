@@ -66,8 +66,8 @@ if [[ ! -d "$projects_root" ]]; then
   exit 0
 fi
 # Build candidate encodings in priority order. Claude Code encodes the
-# session cwd LITERALLY (each `/` → `-`), so a monorepo subdir launch
-# (e.g. `cd dashboard && claude`) lands logs under the subdir-encoded
+# session cwd LITERALLY (each `/` → `-`), so a subdir launch
+# (e.g. `cd path/to/subdir && claude`) lands logs under the subdir-encoded
 # path, not the git-toplevel one. F-201 fix: try git-toplevel, the
 # .mumei ancestor, AND the literal pwd, picking whichever resolves to
 # an existing session dir.

@@ -1,10 +1,10 @@
 # `git archive` (used by release-reusable.yml to produce the mumei
-# plugin tarball) excludes paths marked here. Subprojects under this
-# monorepo that distribute through other channels (e.g., dashboard via
-# npm) ship their own artifacts and do not belong in the plugin tarball.
+# plugin tarball) excludes paths marked here. The shared JSON Schemas
+# under schemas/ are development-time contracts consumed by the bash
+# hooks at authoring time, not read at runtime, so they do not belong
+# in the plugin tarball.
 #
 # Adding entries here is a release-shape change — verify the next
 # tarball still installs cleanly into Claude Code.
 
-dashboard/ export-ignore
-schemas/   export-ignore
+schemas/ export-ignore

@@ -2,10 +2,7 @@
 #
 # Why Taskfile (vs Makefile / npm scripts / shell aliases)?
 #   - Single entry point across heterogeneous tooling: bash scripts,
-#     bats, npm (dashboard), gh CLI, pre-commit. Discoverable via
-#     `task --list`.
-#   - Sub-Taskfile composition: dashboard/Taskfile.yml is included with
-#     `dir: ./dashboard` so `task dashboard:test` chdirs automatically.
+#     bats, gh CLI, pre-commit. Discoverable via `task --list`.
 #   - Task v3 caching (sources / generates) skips redundant work for
 #     code-gen + builds without bespoke timestamp logic.
 #
@@ -20,7 +17,7 @@
 # Quickstart:
 #   task              # show menu
 #   task lint         # full pre-PR lint sweep
-#   task test         # bats + dashboard vitest
+#   task test         # bats
 #   task validate     # lint + test (use before pushing)
 #   task ci:replay    # mirror what ci.yml runs on a PR
 #   task release:check # tag-prep sanity gate
@@ -38,13 +35,6 @@ set: [pipefail]
 # echo. Scripts that need verbose output already print their own headers
 # (see scripts/lint-all.sh).
 silent: true
-
-includes:
-  # dashboard sub-project as a sub-namespace. `task dashboard:test`
-  # automatically chdirs to ./dashboard before running.
-  dashboard:
-    taskfile: ./dashboard/Taskfile.yml
-    dir: ./dashboard
 
 tasks:
   # ---------------------------------------------------------------
@@ -102,12 +92,12 @@ tasks:
       - bash scripts/lint-tasks.sh
 
   # ---------------------------------------------------------------
-  # Test — bats (bash) + dashboard vitest. `task test` runs both.
+  # Test — bats (bash). `task test` runs the bats suite.
   # ---------------------------------------------------------------
   test:
     aliases: [t]
-    desc: Run all tests (bats + dashboard vitest)
-    deps: [test:bats, dashboard:test]
+    desc: Run all tests (bats)
+    deps: [test:bats]
 
   test:bats:
     desc: bats hook / _lib / integration / skill tests
@@ -125,12 +115,9 @@ tasks:
   # CI replay — run locally what GitHub Actions runs on a PR.
   # ---------------------------------------------------------------
   ci:replay:
-    desc: "Replay PR-time CI locally (lint + dashboard checks + bats)"
+    desc: "Replay PR-time CI locally (lint + bats)"
     cmds:
       - task: lint
-      - task: dashboard:typecheck
-      - task: dashboard:lint
-      - task: dashboard:test
       - task: test:bats
 
   # ---------------------------------------------------------------
@@ -150,7 +137,7 @@ tasks:
   # CLI_ARGS pass-through. Examples:
   #   task cost                       # use .mumei/current
   #   task cost -- REQ-11-foo         # explicit feature/slug
-  #   task cost -- --json REQ-11-foo  # JSON output (dashboard-shaped)
+  #   task cost -- --json REQ-11-foo  # JSON output
   #   task cost -- -f path.jsonl      # arbitrary log file
   # See scripts/aggregate-cost.sh top comment for the full flag list.
   # ---------------------------------------------------------------
@@ -227,8 +214,6 @@ tasks:
         check pre-commit "brew install pre-commit"
         check gh         "brew install gh"
         check git        "comes with macOS dev tools"
-        check node       "brew install node@22 (for dashboard)"
-        check npm        "ships with node"
         check python3    "comes with macOS; lint-frontmatter strict-parses YAML via PyYAML"
         if command -v python3 >/dev/null 2>&1; then
           if python3 -c "import yaml" 2>/dev/null; then

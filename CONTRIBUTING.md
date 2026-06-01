@@ -53,7 +53,7 @@ tool with its resolved path and exits non-zero if anything is missing.
 
 mumei uses [Task](https://taskfile.dev/) (`go-task`) as a unified entry
 point for the heterogeneous tooling in this repo (bash scripts, bats,
-the dashboard's npm scripts, gh CLI helpers). Discovery is one command:
+gh CLI helpers). Discovery is one command:
 
 ```bash
 task              # show the menu (alias for `task --list`)
@@ -64,7 +64,7 @@ Common workflows:
 
 ```bash
 task lint         # full bash + manifest + frontmatter lint sweep (CI parity)
-task test         # bats + dashboard vitest
+task test         # bats
 task validate     # lint + test (run before `git push`)
 task ci:replay    # mirror what ci.yml runs on a PR
 task doctor       # verify required tools are on PATH
@@ -73,11 +73,6 @@ task release:check # tag-prep sanity gate (lint + test + cron alignment)
 
 Sub-namespaces:
 
-- `dashboard:*` — dashboard sub-project (`task dashboard:dev`,
-  `task dashboard:typecheck`, etc.). Defined in
-  [`dashboard/Taskfile.yml`](./dashboard/Taskfile.yml); included from
-  the root with `dir: ./dashboard` so the working directory is set
-  automatically.
 - `lint:*` — individual lint scripts (`task lint:hook-ids`,
   `task lint:docs-drift`, etc.).
 - `cost:*` — telemetry aggregation
@@ -86,25 +81,22 @@ Sub-namespaces:
 - `pr:*` / `main:watch` — PR helpers (`task pr:watch`,
   `task pr:create -- <args>`, `task main:watch`).
 
-Tasks are thin wrappers around `scripts/*.sh` and `npm run …`. CI
+Tasks are thin wrappers around `scripts/*.sh`. CI
 installs Task via [`go-task/setup-task`](https://github.com/go-task/setup-task)
-and routes `lint` / `bats` / `dashboard-ci` jobs through `task` for
+and routes `lint` / `bats` jobs through `task` for
 single-source-of-truth parity with local. pre-commit hooks still call
 the underlying scripts directly. Contributors who skip the `task`
-install can keep using `bash scripts/lint-all.sh`, `bats -r tests/`,
-and `cd dashboard && npm run …` — every entry has a documented raw
-fallback.
+install can keep using `bash scripts/lint-all.sh` and `bats -r tests/`
+— every entry has a documented raw fallback.
 
 ## Running the tests
 
-mumei ships a [bats](https://bats-core.readthedocs.io/) suite under `tests/`
-and a [Vitest](https://vitest.dev/) suite under `dashboard/`. The Task
-runner has both layers wired together:
+mumei ships a [bats](https://bats-core.readthedocs.io/) suite under `tests/`,
+run through the Task runner:
 
 ```bash
-task test         # bats + dashboard vitest (run both)
+task test         # bats
 task test:bats    # bats only
-task dashboard:test # dashboard vitest only
 ```
 
 Single bats file:
@@ -114,8 +106,7 @@ bats tests/hooks/pre-edit-guard.bats
 ```
 
 The CI workflow (`.github/workflows/ci.yml`) runs the same bats suite on
-`ubuntu-latest` and `macos-latest`. `dashboard-ci.yml` runs the Vitest
-suite. PRs that break tests block the merge.
+`ubuntu-latest` and `macos-latest`. PRs that break tests block the merge.
 
 ## pre-commit hooks
 
@@ -225,8 +216,8 @@ creates a topic branch in this repo.
 7. CI runs on the PR. The relevant workflows are `ci.yml` (`lint`,
    `lint-extra`, `bats` on macOS / Ubuntu, `codeql`), `pr.yml`
    (`mutable-tag-guard`, `pr-target-guard`), `gitleaks.yml`,
-   `plugin-json-validate.yml`, `ai-review.yml` (custom dual-LLM
-   review), and `dashboard-ci.yml` (path-triggered). Address failures
+   `plugin-json-validate.yml`, and `ai-review.yml` (custom dual-LLM
+   review). Address failures
    before merge. (`claude-review.yml` is on disk but disabled — see
    the file header for why and how to re-enable.)
 8. Monitor the PR after opening. CI green is necessary but not
@@ -303,18 +294,13 @@ watches the `main` CI run, then on green creates an annotated tag
 `release.yml`, which delegates to `release-reusable.yml` for build →
 Sigstore sign → SBOM → SLSA → publish.
 
-The dashboard sub-project has its own `release-dashboard` skill that
-follows the same shape but bumps `dashboard/package.json` and tags
-with `dashboard-v<X.Y.Z>`. Both skills are user-invocable and
-`disable-model-invocation: true`; the orchestrator never runs them
-automatically.
+The release skill is user-invocable and `disable-model-invocation:
+true`; the orchestrator never runs it automatically.
 
-Version sources of truth:
+Version source of truth:
 
 - Plugin: `.claude-plugin/plugin.json` `version` field, bumped by the
   release skill.
-- Dashboard: `dashboard/package.json` `version` field, bumped by the
-  release-dashboard skill.
 
 Conventional Commits in the release range drive the GitHub Release
 auto-generated notes (`gh release create --generate-notes`, called by
@@ -370,7 +356,7 @@ Procedure:
 ## Maintainer-only — commit & tag signing
 
 mumei does not require signed commits or tags. `commit.gpgsign` is `false`
-globally and the bundled `release` / `release-dashboard` skills create
+globally and the bundled `release` skill creates
 unsigned annotated tags (`git tag -a`, no `-s`). End-user trust comes from
 the release artifacts (Sigstore keyless signature on the tarball + SLSA
 provenance + SBOM), not from the tag itself.

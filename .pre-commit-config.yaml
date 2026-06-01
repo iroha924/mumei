@@ -40,11 +40,9 @@ repos:
     hooks:
       - id: prettier
         types_or: [markdown, yaml, json]
-        # dashboard/ is owned by Biome (`biome check`); prettier and Biome
-        # disagree on line wrap (one-line vs multi-line refs[]) which
-        # causes auto-fix ping-pong. Schemas/ ships JSON Schemas with
-        # specific layout we don't want re-formatted.
-        exclude: ^(\.mumei/|docs/|examples/|CODE_OF_CONDUCT\.md|\.markdownlint-cli2\.jsonc|dashboard/|schemas/)
+        # Schemas/ ships JSON Schemas with a specific layout we don't want
+        # re-formatted.
+        exclude: ^(\.mumei/|docs/|examples/|CODE_OF_CONDUCT\.md|\.markdownlint-cli2\.jsonc|schemas/)
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.18.1
@@ -205,18 +203,3 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
-
-  # Dashboard biome lint at pre-push — mirrors dashboard-ci.yml's lint
-  # step. `--error-on-warnings` upgrades any warning to a non-zero exit,
-  # so dashboard/ keeps a strict zero-warning posture both locally and
-  # in CI. Scoped to dashboard/ so non-dashboard commits don't pay the
-  # cost.
-  - repo: local
-    hooks:
-      - id: dashboard-biome
-        name: dashboard biome (--error-on-warnings)
-        entry: bash -c 'cd dashboard && npm run lint'
-        language: system
-        pass_filenames: false
-        stages: [pre-push]
-        files: ^dashboard/

@@ -24,36 +24,6 @@ updates:
       all-actions:
         patterns: ["*"]
 
-  - package-ecosystem: "npm"
-    directory: "/dashboard"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Tokyo"
-    commit-message:
-      prefix: "chore(deps)"
-      prefix-development: "chore(deps-dev)"
-    labels:
-      - "dependencies"
-      - "npm"
-    open-pull-requests-limit: 5
-    # @types/node tracks the Node version on which CI runs (currently
-    # Node 22 LTS via actions/setup-node) and what end-users deploy with
-    # (engines.node: >=20.19.0). Auto-bumping its major would silently
-    # let code call APIs only present in odd-numbered (non-LTS) Node
-    # releases. Patch and minor bumps stay automatic; major requires
-    # human coordination with the Node engine bump.
-    ignore:
-      - dependency-name: "@types/node"
-        update-types: ["version-update:semver-major"]
-    groups:
-      dashboard-dev:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-
   # pip lock files consumed by .github/workflows/{release-reusable,
   # plugin-json-validate,review-reusable}.yml via `pip install
   # --require-hashes`. One Dependabot entry per lock directory so the
