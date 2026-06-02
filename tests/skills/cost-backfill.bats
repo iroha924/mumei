@@ -123,24 +123,3 @@ _make_subagent() {
   # Refuse-to-backfill must NOT collapse to all-of-history.
   [ ! -f "${feature_dir}/cost-log.jsonl" ]
 }
-
-@test "backfill reconstructs the review iteration from review file mtimes" {
-  _setup_fake_home
-  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
-  mkdir -p "${feature_dir}/reviews"
-  # One real review written BEFORE the reviewer's jsonl mtime → the
-  # reviewer ran for iteration 2, so the backfilled record must carry
-  # iteration 2 (mirrors the forward SubagentStop hook's live stamp).
-  printf '{"verdict":"NEEDS_IMPROVEMENT","iteration":1}' \
-    >"${feature_dir}/reviews/2026-05-10T00-00-00Z.json"
-  touch -t "$(date -u -r 1777000000 '+%Y%m%d%H%M.%S' 2>/dev/null ||
-    date -u -d '@1777000000' '+%Y%m%d%H%M.%S')" \
-    "${feature_dir}/reviews/2026-05-10T00-00-00Z.json" || true
-  _make_subagent agent-bbb mumei:adversarial-reviewer 1778000000
-
-  run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
-  [ "$status" -eq 0 ]
-  rec="$(cat "${feature_dir}/cost-log.jsonl")"
-  [ "$(jq -r '.agent' <<<"$rec")" = "adversarial-reviewer" ]
-  [ "$(jq -r '.iteration' <<<"$rec")" = "2" ]
-}

@@ -96,26 +96,7 @@ _run_hook() {
   [ "$(jq -r '.cache_read_input_tokens' <<<"$rec")" = "4000" ]
   [ "$(jq -r '.cache_creation_input_tokens' <<<"$rec")" = "500" ]
   [ "$(jq -r '.wave' <<<"$rec")" = "null" ]
-  # No reviews/ dir yet → review iteration derives to 1 (real_count 0 + 1).
-  [ "$(jq -r '.iteration' <<<"$rec")" = "1" ]
-}
-
-@test "stamps the review iteration derived from review history (real_count + 1)" {
-  mkdir -p ".mumei/specs/REQ-1-foo/reviews"
-  printf 'REQ-1-foo\n' >".mumei/current"
-  # One real (non-short-circuit) review on disk → a reviewer stopping now
-  # is running iteration 2, so its cost-log record is stamped iteration 2.
-  printf '{"verdict":"NEEDS_IMPROVEMENT","iteration":1}' \
-    >".mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json"
-  # A short-circuit review must NOT count toward the iteration.
-  printf '{"verdict":"PASS","iteration":1,"short_circuited_from":"x"}' \
-    >".mumei/specs/REQ-1-foo/reviews/2026-01-01T00-30-00Z-shortcircuit.json"
-  _make_subagent_jsonl a1 10 20 30 40 >/dev/null
-  event="$(_event_json a1 mumei:adversarial-reviewer)"
-  _run_hook "$event"
-  [ "$status" -eq 0 ]
-  rec="$(cat .mumei/specs/REQ-1-foo/cost-log.jsonl)"
-  [ "$(jq -r '.iteration' <<<"$rec")" = "2" ]
+  [ "$(jq -r '.iteration' <<<"$rec")" = "null" ]
 }
 
 @test "REQ-16.4: subagent jsonl missing → stderr warn, no placeholder record" {

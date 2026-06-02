@@ -469,129 +469,58 @@ mumei_review_should_short_circuit() {
   return 1
 }
 
-# Count real (non-detector, non-short-circuit) review JSONs in a review
-# dir. Shared by the SubagentStop cost-log hook and mumei_review_trace_ok
-# so the producer's iteration stamp and the consumer's expectation use ONE
-# filter:
-#   - cost-log hook: a reviewer that STOPS during iteration N sees N-1 real
-#     reviews (the iter-N review JSON is written only afterwards, in Stage
-#     6), so it stamps its record with iteration = count + 1.
-#   - trace_ok: at push time every review JSON exists, so the gating (latest
-#     real) review's iteration == this count.
-# Echoes the integer count.
-mumei_review_real_count() {
-  local review_dir="$1"
-  [[ -d "$review_dir" ]] || {
-    printf '0'
-    return 0
-  }
-  local n=0 f sc
-  while IFS= read -r f; do
-    [[ -z "$f" ]] && continue
-    [[ "$f" == *-shortcircuit.json ]] && continue
-    sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
-    [[ -n "$sc" ]] && continue
-    n=$((n + 1))
-  done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
-    ! -name '*-detectors.json' 2>/dev/null)
-  printf '%s' "$n"
-}
-
-# Count real reviews whose file mtime is strictly older than $2 (epoch
-# seconds). Used by the cost-log backfill path (scripts/cost-backfill.sh)
-# to reconstruct the review iteration a backfilled reviewer ran for, the
-# same value the forward SubagentStop hook stamps live: a reviewer's own
-# iteration-N review file is written AFTER the reviewer stops, so it has a
-# newer mtime and is excluded here, leaving the N-1 prior reviews → the
-# caller adds 1 to get N. Best-effort: if mtime cannot be read (or was
-# reset by a backup-restore) the file is skipped, which can only
-# under-count → a lower, fail-closed iteration stamp.
-mumei_review_real_count_before_mtime() {
-  local review_dir="$1"
-  local before="$2"
-  [[ -d "$review_dir" ]] || {
-    printf '0'
-    return 0
-  }
-  local n=0 f sc fm
-  while IFS= read -r f; do
-    [[ -z "$f" ]] && continue
-    [[ "$f" == *-shortcircuit.json ]] && continue
-    sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
-    [[ -n "$sc" ]] && continue
-    if fm="$(stat -f %m "$f" 2>/dev/null)"; then
-      :
-    elif fm="$(stat -c %Y "$f" 2>/dev/null)"; then
-      :
-    else
-      continue
-    fi
-    [[ "$fm" -lt "$before" ]] && n=$((n + 1))
-  done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
-    ! -name '*-detectors.json' 2>/dev/null)
-  printf '%s' "$n"
-}
-
-# Verify the gating review verdict is backed by a real reviewer-execution
-# trace. The push-guard (R2 / L-R2) calls this before letting a non-
-# MAJOR_ISSUES verdict clear `git push`.
+# Verify the gating review verdict is backed by reviewer execution.
+# The push-guard (R2 / L-R2) calls this before letting a non-MAJOR_ISSUES
+# verdict clear `git push`.
 #
-# Trust model: cost-log records are written by the SubagentStop hook
-# (hooks/subagent-cost-log.sh), which the orchestrator cannot produce
-# without actually launching the reviewer subagent, and which stamps each
-# record with the review iteration it DERIVES from review history
-# (mumei_review_real_count + 1) — never from the orchestrator-written
-# review JSON. This closes the "hand-write PASS without running reviewers"
-# gap (issues #128 / #132), including the REQ-28 case (iter-1 MAJOR_ISSUES
-# hand-edited to an iter-2 PASS with no re-run): the iter-2 reviewers never
-# ran, so no cost-log record carries iteration 2, and the check below —
-# which derives the gating iteration from history, not from the untrusted
-# .iteration field — finds nothing and blocks. It does NOT defend against
-# deliberate forgery of cost-log lines; that is outside the honest-skip
-# model.
+# Presence model (deliberately coarse): cost-log records are written by
+# the SubagentStop hook, which attributes each record to the launch-time
+# feature via the in-flight sidecar and which the orchestrator cannot
+# produce without actually launching the reviewer subagent. This checks
+# that EACH baseline reviewer (adversarial + security + spec-compliance —
+# every feature's first review launches all three on both vehicles) has
+# at least one `phase:"after"` record for THIS feature. That robustly
+# blocks a hand-written PASS for which a baseline reviewer never ran.
 #
-# Required reviewers, by the HISTORY-derived gating iteration:
-#   any iteration → adversarial-reviewer (launched every iteration).
-#   iteration 1   → also security-reviewer and spec-compliance-reviewer,
-#                   which the baseline iteration always launches on BOTH
-#                   vehicles (plan runs spec-compliance with
-#                   scope_source=plan.md). Later iterations only guarantee
-#                   adversarial (focused re-run via next_iter_reviewers).
+# What it intentionally does NOT do (and why): it does not verify per-
+# iteration freshness — e.g. an iter-1 MAJOR_ISSUES re-issued as an iter-2
+# PASS with no re-run (the REQ-28 shape). The SubagentStop hook is async
+# (it can fire after the review JSON is written) and the cost-log carries
+# no trustworthy per-iteration tag, so iteration attribution cannot be
+# made robust on this artifact; attempting it produced false-blocks and
+# cross-feature pollution. Per-iteration freshness needs a synchronous,
+# feature-scoped, iteration-tagged marker — out of scope here, tracked for
+# a dedicated design (#132). It also does not defend against deliberate
+# forgery of cost-log lines.
+#
 # A reviews dir holding ONLY synthetic short-circuits (no real review) is
-# unverifiable → blocked. A resolved gating review whose own verdict is
-# MAJOR_ISSUES cannot be laundered into a pass by a later short-circuit →
+# unverifiable -> blocked. A resolved gating review whose own verdict is
+# MAJOR_ISSUES cannot be laundered into a pass by a later short-circuit ->
 # blocked.
 #
 # Args:
 #   $1 feature_dir   .mumei/specs/<f>  or  .mumei/plans/<f>
-# Returns 0 when the trace is present (or there is no review at all —
-#   R2(a) owns "review missing"). On a missing/inadequate trace, prints a
-#   one-line reason to stdout and returns 1.
+# Returns 0 when the trace is present (or there is no review at all -
+#   R2(a) owns "review missing"). On a missing trace, prints a one-line
+#   reason to stdout and returns 1.
 mumei_review_trace_ok() {
   local feature_dir="$1"
   local review_dir="${feature_dir%/}/reviews"
   local cost_log="${feature_dir%/}/cost-log.jsonl"
   [[ -d "$review_dir" ]] || return 0
 
-  # gating = latest real review; prev = the real review before it.
-  # n_real = global count of real reviews = the gating review's global
-  # index, which the SubagentStop hook stamps live (real_count + 1). It is
-  # NOT a per-wave iteration: the spec vehicle writes every wave's reviews
-  # into this one dir. `saw_any` distinguishes "no review files at all"
-  # (R2(a)'s job) from "files exist but none is real" (block).
-  local gating="" prev="" f sc saw_any=0 n_real=0
+  # gating = latest real (non-detector, non-short-circuit) review.
+  # `saw_any` distinguishes "no review files at all" (R2(a)'s job) from
+  # "files exist but none is real" (block).
+  local gating="" f sc saw_any=0
   while IFS= read -r f; do
     [[ -z "$f" ]] && continue
     saw_any=1
     [[ "$f" == *-shortcircuit.json ]] && continue
     sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
     [[ -n "$sc" ]] && continue
-    n_real=$((n_real + 1))
-    if [[ -z "$gating" ]]; then
-      gating="$f"
-    elif [[ -z "$prev" ]]; then
-      prev="$f"
-    fi
+    gating="$f"
+    break
   done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
     ! -name '*-detectors.json' 2>/dev/null | sort -r)
 
@@ -610,45 +539,26 @@ mumei_review_trace_ok() {
     return 1
   fi
 
-  # The baseline iteration of EACH wave launches the full set (spec-
-  # compliance + security + adversarial); a focused re-run within the same
-  # wave only guarantees adversarial. Because every wave shares this dir, a
-  # baseline is detected by a WAVE TRANSITION in history — the gating
-  # review's wave differs from the previous real review's (or there is no
-  # previous one) — not by the directory-wide count. So Wave 2 iter 1 is
-  # treated as a baseline even though it is not the first review on disk.
-  local gwave pwave
-  gwave="$(jq -r '.wave // empty' "$gating" 2>/dev/null || true)"
-  pwave=""
-  [[ -n "$prev" ]] && pwave="$(jq -r '.wave // empty' "$prev" 2>/dev/null || true)"
-  local -a required=("adversarial-reviewer")
-  if [[ -z "$prev" ]] || [[ "$gwave" != "$pwave" ]]; then
-    required+=("security-reviewer" "spec-compliance-reviewer")
-  fi
-
   if [[ ! -r "$cost_log" ]]; then
     printf 'no reviewer execution trace (cost-log.jsonl absent) backing %s' \
       "$(basename "$gating")"
     return 1
   fi
 
-  # Each required reviewer must have a cost-log record stamped with the
-  # gating iteration. fromjson? skips unparsable lines and `objects` drops
+  # Each baseline reviewer must have >=1 phase:"after" record for this
+  # feature. fromjson? skips unparsable lines and `objects` drops
   # non-object lines, so neither a corrupt nor a scalar line can throw a
-  # type error that truncates the stream. The iteration match means a
-  # delayed or duplicated record from an EARLIER iteration (stamped with
-  # its own iteration) does not count for this one.
+  # type error that truncates the stream.
   local agent hits
-  for agent in "${required[@]}"; do
-    hits="$(jq -rn -R \
-      --arg a "$agent" --argjson it "$n_real" '
+  for agent in adversarial-reviewer security-reviewer spec-compliance-reviewer; do
+    hits="$(jq -rn -R --arg a "$agent" '
       [ inputs
         | fromjson? | objects
-        | select(.agent == $a and .phase == "after" and .iteration == $it)
+        | select(.agent == $a and .phase == "after")
       ] | length' "$cost_log" 2>/dev/null || echo 0)"
     if [[ "${hits:-0}" -lt 1 ]]; then
-      printf '%s did not run for review iteration %s (no cost-log record stamped with it)' \
-        "$agent" "$n_real"
+      printf '%s has no cost-log record for this feature (review not backed by its execution)' \
+        "$agent"
       return 1
     fi
   done

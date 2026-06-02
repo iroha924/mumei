@@ -32,16 +32,6 @@ state_path="${feature_dir}/state.json"
 cost_log="${feature_dir}/cost-log.jsonl"
 feature_basename="$(basename "$feature_dir")"
 
-# review.sh provides mumei_review_real_count_before_mtime, used to
-# reconstruct the review iteration each backfilled reviewer ran for so the
-# push-guard trace check (which matches .iteration) accepts records that
-# only the backfill path recovered.
-if ! declare -F mumei_review_real_count_before_mtime >/dev/null 2>&1; then
-  _review_lib="$(dirname "$(dirname "$(realpath "$0")")")/hooks/_lib/review.sh"
-  # shellcheck disable=SC1090,SC1091
-  [[ -f "$_review_lib" ]] && source "$_review_lib"
-fi
-
 if [[ ! -f "$state_path" ]]; then
   printf '[mumei] cost-backfill: partial backfill only: state.json not found in %s\n' "$feature_dir" >&2
   exit 0
@@ -209,23 +199,13 @@ while IFS= read -r -d '' meta_path; do
     ts_iso="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   fi
 
-  # Reconstruct the review iteration this reviewer ran for from review
-  # file mtimes (count of reviews older than this subagent jsonl + 1),
-  # mirroring the forward SubagentStop hook's stamp. Falls back to null
-  # when review.sh is unavailable.
-  review_iter="null"
-  if declare -F mumei_review_real_count_before_mtime >/dev/null 2>&1; then
-    review_iter="$(($(mumei_review_real_count_before_mtime "${feature_dir}/reviews" "$mtime") + 1))"
-  fi
-
   record="$(
     jq -nc \
       --arg ts "$ts_iso" \
       --arg feature "$feature_basename" \
       --arg agent "$agent_short" \
-      --argjson iter "$review_iter" \
       --argjson usage "$usage_json" \
-      '{ts: $ts, feature: $feature, wave: null, iteration: $iter, agent: $agent, phase: "after"}
+      '{ts: $ts, feature: $feature, wave: null, iteration: null, agent: $agent, phase: "after"}
        + ($usage
           | with_entries(select(.key as $k
               | ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
