@@ -26,10 +26,10 @@ _run_hook() {
     "bash '${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-guard.sh' < '${input_file}'"
 }
 
-# Emit one SubagentStop-shaped cost-log record. $1 agent, $2 ts (ISO with
-# colons, as hooks/subagent-cost-log.sh writes them).
+# Emit one SubagentStop-shaped cost-log record. $1 agent, $2 iteration
+# (integer — the review iteration the hook stamps via real_count + 1).
 _cost_record() {
-  printf '{"ts":"%s","feature":"REQ-1-foo","wave":null,"iteration":null,"agent":"%s","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n' \
+  printf '{"ts":"2026-01-01T00:00:00Z","feature":"REQ-1-foo","wave":null,"iteration":%s,"agent":"%s","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n' \
     "$2" "$1"
 }
 
@@ -118,12 +118,12 @@ EOF
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   printf '{"verdict":"PASS","iteration":1}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
-  # iter-1 PASS requires adversarial + security + spec-compliance traces,
-  # each recorded before the review ts.
+  # One real review → gating iteration 1; baseline requires all three
+  # reviewers, each with a cost-log record stamped iteration 1.
   {
-    _cost_record adversarial-reviewer 2025-12-31T23:59:59Z
-    _cost_record security-reviewer 2025-12-31T23:59:58Z
-    _cost_record spec-compliance-reviewer 2025-12-31T23:59:57Z
+    _cost_record adversarial-reviewer 1
+    _cost_record security-reviewer 1
+    _cost_record spec-compliance-reviewer 1
   } >.mumei/specs/REQ-1-foo/cost-log.jsonl
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
@@ -145,39 +145,86 @@ EOF
   [[ "$reason" == *"not backed by a reviewer-execution trace"* ]]
 }
 
-@test "allows git push when iter-2 PASS is backed by adversarial alone (rotation) (R2)" {
+@test "allows git push when iter-2 PASS is backed by an iteration-2 adversarial record (rotation) (R2)" {
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   printf '{"verdict":"NEEDS_IMPROVEMENT","iteration":1}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   printf '{"verdict":"PASS","iteration":2}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T01-00-00Z.json
-  # iter-2 only re-runs adversarial (rotation); it must fall AFTER iter-1's ts.
-  _cost_record adversarial-reviewer 2026-01-01T00:30:00Z \
-    >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  # Two real reviews → gating iteration 2; rotation only guarantees
+  # adversarial, which must carry an iteration-2 stamp.
+  {
+    _cost_record adversarial-reviewer 1
+    _cost_record adversarial-reviewer 2
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
   [ -z "$stderr" ]
 }
 
-@test "denies git push when iter-2 PASS has no fresh adversarial trace (stale, REQ-28 repro) (R2)" {
+@test "denies git push when iter-2 PASS is backed only by a stale iteration-1 trace (REQ-28 repro) (R2)" {
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
   printf '{"verdict":"MAJOR_ISSUES","iteration":1}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   printf '{"verdict":"PASS","iteration":2}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T01-00-00Z.json
-  # adversarial ran only for iter-1; the iter-2 PASS was hand-written with
-  # no re-run, so there is no adversarial record after the iter-1 ts.
-  _cost_record adversarial-reviewer 2025-12-31T23:59:00Z \
+  # The iter-2 PASS was hand-written with no re-run: adversarial only has an
+  # iteration-1 record (even a delayed/duplicated one). The iteration stamp
+  # makes it not count for the iteration-2 gate.
+  {
+    _cost_record adversarial-reviewer 1
+    _cost_record adversarial-reviewer 1
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
+  reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
+  [[ "$reason" == *"adversarial-reviewer did not run for review iteration 2"* ]]
+}
+
+@test "denies git push when a short-circuit PASS sits on a MAJOR_ISSUES real review (R2)" {
+  _init_feature_with_tasks
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  # Real review is MAJOR_ISSUES; a synthetic short-circuit PASS on top must
+  # not launder it even with full reviewer traces present.
+  printf '{"verdict":"MAJOR_ISSUES","iteration":1}' \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+  printf '{"verdict":"PASS","iteration":2,"short_circuited_from":".mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json"}' \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T01-00-00Z-shortcircuit.json
+  {
+    _cost_record adversarial-reviewer 1
+    _cost_record security-reviewer 1
+    _cost_record spec-compliance-reviewer 1
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
+  reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
+  [[ "$reason" == *"MAJOR_ISSUES"* ]]
+}
+
+@test "denies git push when an untrusted iteration field hides a missing baseline reviewer (R2)" {
+  _init_feature_with_tasks
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  # A single (first) review lies that it is iteration 2 to dodge the
+  # baseline security/spec-compliance requirement. The gate derives the
+  # gating iteration from history (one real review → 1), so it still
+  # requires the full baseline set.
+  printf '{"verdict":"PASS","iteration":2}' \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+  _cost_record adversarial-reviewer 1 \
     >.mumei/specs/REQ-1-foo/cost-log.jsonl
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"adversarial-reviewer did not run"* ]]
+  [[ "$reason" == *"security-reviewer did not run for review iteration 1"* ]]
 }
 
 @test "allows git push when the latest review is a short-circuit resting on a real review (R2)" {
@@ -188,11 +235,11 @@ EOF
   printf '{"verdict":"PASS","iteration":2,"short_circuited_from":".mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json"}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T01-00-00Z-shortcircuit.json
   # The short-circuit launched no reviewers; the gate resolves to the
-  # backing iter-1 review, whose reviewers did run.
+  # backing iteration-1 review (gating iteration 1), whose reviewers ran.
   {
-    _cost_record adversarial-reviewer 2025-12-31T23:59:59Z
-    _cost_record security-reviewer 2025-12-31T23:59:58Z
-    _cost_record spec-compliance-reviewer 2025-12-31T23:59:57Z
+    _cost_record adversarial-reviewer 1
+    _cost_record security-reviewer 1
+    _cost_record spec-compliance-reviewer 1
   } >.mumei/specs/REQ-1-foo/cost-log.jsonl
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
@@ -216,7 +263,7 @@ EOF
   [[ "$reason" == *"not backed by a reviewer-execution trace"* ]]
 }
 
-@test "allows plan-vehicle git push when PASS is backed by adversarial + security (L-R2)" {
+@test "allows plan-vehicle git push when PASS is backed by all three baseline reviewers (L-R2)" {
   mkdir -p .mumei/plans/fix-login/reviews
   printf '%s\n' fix-login >.mumei/current
   jq -n '{vehicle:"plan",slug:"fix-login",phase:"done",task_created_count:1,task_completed_count:1,pending_review:true,created_at:"2026-01-01T00:00:00Z",updated_at:"2026-01-01T00:00:00Z"}' \
@@ -224,11 +271,11 @@ EOF
   printf '{"verdict":"PASS","iteration":1}' \
     >.mumei/plans/fix-login/reviews/2026-01-01T00-00-00Z.json
   # Plan vehicle iter-1 launches spec-compliance (scope_source=plan.md) too,
-  # so all three baseline reviewers are required.
+  # so all three baseline reviewers are required, each stamped iteration 1.
   {
-    printf '{"ts":"2025-12-31T23:59:59Z","feature":"fix-login","wave":null,"iteration":null,"agent":"adversarial-reviewer","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n'
-    printf '{"ts":"2025-12-31T23:59:58Z","feature":"fix-login","wave":null,"iteration":null,"agent":"security-reviewer","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n'
-    printf '{"ts":"2025-12-31T23:59:57Z","feature":"fix-login","wave":null,"iteration":null,"agent":"spec-compliance-reviewer","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n'
+    printf '{"ts":"2026-01-01T00:00:00Z","feature":"fix-login","wave":null,"iteration":1,"agent":"adversarial-reviewer","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n'
+    printf '{"ts":"2026-01-01T00:00:00Z","feature":"fix-login","wave":null,"iteration":1,"agent":"security-reviewer","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n'
+    printf '{"ts":"2026-01-01T00:00:00Z","feature":"fix-login","wave":null,"iteration":1,"agent":"spec-compliance-reviewer","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n'
   } >.mumei/plans/fix-login/cost-log.jsonl
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]

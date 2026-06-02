@@ -469,66 +469,88 @@ mumei_review_should_short_circuit() {
   return 1
 }
 
+# Count real (non-detector, non-short-circuit) review JSONs in a review
+# dir. Shared by the SubagentStop cost-log hook and mumei_review_trace_ok
+# so the producer's iteration stamp and the consumer's expectation use ONE
+# filter:
+#   - cost-log hook: a reviewer that STOPS during iteration N sees N-1 real
+#     reviews (the iter-N review JSON is written only afterwards, in Stage
+#     6), so it stamps its record with iteration = count + 1.
+#   - trace_ok: at push time every review JSON exists, so the gating (latest
+#     real) review's iteration == this count.
+# Echoes the integer count.
+mumei_review_real_count() {
+  local review_dir="$1"
+  [[ -d "$review_dir" ]] || {
+    printf '0'
+    return 0
+  }
+  local n=0 f sc
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    [[ "$f" == *-shortcircuit.json ]] && continue
+    sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
+    [[ -n "$sc" ]] && continue
+    n=$((n + 1))
+  done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null)
+  printf '%s' "$n"
+}
+
 # Verify the gating review verdict is backed by a real reviewer-execution
 # trace. The push-guard (R2 / L-R2) calls this before letting a non-
 # MAJOR_ISSUES verdict clear `git push`.
 #
-# Trust model: reviewer cost-log records are written by the SubagentStop
-# hook (hooks/subagent-cost-log.sh), which reverse-looks-up the
-# subagent's own runtime transcript jsonl and skips zero-usage runs. The
-# orchestrator cannot produce such a record without actually launching
-# the reviewer subagent. This closes the "hand-write PASS without running
-# any reviewer" gap (issues #128 / #132) — e.g. the REQ-28 case where an
-# iter-1 MAJOR_ISSUES review was hand-edited to an iter-2 PASS with no
-# re-run. It does NOT defend against an orchestrator that deliberately
-# fabricates cost-log lines shaped like runtime records; that is a
-# higher-effort threat outside the honest-skip model.
+# Trust model: cost-log records are written by the SubagentStop hook
+# (hooks/subagent-cost-log.sh), which the orchestrator cannot produce
+# without actually launching the reviewer subagent, and which stamps each
+# record with the review iteration it DERIVES from review history
+# (mumei_review_real_count + 1) — never from the orchestrator-written
+# review JSON. This closes the "hand-write PASS without running reviewers"
+# gap (issues #128 / #132), including the REQ-28 case (iter-1 MAJOR_ISSUES
+# hand-edited to an iter-2 PASS with no re-run): the iter-2 reviewers never
+# ran, so no cost-log record carries iteration 2, and the check below —
+# which derives the gating iteration from history, not from the untrusted
+# .iteration field — finds nothing and blocks. It does NOT defend against
+# deliberate forgery of cost-log lines; that is outside the honest-skip
+# model.
 #
-# Required always-on reviewers (rotation-safe — see
-# mumei_review_compute_next_iter_reviewers):
-#   adversarial-reviewer  — launched on EVERY iteration.
-#   iter-1 additionally   — security-reviewer AND spec-compliance-reviewer,
-#                           which the baseline iteration always launches on
-#                           BOTH vehicles (spec: requirements.md scope;
-#                           plan: /mumei:examine launches it with
-#                           scope_source=plan.md).
-#   iter-2+               — only adversarial is guaranteed (the focused
-#                           re-run launches a subset via next_iter_reviewers),
-#                           so requiring more would false-positive.
-# Short-circuit reviews (synthetic, `-shortcircuit.json` / non-null
-# `short_circuited_from`) launch no reviewers by design; the gating
-# review is resolved to the latest real review the verdict rests on. A
-# reviews dir that holds ONLY synthetic short-circuits (no real backing
-# review reachable) is unverifiable → blocked, not silently allowed.
+# Required reviewers, by the HISTORY-derived gating iteration:
+#   any iteration → adversarial-reviewer (launched every iteration).
+#   iteration 1   → also security-reviewer and spec-compliance-reviewer,
+#                   which the baseline iteration always launches on BOTH
+#                   vehicles (plan runs spec-compliance with
+#                   scope_source=plan.md). Later iterations only guarantee
+#                   adversarial (focused re-run via next_iter_reviewers).
+# A reviews dir holding ONLY synthetic short-circuits (no real review) is
+# unverifiable → blocked. A resolved gating review whose own verdict is
+# MAJOR_ISSUES cannot be laundered into a pass by a later short-circuit →
+# blocked.
 #
 # Args:
 #   $1 feature_dir   .mumei/specs/<f>  or  .mumei/plans/<f>
 # Returns 0 when the trace is present (or there is no review at all —
-#   R2(a) owns the "review missing" case). On a missing required record,
-#   prints a one-line reason to stdout and returns 1.
+#   R2(a) owns "review missing"). On a missing/inadequate trace, prints a
+#   one-line reason to stdout and returns 1.
 mumei_review_trace_ok() {
   local feature_dir="$1"
   local review_dir="${feature_dir%/}/reviews"
   local cost_log="${feature_dir%/}/cost-log.jsonl"
   [[ -d "$review_dir" ]] || return 0
 
-  # Resolve the gating review = latest non-detector, non-short-circuit
-  # review; capture the one before it to bound the execution window.
-  # `saw_any` distinguishes "no review files at all" (R2(a)'s job) from
-  # "files exist but none is a real review" (unverifiable → block).
-  local gating="" prev="" f sc saw_any=0
+  # gating = latest real review; n_real = count of real reviews = the
+  # gating review's true iteration (history-derived, NOT trusted from the
+  # review JSON's .iteration). `saw_any` distinguishes "no review files at
+  # all" (R2(a)'s job) from "files exist but none is real" (block).
+  local gating="" f sc saw_any=0 n_real=0
   while IFS= read -r f; do
     [[ -z "$f" ]] && continue
     saw_any=1
     [[ "$f" == *-shortcircuit.json ]] && continue
     sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
     [[ -n "$sc" ]] && continue
-    if [[ -z "$gating" ]]; then
-      gating="$f"
-    else
-      prev="$f"
-      break
-    fi
+    n_real=$((n_real + 1))
+    [[ -z "$gating" ]] && gating="$f"
   done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
     ! -name '*-detectors.json' 2>/dev/null | sort -r)
 
@@ -538,24 +560,17 @@ mumei_review_trace_ok() {
     return 1
   fi
 
-  # iter as a canonical integer (tolerate "01" / numbers / junk → 1).
-  local iter t_prev
-  iter="$(jq -r '(.iteration // 1) | (tonumber? // 1) | floor' "$gating" 2>/dev/null || echo 1)"
-  # Lower bound only: the cost-log ts is stamped when the (possibly queued
-  # or backfilled) SubagentStop hook runs, which can land at or just after
-  # the review-JSON write — an upper bound would false-block a reviewer
-  # that genuinely ran. Requiring a record strictly after the previous
-  # review's ts proves it ran for THIS iteration, not a stale one. The
-  # review filename uses '-' in the time, the cost-log ts uses ':'; both
-  # normalise to YYYY-MM-DDTHH-MM-SS for chronological codepoint compare.
-  if [[ -n "$prev" ]]; then
-    t_prev="$(basename "$prev" .json | sed 's/Z$//; s/:/-/g')"
-  else
-    t_prev=""
+  # A short-circuit PASS sitting on top cannot launder a MAJOR_ISSUES real
+  # review: the resolved gating review's OWN verdict must clear.
+  local gverdict
+  gverdict="$(jq -r '.verdict // empty' "$gating" 2>/dev/null || true)"
+  if [[ "$gverdict" == "MAJOR_ISSUES" ]]; then
+    printf 'resolved gating review %s is MAJOR_ISSUES' "$(basename "$gating")"
+    return 1
   fi
 
   local -a required=("adversarial-reviewer")
-  if [[ "$iter" == "1" ]]; then
+  if [[ "$n_real" -eq 1 ]]; then
     required+=("security-reviewer" "spec-compliance-reviewer")
   fi
 
@@ -565,23 +580,23 @@ mumei_review_trace_ok() {
     return 1
   fi
 
+  # Each required reviewer must have a cost-log record stamped with the
+  # gating iteration. fromjson? skips unparsable lines and `objects` drops
+  # non-object lines, so neither a corrupt nor a scalar line can throw a
+  # type error that truncates the stream. The iteration match means a
+  # delayed or duplicated record from an EARLIER iteration (stamped with
+  # its own iteration) does not count for this one.
   local agent hits
   for agent in "${required[@]}"; do
-    # Read cost-log as raw lines: fromjson? skips unparsable lines and
-    # `objects` drops valid-but-non-object lines (bare strings / numbers /
-    # arrays), so neither a corrupt line nor a stray scalar can throw a
-    # jq type error that would truncate the stream and false-block.
     hits="$(jq -rn -R \
-      --arg a "$agent" --arg lo "$t_prev" '
+      --arg a "$agent" --argjson it "$n_real" '
       [ inputs
         | fromjson? | objects
-        | select(.agent == $a and .phase == "after" and (.ts | type) == "string")
-        | (.ts | sub("Z$"; "") | gsub(":"; "-")) as $n
-        | select($lo == "" or $n > $lo)
+        | select(.agent == $a and .phase == "after" and .iteration == $it)
       ] | length' "$cost_log" 2>/dev/null || echo 0)"
     if [[ "${hits:-0}" -lt 1 ]]; then
-      printf '%s did not run for the gating review %s (no cost-log record in its window)' \
-        "$agent" "$(basename "$gating")"
+      printf '%s did not run for review iteration %s (no cost-log record stamped with it)' \
+        "$agent" "$n_real"
       return 1
     fi
   done

@@ -52,6 +52,18 @@ if ! declare -F mumei_hook_stats_record >/dev/null 2>&1; then
     source "$HOOK_STATS_LIB"
   fi
 fi
+
+# review.sh provides mumei_review_real_count, used to stamp each record
+# with the review iteration the subagent ran for (see the iteration-stamp
+# block before the record build below).
+# shellcheck disable=SC1091
+if ! declare -F mumei_review_real_count >/dev/null 2>&1; then
+  REVIEW_LIB="$(dirname "${BASH_SOURCE[0]}")/_lib/review.sh"
+  if [[ -f "$REVIEW_LIB" ]]; then
+    # shellcheck disable=SC1090
+    source "$REVIEW_LIB"
+  fi
+fi
 _mumei_clog_stat() {
   local decision="$1" reason="$2"
   if declare -F mumei_hook_stats_record >/dev/null 2>&1; then
@@ -164,13 +176,24 @@ fi
 # `with_entries` filter drops any extra usage keys (e.g. service_tier,
 # server_tool_use) so the schema stays clean.
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# Stamp the review iteration this subagent ran for, so the push-guard's
+# reviewer-execution trace check (mumei_review_trace_ok) can attribute a
+# record to its iteration even when records are delayed or duplicated.
+# A reviewer that STOPS during iteration N sees N-1 real reviews on disk
+# (the iter-N review JSON is written only afterwards), so iteration =
+# real_count + 1. Falls back to null when review.sh is unavailable.
+ITER="null"
+if declare -F mumei_review_real_count >/dev/null 2>&1; then
+  ITER="$(($(mumei_review_real_count "$(dirname "$COST_LOG")/reviews") + 1))"
+fi
 RECORD="$(
   jq -nc \
     --arg ts "$TS" \
     --arg feature "$ACTIVE_FEATURE" \
     --arg agent "$AGENT_SHORT" \
+    --argjson iter "$ITER" \
     --argjson usage "$USAGE_JSON" \
-    '{ts: $ts, feature: $feature, wave: null, iteration: null, agent: $agent, phase: "after"}
+    '{ts: $ts, feature: $feature, wave: null, iteration: $iter, agent: $agent, phase: "after"}
      + ($usage
         | with_entries(select(.key as $k
             | ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
