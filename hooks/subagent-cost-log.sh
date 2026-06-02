@@ -56,9 +56,11 @@ fi
 # review.sh provides mumei_review_real_count, used to stamp each record
 # with the review iteration the subagent ran for (see the iteration-stamp
 # block before the record build below).
+# PLUGIN_ROOT is exported by anchor.sh (sourced above), matching how
+# pre-bash-guard.sh — the other consumer of review.sh — resolves it.
 # shellcheck disable=SC1091
 if ! declare -F mumei_review_real_count >/dev/null 2>&1; then
-  REVIEW_LIB="$(dirname "${BASH_SOURCE[0]}")/_lib/review.sh"
+  REVIEW_LIB="${PLUGIN_ROOT}/hooks/_lib/review.sh"
   if [[ -f "$REVIEW_LIB" ]]; then
     # shellcheck disable=SC1090
     source "$REVIEW_LIB"

@@ -604,8 +604,20 @@ if mumei_is_git_push "$COMMAND"; then
       # (c) the verdict would clear the gate — require it be backed by a
       # real reviewer run. Phase-independent (like (b)) so it still fires
       # at phase=done, the moment the push actually happens.
+      #
+      # The SubagentStop cost-log hook is async (hooks.json), so a
+      # same-session push right after the review can race its append. If
+      # the first check misses, run the cost-log backfill once (it
+      # reconstructs records from the subagent session jsonl, which exists
+      # even when the forward append lost the flush race) and re-check
+      # before treating the trace as hollow.
       FEATURE_DIR="${REVIEW_DIR%/reviews}"
-      if ! TRACE_REASON="$(mumei_review_trace_ok "$FEATURE_DIR")"; then
+      TRACE_REASON="$(mumei_review_trace_ok "$FEATURE_DIR")" || true
+      if [[ -n "$TRACE_REASON" ]]; then
+        bash "${PLUGIN_ROOT}/scripts/cost-backfill.sh" "$FEATURE_DIR" >/dev/null 2>&1 || true
+        TRACE_REASON="$(mumei_review_trace_ok "$FEATURE_DIR")" || true
+      fi
+      if [[ -n "$TRACE_REASON" ]]; then
         if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
           mumei_deny \
             "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:examine so the reviewers actually run against the current diff." \
