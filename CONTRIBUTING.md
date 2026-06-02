@@ -142,19 +142,18 @@ Hook revisions are pinned in `.pre-commit-config.yaml`. Bump them with:
 pre-commit autoupdate
 ```
 
-## Validate skill
+## Validating before a PR
 
-A bundled **validate** skill performs lint + frontmatter + JSON schema checks on
-the distributable artifacts. From inside Claude Code:
+Run the bundled task to lint and test the distributable artifacts:
 
-```text
-/validate
+```bash
+task validate
 ```
 
-The skill runs `jq empty` on `plugin.json` and `hooks/hooks.json`, `bash -n` on
-all `hooks/**/*.sh` and `scripts/**/*.sh`, `shellcheck` on the same set, and a
-custom frontmatter check on `agents/*.md` and `skills/**/SKILL.md`. Run this
-before opening a PR.
+It runs `jq empty` on `plugin.json` and `hooks/hooks.json`, `bash -n` and
+`shellcheck` on all `hooks/**/*.sh` and `scripts/**/*.sh`, a frontmatter check on
+`agents/*.md` and `skills/**/SKILL.md`, plus the full bats suite. `task lint`
+runs just the static checks. Do this before opening a PR.
 
 ## Commit conventions
 
@@ -196,8 +195,7 @@ creates a topic branch in this repo.
    branching first.
 2. Implement the change, keeping commits focused and Conventional Commits-formatted.
 3. Run `task validate` locally (lint + test); it must exit clean.
-   `/validate` (the bundled Claude Code skill) is also acceptable for
-   the bash side and runs the same checks `task lint` does.
+   (`task lint` runs just the static checks if you want a faster loop.)
 4. Update `README.md`, `PRIVACY.md`, or `docs/` if your change alters external
    behaviour, install steps, network egress, or distribution layout.
 5. **Ratchet principle**: when a PR adds a new hook rule, agent, skill, or
@@ -217,18 +215,16 @@ creates a topic branch in this repo.
    `lint-extra`, `bats` on macOS / Ubuntu, `codeql`), `pr.yml`
    (`mutable-tag-guard`, `pr-target-guard`), `gitleaks.yml`, and
    `plugin-json-validate.yml`. Address failures before merge.
-   (`claude-review.yml` is on disk but disabled — see the file header
-   for why and how to re-enable.)
-8. Monitor the PR after opening. CI green is necessary but not
-   sufficient — automated reviewers also post feedback:
+8. Monitor the PR after opening:
+
    - `task pr:watch` — wait for the latest CI run on this branch
    - `gh pr checks <N>` — CI status snapshot
-   - **GitHub PR UI** — review findings from the GitHub App reviewers
-     (Codex / Gemini Code Assist / Copilot), enabled at the
-     GitHub-App level by the repo owner. Triage findings, push fix
-     commits, and resolve threads before merging. Reviewer monitoring
-     is the PR author's responsibility; an AI agent driving the PR
-     watches CI only.
+
+   If your fork has any automated code-review apps enabled, triage their
+   findings, push fix commits, and resolve threads before merging. mumei
+   does not require any particular reviewer — that is the repo owner's
+   choice, not a contribution prerequisite.
+
 9. Self-merge via squash or rebase (linear history; merge commits should
    be avoided). No required approval count.
 

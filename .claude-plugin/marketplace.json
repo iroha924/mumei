@@ -9,7 +9,7 @@
     {
       "name": "mumei",
       "source": "./",
-      "description": "A Claude Code harness with hook-enforced quality gates: gather → proceed (3 spec reviewers + single approval gate) → implement (Wave Gate) → examine (4-stage independent + per-issue validation).",
+      "description": "Quality Enforcement Layer for Claude Code — Hook-gated SDD (spec & plan vehicles), Wave commits, and grounded multi-agent code review.",
       "homepage": "https://github.com/hir4ta/mumei",
       "repository": "https://github.com/hir4ta/mumei",
       "license": "MIT",

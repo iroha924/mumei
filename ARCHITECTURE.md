@@ -28,13 +28,16 @@ mumei/
 │   ├── issue-validator.md
 │   ├── memory-curator.md
 │   └── property-author.md
-├── skills/                 # user-invocable orchestration
+├── skills/                 # user-invocable orchestration (9 skills)
 │   ├── proceed/            # /mumei:proceed — the orchestrator
 │   ├── gather/             # /mumei:gather — pre-spec Q&A
 │   ├── arrange/            # /mumei:arrange — one-time per-project setup
 │   ├── examine/            # /mumei:examine — plan-vehicle review pipeline
+│   ├── review/            # /mumei:review — standalone diff review (no .mumei side effects)
 │   ├── retire/             # /mumei:retire — move done features to archive/
-│   └── reflect/            # /mumei:reflect — feature retrospective
+│   ├── reflect/            # /mumei:reflect — feature retrospective
+│   ├── assure/            # /mumei:assure — reliability audit (pass^k over the verify-log)
+│   └── present/            # /mumei:present — one-line reliability status for the active feature
 ├── hooks/                  # Hook handlers + shared bash library
 │   ├── hooks.json          # event registration: PreToolUse / PostToolUse / Stop / TaskCreated / TaskCompleted / UserPromptSubmit + PreCompact / PostCompact / SessionStart / SessionEnd / FileChanged / CwdChanged / InstructionsLoaded / UserPromptExpansion / ConfigChange / PostToolUseFailure / SubagentStart / SubagentStop
 │   ├── _lib/               # shared bash modules
