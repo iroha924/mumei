@@ -295,6 +295,7 @@ escape hatch は `MUMEI_BYPASS=1` 一つだけ。
 | `git commit` が `"Wave has incomplete tasks"` または `"Tests failing"` で deny | 残った `[ ]` を `[x]` に (実装 file が実際に変わっていることが条件)、もしくはテスト失敗を修正 (W2 / I3)。                                        |
 | `[x]` が `"Phantom completion"` で blockされた (I4)                            | 対象 `_Files:_` を実際に編集してから `[x]`、または `[x]` を revert。                                                                             |
 | `git push` が `"verdict: MAJOR_ISSUES"` で deny (R2)                           | `/mumei:proceed` (plan vehicle なら `/mumei:examine`) で findings を解消し、再 review。                                                              |
+| `git push` が `"not backed by a reviewer-execution trace"` で deny (R2)        | PASS / NEEDS_IMPROVEMENT の verdict に対し、baseline reviewer が実行された cost-log record が無い状態。review を再実行 (`/mumei:proceed` Phase 5、plan vehicle なら `/mumei:examine`) し、reviewer を現在の diff に対して実際に走らせる。 |
 | Stop hook で session 終了が block (`R1` review 未実行 / `R3` archive 未実行)   | `/mumei:proceed` で review を開始、verdict PASS 後に `/mumei:retire <feature>`。                                                                   |
 | `Edit` が `.claude/agent-memory/<r>/MEMORY.md` で deny (M1)                    | reviewer memory は curator-gated。review JSON で候補を emit すれば orchestrator が curator スコア後に永続化します。                              |
 | review は走ったが detector が skip された ("detector X unavailable — skipped") | ツール不在時の正常動作 (warn-skip、fatal ではない)。有効化するには該当ツールを install ([前提ツール](#前提ツール) 参照)。                       |
