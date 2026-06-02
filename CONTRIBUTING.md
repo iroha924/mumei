@@ -155,10 +155,6 @@ It runs `jq empty` on `plugin.json` and `hooks/hooks.json`, `bash -n` and
 `agents/*.md` and `skills/**/SKILL.md`, plus the full bats suite. `task lint`
 runs just the static checks. Do this before opening a PR.
 
-(There is also a developer-local `/validate` skill under `.claude/skills/`, but
-that directory is gitignored and not part of the distribution, so `task validate`
-is the command to rely on.)
-
 ## Commit conventions
 
 mumei follows the [Conventional Commits](https://www.conventionalcommits.org/)
