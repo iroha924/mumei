@@ -7,39 +7,19 @@
 [![Sigstore signed](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/hir4ta/mumei/network/updates)
 
-**mumei は Claude Code のための品質強制 harness です。** spec 駆動の
-ワークフローと、grounded な multi-agent コードレビューを、すべての phase /
-commit / push を OS の境界で物理的に gate する Hook を通して走らせます。
-エージェントの意図は untrusted input として扱い、基準は「強制」します —
-エージェントが無視できる prompt 上の「お願い」ではなく。
+**mumei は Claude Code のための品質強制ハーネスです。** 走らせるものは 2 つ——仕様駆動の開発フローと、複数エージェントによる根拠に基づくコードレビューです。どちらも、フェーズ・コミット・プッシュといった操作にフックが割り込んで検査し、ルールを破る操作を OS の境界で実際に止めます。エージェントの意図は「信頼できない入力」として扱い、品質基準はプロンプト上の「お願い」——エージェントが無視できるもの——ではなく、「強制」します。
 
-_名前のない執事。静かに仕え、手柄を取らず、一線を守ります — 「それはいたしかねます」。_
+_名前のない執事。静かに仕え、手柄を取らず、一線を守ります——「それはいたしかねます」。_
 
 [English README](./README.md)
 
-## なぜ mumei
+## なぜ mumei か
 
-`CLAUDE.md` のルール、system prompt、「先にテストを実行して」——これらは
-「お願い」であり、能力の高いエージェントはプレッシャー下でお願いを迂回します。
-mumei は守りたい基準を prompt から OS の境界へ移し、Hook がプロジェクトを
-変更する tool 呼び出し——編集 / commit / push / plan 遷移——を検査して
-invariant を破るものを拒否します。mumei が「お願い」ではなく「強制」する 3 つ:
+`CLAUDE.md` のルール、システムプロンプト、「先にテストを実行して」——これらはすべて「お願い」であり、能力の高いエージェントはプレッシャーがかかると平気で迂回します。mumei は、守りたい基準をプロンプトから OS の境界へ移します。そこではフックが、プロジェクトを変更する操作——編集・コミット・プッシュ・フェーズ遷移——を検査し、不変条件を破るものを拒否します。mumei が「お願い」ではなく「強制」する 3 つ:
 
-- **Harness であって chat ではない。** phase / Wave / commit / push、そして
-  review pipeline 全体を Hook が決定論的に駆動します——エージェントは prompt
-  で迂回できません。唯一の escape hatch は明示的に設定する `MUMEI_BYPASS=1`
-  一つだけ（意図して立てる env var で、立つと静かに short-circuit します）。
-- **本当に守られる spec 駆動開発。** spec を「生成する」ツールは多いですが、
-  mumei はエージェントに「その spec に従って作らせ」ます。feature は
-  requirements → design → tasks（各々独立にレビュー）→ 一度の承認 gate →
-  Wave 単位の実装 → review を辿り、phase スキップ・scope 外編集・壊れた Wave
-  の commit は物理的に block されます（やんわり諭すのではなく）。
-- **vibes ではなく grounded なレビュー。** 決定論的 detector（CVE / secret /
-  型 / test / SAST）が先に走って diverse-lens レビュー（fresh context の
-  security と adversarial）を grounding し、per-finding validator が ungrounded
-  な懸念を advisory に降格するので、false-positive が merge を誤 block しま
-  せん。verdict が push を gate し、常に「人間がまだ確認すべき箇所」を明示し
-  ます。
+- **チャットではなく、ハーネス。** フェーズ・Wave・コミット・プッシュ、そしてレビュー工程の全体を、フックが決定論的に駆動します。エージェントがプロンプトで切り抜けることはできません。唯一の抜け道は、明示的に設定する `MUMEI_BYPASS=1` の 1 つだけです（意図して立てる環境変数で、立てると何も言わずにその場で処理を打ち切ります）。
+- **絵に描いた餅で終わらない仕様駆動開発。** 仕様を「生成する」ツールは数多くありますが、mumei はエージェントに「その仕様どおりに作らせ」ます。機能開発は、要件 → 設計 → タスク（それぞれ独立にレビュー）→ 一度きりの承認ゲート → Wave 単位の実装 → レビュー、という順に進みます。フェーズの飛ばし、範囲外の編集、壊れた Wave のコミットは、やんわり諭すのではなく物理的にブロックされます。
+- **勘ではなく、根拠に基づくレビュー。** まず決定論的な検出器（CVE・シークレット・型・テスト・SAST）が走り、それが多視点レビュー——まっさらな文脈で動くセキュリティ視点と批判的視点——の土台（根拠）になります。さらに指摘ごとの検証担当が、根拠の薄い懸念を「参考」扱いに格下げするので、誤検知がマージを誤ってブロックすることはありません。判定がプッシュをせき止め、その判定は常に「人間がまだ確認すべき箇所」を明示します。
 
 ## インストール
 
@@ -57,9 +37,9 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
 /mumei:arrange
 ```
 
-アンインストール: `/plugin uninstall mumei@mumei` (プロジェクト内の `.mumei/` はそのまま残ります)。
+アンインストール: `/plugin uninstall mumei@mumei`（プロジェクト内の `.mumei/` はそのまま残ります）。
 
-前提ツール: review-phase の detector 用に `semgrep` と `osv-scanner` が必要です。インストール手順は [docs/getting-started.ja.md → 前提ツール](./docs/getting-started.ja.md#前提ツール) を参照。
+前提ツール: レビューフェーズの検出器のために `semgrep` と `osv-scanner` が必要です。インストール手順は [docs/getting-started.ja.md → 前提ツール](./docs/getting-started.ja.md#前提ツール) を参照。
 
 ## ワークフロー
 
@@ -70,78 +50,69 @@ mumei は自前のマーケットプレイスを同梱しています。Claude C
   </picture>
 </div>
 
-> 図は **spec** / **plan** の 2 vehicle を示す。vehicle を経由しない単発レビューは
-> `/mumei:review` が同じレビュー engine を現 diff に走らせる — `.mumei` 不要、副作用なし。
-> 詳細は [Commands](#commands) を参照。
+> 図は **spec** / **plan** の 2 つの方式を示しています。どちらの方式も経由しない単発レビューは、`/mumei:review` が同じレビューエンジンを現在の差分に対して走らせます（`.mumei` 不要、副作用なし）。詳細は [コマンド](#コマンド) を参照。
 
-## mumei が enforce すること
+## mumei が強制すること
 
 上の 3 本柱を、より詳しく:
 
-- **Harness であって prompt ではない** — phase / Wave / commit / push の各 gate は tool 呼び出しの段階で enforce されます。エージェントは prompt-level で回避できません。
-- **state 保護** — `.mumei/` の state と review verdict はエージェントの Edit/Write 対象外です。harness だけが書き込むので、暴走した agent が壊せません。
-- **誤 block しない gate** — CVE / secret / 型エラー / テスト失敗は verdict を `MAJOR_ISSUES` に固定。ノイズの多い SAST は adjudication gate を通し確証時のみ block するので、false-positive で誤 merge-block しません。不在ツールは warn-skip (fatal にしない)。
-- **改ざん不能な検証** — commit 時に test を clean な `HEAD` worktree で再実行します。未 commit の改ざん (rig した `conftest.py`、monkeypatch した reporter、いじった bytecode) では pass を偽装できません。
-- **エージェントが細工できない test** — invariant の property test を、実装を見ずに spec と signature だけから盲目的に生成し、freeze します。欠陥のある実装に合わせて test を調整できません。AC 単位で opt-in。
-- **多様な視点の review** — `requirements` / `design` / `tasks` reviewer が fresh context で独立に走り、続けて `security` と `adversarial` が diff をレビュー (model rotation でなく context 非対称化)、per-finding validator が ungrounded な finding を advisory に降格します。
-- **天井を誠実に明示** — 各 verdict は盲点 disclaimer を持ち、「人間が手で見るべき箇所」を明示します。mumei は人間レビューを不要にするとは主張しません。
-- **Wave 単位の commit** — 1 Wave = 1 commit。Hook が diff を各 task の `_Files:_` と突き合わせ、phantom completion (実装の diff がないのに `[x]` を付ける) を止めます。
-- **署名 + provenance 付きリリース** — Sigstore keyless 署名、SLSA Level 3、CycloneDX SBOM。詳細は [docs/getting-started.ja.md → Security & supply chain](./docs/getting-started.ja.md#security--supply-chain) を参照。
-- **名前のない執事のスタンス** — mumei は静かに仕え、手柄を取りません: opt-in するまで副作用ゼロ (`.mumei/current` がなければ Hook はすべて no-op)、不要な発話なし、verdict は事実形式、テレメトリなし。
+- **プロンプトではなく、ハーネス** — フェーズ / Wave / コミット / プッシュの各ゲートは、ツール呼び出しの段階で強制されます。エージェントがプロンプトで回避することはできません。
+- **状態の保護** — `.mumei/` 内の状態とレビュー判定は、エージェントの編集対象外です。書き込めるのはハーネスだけなので、暴走したエージェントでも壊せません。
+- **誤ってブロックしないゲート** — CVE・シークレット・型エラー・テスト失敗は、判定を `MAJOR_ISSUES` に固定します。ノイズの多い SAST は裁定ゲートを通し、確証が取れたときだけブロックするので、誤検知でマージを誤って止めることはありません。検出ツールが入っていない場合は、致命扱いにせず警告して飛ばします。
+- **改ざんできない検証** — コミット時に、テストを汚れていない `HEAD` のワークツリーで再実行します。コミットしていない細工（仕込んだ `conftest.py`、差し替えたレポーター、書き換えたバイトコード）では、合格を偽装できません。
+- **エージェントが細工できないテスト** — 不変条件のプロパティテストを、実装を見せずに仕様と関数シグネチャだけから生成し、凍結します。欠陥のある実装に合わせてテストを調整することはできません（AC〔受け入れ基準〕単位で任意に有効化）。
+- **多視点のレビュー** — 要件 / 設計 / タスクのレビュアーがまっさらな文脈で独立に走り、続いてセキュリティ視点と批判的視点が差分をレビューします（モデルを入れ替えるのではなく、文脈を非対称にする方式）。さらに指摘ごとの検証担当が、根拠の薄い指摘を「参考」扱いに格下げします。
+- **限界を正直に明示** — どの判定にも盲点の但し書きが付き、「人間が手で確認すべき箇所」を明示します。mumei は人間のレビューを不要にするとは主張しません。
+- **Wave 単位のコミット** — 1 Wave = 1 コミット。フックが差分を各タスクの `_Files:_` と突き合わせ、実装の差分がないのに `[x]` を付ける「見せかけの完了」を止めます。
+- **署名と来歴付きのリリース** — Sigstore キーレス署名、SLSA Level 3、CycloneDX SBOM。詳細は [docs/getting-started.ja.md → Security & supply chain](./docs/getting-started.ja.md#security--supply-chain) を参照。
+- **名前のない執事としての姿勢** — mumei は静かに仕え、手柄を取りません。有効化するまで副作用はゼロ（`.mumei/current` がなければフックはすべて何もしません）、余計な発話なし、判定は事実の形式、テレメトリなし。
 
-> 詳細な機構 — hook ID、detector tier、盲目 property-author / review 強化 / 残余明示の各柱、cross-feature の finding-ledger、curator-gated な reviewer memory — は **[ARCHITECTURE.md](./ARCHITECTURE.md)** にあります。
+> より詳しい仕組み——hook ID、検出器の階層、盲目的なプロパティ生成 / レビュー強化 / 残余の明示という各柱、機能をまたいだ指摘台帳、curator が管理するレビュアーの記憶——は **[ARCHITECTURE.md](./ARCHITECTURE.md)** にあります。
 
 ## 研究に基づく設計
 
-mumei の強制モデルは思いつきではなく、エージェントの信頼性とレビュー精度に
-関する近年の研究から導かれています（arXiv ID を併記、各自で参照可能）:
+mumei の強制モデルは思いつきではなく、エージェントの信頼性とレビュー精度に関する近年の研究から導かれています（各自で参照できるよう arXiv ID を併記します）:
 
-- 能力の高いエージェントは prompt 上のルールを選択的に無視するため、強制は
-  hard boundary——mumei の Hook——に置く必要がある。("Formal Policy Enforcement for Real-World Agentic Systems", arXiv 2602.16708; "Willful Disobedience", arXiv 2603.23806)
-- エージェントは自分の誤りの大半を見落とすため、reviewer は fresh context で
-  走り、決して self-review しない。("Self-Correction Bench", arXiv 2507.02778)
-- 生の SAST はノイズが多いが、LLM が「構造化された」detector finding を
-  adjudicate すると精度が大きく上がる——mumei の class-aware な detector →
-  validator gate。("ZeroFalse", arXiv 2510.02534)
-- 少数の多様なレビュー視点は同質エージェントの swarm に勝るため、mumei は
-  voting committee ではなく context 非対称の reviewer を使う。("Understanding Agent Scaling in LLM-Based Multi-Agent Systems via Diversity", arXiv 2602.03794)
+- 能力の高いエージェントはプロンプト上のルールを選択的に無視するため、強制は固い境界——mumei のフック——に置く必要がある。("Formal Policy Enforcement for Real-World Agentic Systems", arXiv 2602.16708; "Willful Disobedience", arXiv 2603.23806)
+- エージェントは自分の誤りの大半を見落とすため、レビュアーはまっさらな文脈で走らせ、決して自己レビューさせない。("Self-Correction Bench", arXiv 2507.02778)
+- 生の SAST はノイズが多いが、LLM に「構造化された」検出結果を裁定させると精度が大きく上がる——mumei の、種別を意識した検出器 → 検証担当のゲート。("ZeroFalse", arXiv 2510.02534)
+- 少数の多様なレビュー視点は、同質なエージェントを大量に並べるより優れているため、mumei は多数決の委員会ではなく、文脈を非対称にしたレビュアーを使う。("Understanding Agent Scaling in LLM-Based Multi-Agent Systems via Diversity", arXiv 2602.03794)
 
-これらは設計に影響を与えたものであり、mumei は各論文の結果そのものを主張しま
-せん。そして次節の通り、人間レビューを置き換えるとは決して主張しません。
+これらは設計に影響を与えたものであり、mumei が各論文の結果そのものを主張するわけではありません。そして次節のとおり、人間のレビューを置き換えるとは決して主張しません。
 
-## Commands
+## コマンド
 
-| コマンド                      | 説明                                                                                                                                                                                                                                                                                                      |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/mumei:arrange`              | プロジェクトごとに一度だけ走らせるセットアップ。`.mumei/` を作り、`CLAUDE.md` への追加内容を diff preview 付きで提案します。                                                                                                                                                                              |
-| `/mumei:gather <feature>`     | spec を書き始める前の Q&A loop (最大 3 round × 5 質問)。出力は `.mumei/scratch/<feature>.md` に保存されます。                                                                                                                                                                                             |
-| `/mumei:proceed [feature]`    | 新規 feature では vehicle picker (`spec` = フル SDD / `plan` = Claude plan-mode ラッパー)。既存 feature は自動 resume。spec vehicle: clarification → requirements → design → tasks (各々最大 3 回 auto-review) → 単一承認 → Wave by Wave → review。                                                       |
-| `/mumei:examine`              | plan vehicle 用の review pipeline。`pending_review=true` の状態で Stage 0 detector + security-reviewer + adversarial-reviewer + per-issue validator を現在の diff に対して回します。                                                                                                                      |
-| `/mumei:review [base] [spec]` | `git diff $(git merge-base <base> HEAD)` (PR push 済み + 未 commit) を共有 engine (detectors → reviewers → adjudication gate → fail-open verdict) で単発レビュー。mumei feature 不要、副作用ゼロ (state/ledger/memory/commit を一切書かない)。spec ファイルを渡すと `spec-compliance-reviewer` が有効化。 |
-| `/mumei:retire <feature>`     | `done` になった feature を `.mumei/archive/<YYYY-MM>/<feature>/` に移動します。vehicle (specs/ または plans/) を自動判定し、`scratch/<feature>.md` も `scratch.md` として持ち越します。                                                                                                                   |
-| `/mumei:reflect <feature>`    | archive 済 (または archive 直前) feature の `reflect.md` を生成。AC 数 / Wave 数 / review iter パターン / fix-spiral 検出 / token cost / cache hit rate / hook 発火上位を集計。read-only、user 起動のみ。                                                                                                 |
-| `/mumei:assure <feature>`     | reliability 詳細ビュー — 直近 10 trial の pass^3 と recent 10 行の trial table (`reliability-log.jsonl` から)。read-only、user 起動のみ。                                                                                                                                                                 |
-| `/mumei:present [feature]`    | 1 行 reliability サマリ (`<feature> \| pass^3: <value-or-N/A> (n=<n>, window=10, k=3)`)。引数なしは `.mumei/current` を読む。read-only、user 起動のみ。                                                                                                                                                   |
+| コマンド                      | 説明                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/mumei:arrange`              | プロジェクトごとに一度だけ走らせるセットアップ。`.mumei/` を作り、`CLAUDE.md` への追記内容を差分プレビュー付きで提案します。                                                                                                                                                                                                       |
+| `/mumei:gather <feature>`     | 仕様を書き始める前の任意の Q&A ループ（最大 3 ラウンド × 5 問）。出力は `.mumei/scratch/<feature>.md` に保存されます。                                                                                                                                                                                                             |
+| `/mumei:proceed [feature]`    | 新規機能では方式を選びます（`spec` = フルの仕様駆動開発 / `plan` = Claude の plan モードのラッパー）。既存の機能は自動で再開します。spec 方式: 確認 → 要件 → 設計 → タスク（それぞれ最大 3 回まで自動レビュー）→ 一度きりの承認 → Wave ごと → レビュー。                                                                           |
+| `/mumei:examine`              | plan 方式のレビュー工程。`pending_review=true` の状態で、Stage 0 検出器 + セキュリティレビュアー + 批判的レビュアー + 指摘ごとの検証担当を、現在の差分に対して回します（最後の `TaskCompleted` が `task_created_count` と一致したときに `pending_review` が立ちます）。                                                            |
+| `/mumei:review [base] [spec]` | `git diff $(git merge-base <base> HEAD)`（PR にプッシュ済み + 未コミット）を、共有エンジン（検出器 → レビュアー → 裁定ゲート → 安全側に倒す判定）で単発レビューします。mumei の機能定義は不要で、副作用はゼロ（状態 / 台帳 / 記憶 / コミットを一切書きません）。仕様ファイルを渡すと `spec-compliance-reviewer` が有効になります。 |
+| `/mumei:retire <feature>`     | `done` になった機能を `.mumei/archive/<YYYY-MM>/<feature>/` に移します。方式（specs/ か plans/）を自動判定し、`scratch/<feature>.md` も `scratch.md` として一緒に持ち越します。                                                                                                                                                    |
+| `/mumei:reflect <feature>`    | アーカイブ済み（またはアーカイブ直前）の機能について `reflect.md` を生成します。AC 数 / Wave 数 / レビュー反復のパターン / 修正ループの検出 / トークンコスト / キャッシュヒット率 / フック発火の上位を集計します。読み取り専用、ユーザー起動のみ。                                                                                 |
+| `/mumei:assure <feature>`     | 信頼性の詳細ビュー — 直近 10 試行の pass^3 と、`reliability-log.jsonl` の最新 10 行の試行テーブル。読み取り専用、ユーザー起動のみ。                                                                                                                                                                                                |
+| `/mumei:present [feature]`    | 1 行の信頼性サマリ（`<feature> \| pass^3: <value-or-N/A> (n=<n>, window=10, k=3)`）。引数なしは `.mumei/current` を読みます。読み取り専用、ユーザー起動のみ。                                                                                                                                                                      |
 
 ## `mumei` がやらないこと
 
-- 人間レビューの代替ではありません。pipeline は grounded な finding を提示し盲点を明示しますが、最終判断は人間です。gate はしますが、正しさを保証はしません。
-- CI/CD ツールではありません。Hook は Claude Code の中でしか動きません。
-- コードレビューサービスではありません。reviewer はあなたの Claude Code 契約でローカル実行します。
-- SDD adapter ではありません。mumei は独自の spec フォーマットを持っています。
-- マルチツール対応ではありません。Cursor / Codex / Aider はサポート外。物理的な強制レイヤーは Claude Code Hook に固有です。
-- ストレージシステムではありません。state は plain file。DB なし、MCP server なし。
+- 人間のレビューの代わりにはなりません。レビュー工程は根拠のある指摘を提示し、盲点を明示しますが、最終判断は人間です。ゲートはしますが、正しさを保証するものではありません。
+- CI/CD ツールではありません。フックは Claude Code の中でしか動きません。
+- コードレビューサービスではありません。レビュアーはあなたの Claude Code 契約でローカルに実行されます。
+- SDD アダプターではありません。mumei は独自の仕様フォーマットを持っています。
+- マルチツール対応ではありません。Cursor / Codex / Aider はサポート対象外です。物理的な強制レイヤーは Claude Code のフックに固有のものです。
+- ストレージシステムではありません。状態はただのファイルです。DB も MCP サーバーもありません。
 
 ## 関連ツール
 
-- **Harness-engineered review workflow** — Claude reviewer を 4 観点 (correctness / security / operability / maintainability) で駆動する、可搬な reusable GitHub Actions workflow。semgrep + osv-scanner 出力に基づき、bias 中和と honest-ceiling 表明を備える。任意のリポジトリが `uses:` 1 行で導入可能。**[docs/review-adoption.md](./docs/review-adoption.md)** 参照。plugin 本体とは独立。
+- **ハーネス化されたレビューワークフロー** — Claude のレビュアーを 4 つの観点（正確性 / セキュリティ / 運用性 / 保守性）で駆動する、再利用可能で可搬な GitHub Actions ワークフロー。semgrep + osv-scanner の出力に基づき、バイアスの中和と「限界の正直な表明」を備えます。どんなリポジトリでも `uses:` 1 行で導入できます。**[docs/review-adoption.md](./docs/review-adoption.md)** を参照。プラグイン本体とは独立しています。
 
 ## ドキュメント
 
-- **[docs/getting-started.ja.md](./docs/getting-started.ja.md)** — 詳細な解説: 二つの vehicle、ワークフロー、spec / tasks フォーマット、前提ツール、プロジェクト構成、Hook ルール、Troubleshooting。
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — ランタイム構造、配布物レイアウト、enforcement 表、reviewer pipeline、ファイルベースの state モデル。
-- **[docs/opus-4-7-playbook.md](./docs/opus-4-7-playbook.md)** — Claude Opus 4.7 era で mumei を運用するための実践ガイド (proactive `/compact`、subagent コスト、prompt cache、byte-exact ツール、`MUMEI_BYPASS=1` の使いどころ)。
-- **[SECURITY.md](./SECURITY.md)** + **[docs/security-policy.md](./docs/security-policy.md)** + **[docs/threat-model.md](./docs/threat-model.md)** + **[PRIVACY.md](./PRIVACY.md)** — supply-chain 検証、threat model、privacy。
+- **[docs/getting-started.ja.md](./docs/getting-started.ja.md)** — 詳細な解説: 2 つの方式、ワークフロー、仕様 / タスクのフォーマット、前提ツール、プロジェクト構成、フックのルール、トラブルシューティング。
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — 実行時の構造、配布物のレイアウト、強制ルールの一覧表、レビュアー工程、ファイルベースの状態モデル。
+- **[docs/opus-4-7-playbook.md](./docs/opus-4-7-playbook.md)** — Claude Opus 4.7 で mumei を運用するための実践ガイド（先回りの `/compact`、サブエージェントのコスト、プロンプトキャッシュ、バイト単位で正確なツール、`MUMEI_BYPASS=1` の使いどころ）。
+- **[SECURITY.md](./SECURITY.md)** + **[docs/security-policy.md](./docs/security-policy.md)** + **[docs/threat-model.md](./docs/threat-model.md)** + **[PRIVACY.md](./PRIVACY.md)** — サプライチェーン検証、脅威モデル、プライバシー。
 
 ## License
 

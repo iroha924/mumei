@@ -1,76 +1,44 @@
 # mumei スタートガイド
 
-このドキュメントは README の長文版です。二つの vehicle、ワークフロー、
-spec / tasks フォーマット、Hook ルール、よくある Troubleshooting を扱います。
-README は意図的に landing page に絞っているので、mumei を採用すると決めた
-あとに参照する reference 資料はここにあります。
+このドキュメントは README の長文版です。2 つの方式、ワークフロー、仕様 / タスクのフォーマット、フックのルール、よくあるトラブルシューティングを扱います。README は意図的に入口ページに絞っているので、mumei を採用すると決めたあとに参照するリファレンス資料はここにあります。
 
 ## なぜ
 
-AI コーディングエージェントはステップを飛ばしがちです。テストを書かない
-まま task を完了マークしたり、テストが通っていない状態で commit したり、
-ユーザーが頼んでいない要件を勝手に追加したり、レビューが終わる前に
-「機能は完成しました」と言ってしまったりします。
+AI コーディングエージェントはステップを飛ばしがちです。テストを書かないままタスクを完了マークしたり、テストが通っていない状態でコミットしたり、ユーザーが頼んでいない要件を勝手に追加したり、レビューが終わる前に「機能は完成しました」と言ってしまったりします。
 
-mumei はこういった挙動を tool 呼び出しの段階で止めます。「テストを必ず
-実行してください」と prompt で指示する方法だとエージェントは無視できますが、
-mumei は tool 呼び出し自体を OS の境界で拒否するため、構造的に回避できま
-せん。
+mumei はこういった挙動をツール呼び出しの段階で止めます。「テストを必ず実行してください」とプロンプトで指示する方法だとエージェントは無視できますが、mumei はツール呼び出しそのものを OS の境界で拒否するため、構造的に回避できません。
 
-## 二つの vehicle: `spec` と `plan`
+## 2 つの方式: `spec` と `plan`
 
-mumei は Quality Enforcement Layer であり、本質は phase 遷移 / commit /
-push gate / review 完了の Hook 強制です。feature を gate に向けて駆動する
-手段が **vehicle** で、二種類あります。
+mumei は品質を強制するレイヤーで、その本質はフェーズ遷移・コミット・プッシュのゲート・レビュー完了をフックで強制することです。機能をゲートに向けて駆動する手段が **方式**で、2 種類あります。
 
-- **`spec`** — フル SDD ワークフロー。`requirements.md` / `design.md` /
-  `tasks.md` を draft し、3 つの spec reviewer を独立に走らせ、user の
-  承認 gate を一度通したあと Wave by Wave に実装し、最後に 4-stage
-  review。User Story / EARS AC / アーキ図が必要な大きめの feature 向け。
-- **`plan`** — Claude Code の plan mode + `TaskCreate` の薄いラッパー。
-  `/mumei:proceed` で plan を選んだあと `Shift+Tab` × 2 で plan mode に入り、
-  plan を承認すると Claude が task list を実行します。mumei は plan を
-  `.mumei/plans/<slug>/plan.md` として捕捉し、`TaskCreated` /
-  `TaskCompleted` で進捗を追い、全部完了 (`pending_review=true`) で
-  session 終了と `git push` を gate します。
+- **`spec`** — フルの仕様駆動開発（SDD）フロー。`requirements.md` / `design.md` / `tasks.md` を起草し、3 つの仕様レビュアーを独立に走らせ、ユーザーの承認ゲートを一度通したあと Wave ごとに実装し、最後に 4 段階のレビューを行います。ユーザーストーリー / EARS 形式の AC / アーキ図が必要な、大きめの機能向け。
+- **`plan`** — Claude Code の plan モード + `TaskCreate` の薄いラッパー。`/mumei:proceed` で plan を選んだあと `Shift+Tab` × 2 で plan モードに入り、plan を承認すると Claude がタスクリストを実行します。mumei は plan を `.mumei/plans/<slug>/plan.md` として捕捉し、`TaskCreated` / `TaskCompleted` で進捗を追い、全部完了（`pending_review=true`）したところでセッション終了と `git push` をゲートします。
 
-両 vehicle で review pipeline (Stage 0 detector + security + adversarial
-+ per-issue validator + memory-curator)、`MUMEI_BYPASS=1` escape、
-`/mumei:retire` cleanup は共通。SDD ワークフローが過剰なら `plan`、
-要件とコードの明示的トレースが要るなら `spec` を選びます。
+どちらの方式でも、レビュー工程（Stage 0 検出器 + security + adversarial + 指摘ごとの検証担当 + memory-curator）、`MUMEI_BYPASS=1` の抜け道、`/mumei:retire` の後片付けは共通です。SDD フローが過剰なら `plan`、要件とコードの明示的なトレースが要るなら `spec` を選びます。
 
-`/mumei:proceed` で新規 feature を起動すると vehicle picker が定量目安
-(`spec` は `> 3 files OR > 100 lines`、`plan` はその逆) を各 option の
-description に含めて校正を支援します。さらに gather scratch が
-attach されている場合、mumei が scratch の AC 数と Goal 節を読んで
-推奨 vehicle を計算し、別 step で「推奨で進める / 変更する」を確認
-します。最終判断は常に user の手にあり、推奨は advisory です。
+`/mumei:proceed` で新規機能を起動すると、方式の選択時に、定量的な目安（`spec` は `> 3 files OR > 100 lines`、`plan` はその逆）を各選択肢の説明に含めて見当をつけやすくします。さらに gather のメモが添付されている場合は、mumei がメモの AC 数と Goal 節を読んで推奨する方式を計算し、別ステップで「推奨で進める / 変更する」を確認します。最終判断は常にユーザーの手にあり、推奨はあくまで参考です。
 
 ## Security & supply chain
 
-mumei は ランタイムと配布物の両面で defense-in-depth を取ります。
+mumei はランタイムと配布物の両面で多層防御を取ります。
 
-**ランタイム (ローカル環境):**
+**ランタイム（ローカル環境）:**
 
 | 項目             | 動作                                                                                                                             |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **外部通信**     | mumei 自身は発生させません。`osv-scanner` (third-party detector) は CVE データのため `osv.dev` に問い合わせます (mumei 制御外)。 |
-| **テレメトリ**   | なし。analytics、エラー報告、利用追跡は一切しません。                                                                            |
+| **外部通信**     | mumei 自身は発生させません。`osv-scanner`（外部の検出器）は CVE データのため `osv.dev` に問い合わせます（mumei の制御外）。      |
+| **テレメトリ**   | なし。分析、エラー報告、利用追跡は一切しません。                                                                                |
 | **データ保管**   | すべてプロジェクトローカルの `.mumei/` 配下。`~/.claude/` などグローバル領域への書き込みは一切しません。                         |
-| **使用ツール**   | `bash`、`jq`、`git` (必須)、review phase で `semgrep`、`osv-scanner` (必須)。すべてローカル実行可能。                            |
-| **escape hatch** | `MUMEI_BYPASS=1` 環境変数。単一ルール、auditable。per-rule bypass や feature flag は無し。                                       |
+| **使用ツール**   | `bash`、`jq`、`git`（必須）、レビューフェーズで `semgrep`、`osv-scanner`（必須）。すべてローカルで実行できます。                 |
+| **escape hatch** | `MUMEI_BYPASS=1` 環境変数。単一のルールで、監査可能。ルール単位の迂回やフィーチャーフラグはありません。                         |
 
-**配布物 (インストールする artifact):**
+**配布物（インストールする成果物）:**
 
-- **Sigstore keyless 署名** — リリース tarball は OIDC で署名済、cosign で
-  検証可能 (秘密鍵管理不要)。
-- **SLSA Level 3 provenance** — `slsa-github-generator` reusable workflow
-  で build provenance attestation を生成。
-- **CycloneDX SBOM** — `mumei-sbom.cdx.json` を release asset として公開、
-  Grype / Syft で取り込み可。
-- **strict cosign cert-identity** — verification は
-  `release-reusable.yml@refs/tags/` のフルパスに pin、悪意ある sibling
-  workflow が署名を偽造する経路を閉じています。
+- **Sigstore キーレス署名** — リリース tarball は OIDC で署名済みで、cosign で検証できます（秘密鍵の管理は不要）。
+- **SLSA Level 3 の来歴** — `slsa-github-generator` の再利用可能ワークフローで、ビルド来歴の証明を生成します。
+- **CycloneDX SBOM** — `mumei-sbom.cdx.json` をリリースアセットとして公開、Grype / Syft で取り込めます。
+- **厳格な cosign cert-identity** — 検証は `release-reusable.yml@refs/tags/` のフルパスに固定し、悪意ある同居ワークフローが署名を偽造する経路を閉じています。
 
 ダウンロードしたリリースの検証:
 
@@ -83,160 +51,115 @@ cosign verify-blob \
 # 期待値: Verified OK
 ```
 
-完全なセキュリティモデル: [SECURITY.md](../SECURITY.md) (脆弱性報告)、
-[docs/security-policy.md](./security-policy.md) (tarball / SBOM / SLSA
-の検証手順)、[docs/threat-model.md](./threat-model.md) (脅威面と
-緩和策)、[PRIVACY.md](../PRIVACY.md)。
+完全なセキュリティモデル: [SECURITY.md](../SECURITY.md)（脆弱性報告）、[docs/security-policy.md](./security-policy.md)（tarball / SBOM / SLSA の検証手順）、[docs/threat-model.md](./threat-model.md)（脅威面と緩和策）、[PRIVACY.md](../PRIVACY.md)。
 
-## Philosophy: なぜ mumei (無名)
+## 思想: なぜ mumei（無名）か
 
-`mumei` (無名、"no name") は **名前を持たない執事** です。家の中にいて気を
-配りながらも出しゃばらず、あなたと仕事の間に決して割り込むことなく、家の
-基準を守り抜くのが役目です。
+`mumei`（無名、"no name"）は **名前を持たない執事** です。家の中にいて気を配りながらも出しゃばらず、あなたと仕事の間に決して割り込むことなく、家の基準を守り抜くのが役目です。
 
 mumei は Claude Code に対して同じ役を演じます。
 
-- **ユーザーは Claude Code と対話する、mumei とは対話しない。** mumei は
-  prompt にも会話にも顔を出しません。
-- **OS の境界でしか動かない。** エージェントが phase をスキップする、壊れ
-  た Wave を commit する、`MAJOR_ISSUES` の verdict を push しようとする —
-  その瞬間に Hook が静かに deny して、1 行の事実ベースの reason を返しま
-  す。煽らず、バナーも出さず、意見も言いません。
-- **opt-in していないプロジェクトには何もしない。** `.mumei/current` が
-  なければ Hook はすべて no-op。
-- **既存の gate は便利機能ではなく、構造的な対抗手段。** Microsoft Research
-  の [DELEGATE-52](./document-corruption.md) のような研究が示すように、
-  フロンティア LLM は 20 回の delegate edit でドキュメント内容の 25% を
-  破壊します。エージェント harness はこの劣化を救えません。mumei の
-  「厳しいワークフロー」は、まだ使っていた書類を片付けようとする慌てた手を
-  執事が静かに制止するようなもの — あなたが気付くことのなかった corruption
-  を未然に止めます。
+- **ユーザーは Claude Code と対話する。mumei とは対話しない。** mumei はプロンプトにも会話にも顔を出しません。
+- **OS の境界でしか動かない。** エージェントがフェーズを飛ばす、壊れた Wave をコミットする、`MAJOR_ISSUES` の判定をプッシュしようとする——その瞬間にフックが静かに拒否し、1 行の事実ベースの理由を返します。煽らず、バナーも出さず、意見も言いません。
+- **有効化していないプロジェクトには何もしない。** `.mumei/current` がなければ、フックはすべて何もしません。
+- **既存のゲートは便利機能ではなく、構造的な対抗手段。** Microsoft Research の [DELEGATE-52](./document-corruption.md) のような研究が示すとおり、フロンティア LLM は 20 回の委譲編集でドキュメント内容の 25% を破壊します。エージェントのハーネスはこの劣化を救えません。mumei の「厳しいワークフロー」は、まだ使っていた書類を片付けようとする慌てた手を執事が静かに制止するようなもので、あなたが気付くことのなかった破損を未然に止めます。
 
 mumei は「何をしたか」ではなく「何を防いだか」で評価されます。
 
-## Workflow
+## ワークフロー
 
-### 1. セットアップと gather (任意)
+### 1. セットアップと gather（任意）
 
 ```text
-/mumei:arrange                       # プロジェクトごと一回
-/mumei:gather user-auth       # spec 前の Q&A → .mumei/scratch/user-auth.md
+/mumei:arrange                # プロジェクトごと一回
+/mumei:gather user-auth       # 仕様の前の Q&A → .mumei/scratch/user-auth.md
 ```
 
-`/mumei:arrange` は `.mumei/` を作成し `CLAUDE.md` への追加内容を diff
-preview 付きで提案します。`/mumei:gather` は最大 3 round × 5 問、結果
-を次の step に渡します。
+`/mumei:arrange` は `.mumei/` を作成し、`CLAUDE.md` への追記内容を差分プレビュー付きで提案します。`/mumei:gather` は最大 3 ラウンド × 5 問で、結果を次のステップに渡します。
 
-### 2. spec を生成する
+### 2. 仕様を生成する
 
 ```text
 /mumei:proceed user-auth
 ```
 
-clarification → requirements → design → tasks を歩きます。各 draft は
-fresh context の reviewer (`requirements-reviewer` / `design-reviewer` /
-`tasks-reviewer`) が独立に audit、最大 3 回まで自動で iterate します。phase
-遷移は hook gate: `requirements.md` に `[NEEDS CLARIFICATION]` が残ってい
-るうちは `design.md` を draft できません。3 reviewer 全 PASS の後、user が
-package 全体を 1 度だけ承認して phase が `implement` に進みます。
+確認 → 要件 → 設計 → タスク、と進みます。各下書きは、まっさらな文脈のレビュアー（`requirements-reviewer` / `design-reviewer` / `tasks-reviewer`）が独立に監査し、最大 3 回まで自動で反復します。フェーズ遷移はフックがゲートします。`requirements.md` に `[NEEDS CLARIFICATION]` が残っているうちは `design.md` を起草できません。3 つのレビュアーが全 PASS したあと、ユーザーが一式をまとめて 1 度だけ承認すると、フェーズが `implement` に進みます。
 
 ### 3. Wave ごとに実装する
 
-Wave 1 の task を実装。`[x]` を付けます。Hook が verify: 実装ファイルが
-実際に変わっているか (phantom completion 防止)、`_Files:_` の scope を
-出ていないか、テストが通っているか、次の Wave に入る前に commit したか。
+Wave 1 のタスクを実装し、`[x]` を付けます。フックが検証します。実装ファイルが実際に変わっているか（見せかけの完了の防止）、`_Files:_` の範囲を出ていないか、テストが通っているか、次の Wave に入る前にコミットしたか。
 
 ### 4. examine / 完了 / retire
 
-すべての task が `[x]` になると review pipeline が起動:
+すべてのタスクが `[x]` になると、レビュー工程が起動します。おおまかには、機械的なチェック（検出器）→ 複数視点の AI レビュー → 各指摘の妥当性確認 → 合否判定、の順に自動で走ります。下の図はその内部段階です。
 
 ```text
-Stage 0:    pre-review-detector (semgrep + osv-scanner)            ← 決定論的 ground-truth
-Stage 1 ‖:  spec-compliance + security (HIGH detector finding 時は skip)
-Stage 2:    adversarial-reviewer (prior_findings injection)
-Stage 3:    findings 集約
-Stage 4 ‖:  per-issue validator × N (severity 条件付き)
-Stage 5:    valid (or valid_by_assertion) のみ surface
-Stage 6:    reviews/<ts>.json 永続化 + verdict 集計
-Stage 6.5:  memory-curator が reviewer の memory_candidates を 7 軸 rubric で score (>=15/21 → ADD/UPDATE)
-Stage 6.6:  structural integrity check (lint-hook-ids + lint-docs-drift)
+Stage 0:    pre-review-detector (semgrep + osv-scanner)            ← 決定論的な正解データ
+Stage 1 ‖:  spec-compliance + security（HIGH の検出があれば飛ばす）
+Stage 2:    adversarial-reviewer（直前の指摘を注入）
+Stage 3:    指摘を集約
+Stage 4 ‖:  指摘ごとの検証担当 × N（重大度の条件付き）
+Stage 5:    valid（または valid_by_assertion）だけを提示
+Stage 6:    reviews/<ts>.json に保存 + 判定を集計
+Stage 6.5:  memory-curator がレビュアーの memory_candidates を 7 軸の基準で採点（>=15/21 → ADD/UPDATE）
+Stage 6.6:  構造の整合性チェック（lint-hook-ids + lint-docs-drift）
 ```
 
-verdict `PASS` で `phase: done`。`/mumei:retire <feature>` で feature を
-`.mumei/archive/<YYYY-MM>/` に移動します。
+判定が `PASS` なら `phase: done`。`/mumei:retire <feature>` で機能を `.mumei/archive/<YYYY-MM>/` に移動します。
 
 ## 前提ツール
 
-mumei の review pipeline は決定論的 detector を ground-truth として使います
-(pluggable registry)。**不在ツールは warn-skip され fatal にしません (REQ-27.5)**
-— インストール済みのものだけで review は進みます。増やすほど coverage が上がり、
-`semgrep` + `osv-scanner` が推奨ベースラインです。
+mumei のレビュー工程は、まず決定論的な検出器を走らせ、その結果を確かな基準（ground-truth）にします。使う検出器は差し替えできます。**入っていないツールは警告して飛ばすだけで、エラーで止めることはしません（REQ-27.5）** — インストール済みのものだけでレビューは進みます。増やすほどカバレッジが上がり、`semgrep` + `osv-scanner` が推奨ベースラインです。
 
-Built-in + Tier1 (install 済なら既定実行):
+組み込み + Tier1（インストール済みなら既定で実行）:
 
 | ツール                              | 用途                        | インストール                                                                                                   |
 | ----------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `semgrep` (≥ 1.50.0)                | SAST、OWASP Top 10 パターン | `brew install semgrep` (macOS)、`pip install semgrep` (Linux)                                                  |
-| `osv-scanner` (≥ 1.7.0)             | CVE / 依存脆弱性チェック    | `brew install osv-scanner` (macOS)、[release バイナリ](https://github.com/google/osv-scanner/releases) (Linux) |
-| `gitleaks` または `trufflehog`      | secret scan (`secret-scan`) | `brew install gitleaks` (または `trufflehog`)                                                                 |
-| `tsc` / `mypy` / `go vet` / `cargo` | type-check (`type-check`)   | 言語ごと。プロジェクトから自動検出                                                                            |
+| `semgrep` (≥ 1.50.0)                | SAST、OWASP Top 10 パターン | `brew install semgrep`（macOS）、`pip install semgrep`（Linux）                                                |
+| `osv-scanner` (≥ 1.7.0)             | CVE / 依存脆弱性チェック    | `brew install osv-scanner`（macOS）、[リリースバイナリ](https://github.com/google/osv-scanner/releases)（Linux） |
+| `gitleaks` または `trufflehog`      | シークレット走査（`secret-scan`） | `brew install gitleaks`（または `trufflehog`）                                                            |
+| `tsc` / `mypy` / `go vet` / `cargo` | 型チェック（`type-check`）  | 言語ごと。プロジェクトから自動検出                                                                            |
 
-Tier2 (`MUMEI_DETECTOR_TIER2=1` で opt-in): `opengrep`、`gosec`、`brakeman`、
-`codeql` (`MUMEI_CODEQL_DB` で事前 build した DB が必要)、`bandit`。standalone の
-`/mumei:review` skill は同じ registry と class-aware fail-open verdict を共有し、
-`.mumei` への副作用はありません。
+Tier2（`MUMEI_DETECTOR_TIER2=1` で任意に有効化）: `opengrep`、`gosec`、`brakeman`、`codeql`（`MUMEI_CODEQL_DB` で事前ビルドした DB が必要）、`bandit`。単独で使える `/mumei:review` も同じレジストリと、種別を意識した「安全側に倒す判定」を共有し、`.mumei` への副作用はありません。
 
-`MUMEI_DETECTOR_TIMEOUT` (デフォルト `600` 秒) で per-detector の wall-clock
-timeout を調整できます。
+`MUMEI_DETECTOR_TIMEOUT`（デフォルト `600` 秒）で、検出器ごとの実時間タイムアウトを調整できます。
 
-`MUMEI_TEST_CMD` は commit-gate の test runner auto-detect
-(`package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod`) を override します。
-非標準 runner を使うプロジェクトでは、commit 前 test gate が正しいコマンドを
-実行するよう設定してください。例: `MUMEI_TEST_CMD="bats -r tests/"`。
-各 test 実行の exit code は監査用に `verify-log.jsonl` に記録されます。
+`MUMEI_TEST_CMD` は、コミットゲートのテストランナーの自動検出（`package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod`）を上書きします。非標準のランナーを使うプロジェクトでは、コミット前のテストゲートが正しいコマンドを実行するよう設定してください。例: `MUMEI_TEST_CMD="bats -r tests/"`。各テスト実行の終了コードは、監査用に `verify-log.jsonl` に記録されます。
 
-commit 時には同じ test を `HEAD` checkout した detached worktree でも再実行します。
-未 commit の改ざん (rig した `conftest.py`、monkeypatch した `TestReport`、いじった
-bytecode) では pass を偽装できません。working-tree pass・clean-HEAD fail の食い違いは
-改ざん疑いとして deny されます (I3)。両結果は `verify-log.jsonl` に `commit-gate` /
-`worktree-clean` として記録されます。
+コミット時には、同じテストを `HEAD` をチェックアウトした切り離しワークツリーでも再実行します。コミットしていない細工（仕込んだ `conftest.py`、差し替えた `TestReport`、書き換えたバイトコード）では合格を偽装できません。ワークツリーでは成功・クリーンな `HEAD` では失敗、という食い違いは、改ざんの疑いとして拒否されます（I3）。両方の結果は `verify-log.jsonl` に `commit-gate` / `worktree-clean` として記録されます。
 
-## golden paths
+## ゴールデンパス
 
-`/mumei:arrange` は `.mumei/config.json` を作成し `golden_paths` 配列を持たせます。
-不可侵にしたいファイル (snapshot fixture、`conftest.py`、locked な test data) の
-path glob を指定します。golden ファイルは「正典の test」を pin し、生成コードが
-それを勝手に書き換えないようにします: Edit/Write を block (G1)、明白な Bash 書き込み
-経路 (redirect / `rm` / `mv` / `cp` の dest / `tee` / `truncate` / `sed -i`) を block
-(G2)、commit-gate は golden が既に commit 済み内容を保持する clean な `HEAD` worktree
-で test を再実行します。
+`/mumei:arrange` は `.mumei/config.json` を作成し、`golden_paths` 配列を持たせます。書き換えさせたくないファイル（スナップショット、`conftest.py`、固定したいテストデータ）のパス glob を指定します。ゴールデンファイルは「正典のテスト」を固定し、生成コードが勝手に書き換えないようにします。書き換えは次の経路でブロックされます:
+
+- 直接の Edit/Write（G1）
+- Bash 経由の書き込み: リダイレクト / `rm` / `mv` / `cp` の宛先 / `tee` / `truncate` / `sed -i`（G2）
+- コミット時、ゴールデンがコミット済みの内容を保ったクリーンな `HEAD` ワークツリーでテストを再実行
 
 ```json
 { "golden_paths": ["tests/golden/*", "conftest.py", "src/crypto/*.py"] }
 ```
 
-単層 glob のみ (`*` `?` `[...]`)。多層は複数 entry で対応します。`.mumei/config.json`
-は tracked (チーム共有)・手編集可能で、`golden_paths` を直接編集して golden を
-追加・撤回できます。一回限りの override は `MUMEI_BYPASS=1` を使います。
+単層の glob のみ（`*` `?` `[...]`）。多層は複数の項目で対応します。`.mumei/config.json` は git 管理下（チーム共有）で手編集でき、`golden_paths` を直接編集してゴールデンを追加・撤回できます。一回限りの上書きには `MUMEI_BYPASS=1` を使います。
 
-## プロジェクト構成 (`/mumei:arrange` 後)
+## プロジェクト構成（`/mumei:arrange` 後）
 
 ```text
 your-project/
-├── CLAUDE.md         # mumei 規約が追記されます (diff を承認した場合)
+├── CLAUDE.md         # mumei 規約が追記されます（差分を承認した場合）
 ├── .gitignore        # `.claude/agent-memory-local/` が追加されます
 └── .mumei/
-    ├── .gitignore    # 開発者個別 state (`current`, `specs/*/state.json`) を ignore
-    ├── current       # active feature slug (初回 /mumei:proceed まで空)
-    ├── config.json   # プロジェクト全体設定: golden_paths (tracked, 手編集可)
+    ├── .gitignore    # 開発者個別の状態（`current`, `specs/*/state.json`）を無視
+    ├── current       # 現在の機能 slug（初回 /mumei:proceed まで空）
+    ├── config.json   # プロジェクト全体設定: golden_paths（git 管理下、手編集可）
     ├── specs/        # /mumei:proceed が作成: requirements.md, design.md, tasks.md, state.json, spec-reviews/, reviews/
     ├── archive/      # /mumei:retire が移動: <YYYY-MM>/<feature>/
     └── scratch/      # /mumei:gather の出力。チーム共有のため git 管理
 ```
 
-## Spec / tasks フォーマット
+## 仕様 / タスクのフォーマット
 
-**Spec (User Story + EARS + inline annotation):**
+**仕様（ユーザーストーリー + EARS + インライン注釈）:**
 
 ```markdown
 # User Auth Requirements
@@ -255,12 +178,11 @@ your-project/
 - REQ-1.3 [NEEDS CLARIFICATION: どの IdP?] WHERE SSO が有効なとき、システムは SHALL 設定された IdP に委任する。
 ```
 
-各 AC は inline `Examples:` block (0-2 件、自然言語) を持てる (上限 2 件)。high-risk AC (`IF` / `UNLESS` を含む、または failure / lock / reject に言及するもの) には最低 1 例、単純 AC は 0 例も可。`requirements-reviewer` が Examples のカバレッジと内部整合性 (actor / trigger が User Story actor と AC EARS 句に一致しているか) を audit する。Examples は LLM が一発 draft、user は markdown を直接編集するのみで個別確認 prompt はない。
+各 AC は、インラインの `Examples:` ブロック（0〜2 件、自然言語、上限 2 件）を持てます。リスクの高い AC（`IF` / `UNLESS` を含む、または failure / lock / reject に言及するもの）には最低 1 例、単純な AC は 0 例でも構いません。`requirements-reviewer` が、Examples のカバレッジと内部整合性（アクター / トリガーがユーザーストーリーのアクターと AC の EARS 句に一致しているか）を監査します。Examples は LLM が一発で下書きし、ユーザーは markdown を直接編集するだけで、個別の確認プロンプトはありません。
 
-annotation: `[CONFIRMED]` (ユーザー発言で裏付け)、`[ASSUMPTION]` (合理的な
-推定)、`[NEEDS CLARIFICATION: ...]` (解決まで phase 遷移を block)。
+注釈: `[CONFIRMED]`（ユーザー発言で裏付け）、`[ASSUMPTION]`（合理的な推定）、`[NEEDS CLARIFICATION: ...]`（解決までフェーズ遷移をブロック）。
 
-**Tasks (Wave > Task、メタ必須):**
+**タスク（Wave > Task、メタ必須）:**
 
 ```markdown
 ## Wave 1: Setup
@@ -274,37 +196,31 @@ annotation: `[CONFIRMED]` (ユーザー発言で裏付け)、`[ASSUMPTION]` (合
   - _Requirements: REQ-1.1_
 ```
 
-`_Files:_` / `_Depends:_` / `_Requirements:_` は **必須**。Hook gate がこれ
-に依存します。
+`_Files:_` / `_Depends:_` / `_Requirements:_` は **必須**です。フックのゲートがこれに依存します。
 
-## Hook ルール
+## フックのルール
 
-mumei は phase 遷移 / Wave 境界 / commit / push gate / reviewer memory
-write にわたって hook ルールを強制します。完全な enforcement
-table (rule ID、phase、hook event、トリガー、実装スクリプト) は
-[ARCHITECTURE.md → Hook
-rules](../ARCHITECTURE.md#hook-rules--full-enforcement-table) にあります。
-escape hatch は `MUMEI_BYPASS=1` 一つだけ。
+mumei は、フェーズ遷移・Wave 境界・コミット・プッシュのゲート・レビュアーの記憶の書き込みにわたって、フックのルールを強制します。完全な強制ルール一覧（ルール ID、フェーズ、フックのイベント、トリガー、実装スクリプト）は [ARCHITECTURE.md → Hook rules](../ARCHITECTURE.md#hook-rules--full-enforcement-table) にあります。抜け道は `MUMEI_BYPASS=1` の 1 つだけです。
 
-## Troubleshooting
+## トラブルシューティング
 
 | 症状                                                                           | 解決                                                                                                                                             |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Edit` が `"phase=plan"` 理由で deny (P1/P2/P3)                                | `/mumei:proceed <feature>` を走らせ `[NEEDS CLARIFICATION]` を解決。3 spec reviewer 全 PASS + 承認で phase が advance。                             |
-| `Edit` が `"out of scope"` / `"depends on task"` / `"uncommitted"` で deny     | `_Files:_` を調整 / 依存 task を完了 / 直前の Wave を先に commit (I1 / I2 / W1)。                                                                |
-| `git commit` が `"Wave has incomplete tasks"` または `"Tests failing"` で deny | 残った `[ ]` を `[x]` に (実装 file が実際に変わっていることが条件)、もしくはテスト失敗を修正 (W2 / I3)。                                        |
-| `[x]` が `"Phantom completion"` で blockされた (I4)                            | 対象 `_Files:_` を実際に編集してから `[x]`、または `[x]` を revert。                                                                             |
-| `git push` が `"verdict: MAJOR_ISSUES"` で deny (R2)                           | `/mumei:proceed` (plan vehicle なら `/mumei:examine`) で findings を解消し、再 review。                                                              |
-| `git push` が `"not backed by a reviewer-execution trace"` で deny (R2)        | PASS / NEEDS_IMPROVEMENT の verdict に対し、baseline reviewer が実行された cost-log record が無い状態。review を再実行 (`/mumei:proceed` Phase 5、plan vehicle なら `/mumei:examine`) し、reviewer を現在の diff に対して実際に走らせる。 |
-| Stop hook で session 終了が block (`R1` review 未実行 / `R3` archive 未実行)   | `/mumei:proceed` で review を開始、verdict PASS 後に `/mumei:retire <feature>`。                                                                   |
-| `Edit` が `.claude/agent-memory/<r>/MEMORY.md` で deny (M1)                    | reviewer memory は curator-gated。review JSON で候補を emit すれば orchestrator が curator スコア後に永続化します。                              |
-| review は走ったが detector が skip された ("detector X unavailable — skipped") | ツール不在時の正常動作 (warn-skip、fatal ではない)。有効化するには該当ツールを install ([前提ツール](#前提ツール) 参照)。                       |
-| `pre-review-detector.sh` が exit 2 ("detectors crashed")                       | detector binary が crash (rc≥2、例: offline の `semgrep --config=auto`)。report の `errors[]` を確認、または `MUMEI_BYPASS=1`。                  |
-| 単発で Hook を bypass したい                                                   | `MUMEI_BYPASS=1 <command>` をその shell 起動に限って付与。export はしない。詳細は [docs/document-corruption.md](./document-corruption.md)。 |
+| `Edit` が `"phase=plan"` の理由で拒否される（P1/P2/P3）                        | `/mumei:proceed <feature>` を走らせ `[NEEDS CLARIFICATION]` を解決します。3 つの仕様レビュアーが全 PASS し承認すると、フェーズが進みます。          |
+| `Edit` が `"out of scope"` / `"depends on task"` / `"uncommitted"` で拒否される | `_Files:_` を調整する / 依存するタスクを完了する / 直前の Wave を先にコミットします（I1 / I2 / W1）。                                            |
+| `git commit` が `"Wave has incomplete tasks"` または `"Tests failing"` で拒否される | 残った `[ ]` を `[x]` にする（実装ファイルが実際に変わっていることが条件）、もしくはテストの失敗を直します（W2 / I3）。                       |
+| `[x]` が `"Phantom completion"` でブロックされた（I4）                         | 対象の `_Files:_` を実際に編集してから `[x]` を付ける、または `[x]` を取り消します。                                                            |
+| `git push` が `"verdict: MAJOR_ISSUES"` で拒否される（R2）                     | `/mumei:proceed`（plan 方式なら `/mumei:examine`）で指摘を解消し、再レビューします。                                                              |
+| `git push` が `"not backed by a reviewer-execution trace"` で拒否される（R2）  | **レビューを再実行してください**（`/mumei:proceed` Phase 5、plan 方式なら `/mumei:examine`）。PASS / NEEDS_IMPROVEMENT の判定なのに、ベースラインのレビュアーが実際に走った記録（cost-log）が無い状態なので、レビュアーを現在の差分に対して走らせ直す必要があります。 |
+| Stop フックでセッション終了がブロックされる（`R1` レビュー未実行 / `R3` archive 未実行） | `/mumei:proceed` でレビューを開始し、判定が PASS になったら `/mumei:retire <feature>`。                                                            |
+| `Edit` が `.claude/agent-memory/<r>/MEMORY.md` で拒否される（M1）              | レビュアーの記憶は curator が管理します。レビュー JSON で候補を出せば、curator の採点後にまとめ役が保存します。                                  |
+| レビューは走ったが検出器が飛ばされた（"detector X unavailable — skipped"）     | ツールが無いときの正常動作です（警告して飛ばす、致命ではない）。有効にするには該当ツールをインストールします（[前提ツール](#前提ツール) 参照）。 |
+| `pre-review-detector.sh` が exit 2（"detectors crashed"）                       | 検出器のバイナリがクラッシュ（rc≥2、例: オフラインの `semgrep --config=auto`）。レポートの `errors[]` を確認するか、`MUMEI_BYPASS=1`。           |
+| 単発でフックを迂回したい                                                       | `MUMEI_BYPASS=1 <command>` を、その shell 起動に限って付けます。export はしません。詳細は [docs/document-corruption.md](./document-corruption.md)。 |
 
 ## 次に読むもの
 
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — ランタイム構造、配布物レイアウト、完全 hook ルール表、reviewer pipeline、ファイルベース state model。
-- [docs/opus-4-7-playbook.md](./opus-4-7-playbook.md) — Claude Opus 4.7 era で mumei を運用するための実践ガイド。
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — 実行時の構造、配布物のレイアウト、完全なフックルール表、レビュアー工程、ファイルベースの状態モデル。
+- [docs/opus-4-7-playbook.md](./opus-4-7-playbook.md) — Claude Opus 4.7 で mumei を運用するための実践ガイド。
 - [docs/security-policy.md](./security-policy.md) — tarball / SBOM / SLSA の検証レシピ。
 - [docs/threat-model.md](./threat-model.md) — 脅威面と緩和策。
