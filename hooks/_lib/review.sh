@@ -469,6 +469,113 @@ mumei_review_should_short_circuit() {
   return 1
 }
 
+# Verify the gating review verdict is backed by a real reviewer-execution
+# trace. The push-guard (R2 / L-R2) calls this before letting a non-
+# MAJOR_ISSUES verdict clear `git push`.
+#
+# Trust model: reviewer cost-log records are written by the SubagentStop
+# hook (hooks/subagent-cost-log.sh), which reverse-looks-up the
+# subagent's own runtime transcript jsonl and skips zero-usage runs. The
+# orchestrator cannot produce such a record without actually launching
+# the reviewer subagent. This closes the "hand-write PASS without running
+# any reviewer" gap (issues #128 / #132) — e.g. the REQ-28 case where an
+# iter-1 MAJOR_ISSUES review was hand-edited to an iter-2 PASS with no
+# re-run. It does NOT defend against an orchestrator that deliberately
+# fabricates cost-log lines shaped like runtime records; that is a
+# higher-effort threat outside the honest-skip model.
+#
+# Required always-on reviewers (rotation-safe — see
+# mumei_review_compute_next_iter_reviewers):
+#   adversarial-reviewer  — launched on EVERY iteration.
+#   iter-1 additionally   — security-reviewer (both vehicles) and
+#                           spec-compliance-reviewer (spec vehicle only),
+#                           which the baseline iteration always launches.
+#   iter-2+               — only adversarial is guaranteed (the focused
+#                           re-run launches a subset via next_iter_reviewers),
+#                           so requiring more would false-positive.
+# Short-circuit reviews (synthetic, `-shortcircuit.json` / non-null
+# `short_circuited_from`) launch no reviewers by design; the gating
+# review is resolved to the latest real review the verdict rests on.
+#
+# Args:
+#   $1 feature_dir   .mumei/specs/<f>  or  .mumei/plans/<f>
+#   $2 is_plan       "1" plan vehicle / "0" spec vehicle
+# Returns 0 when the trace is present (or there is no real review to
+#   check). On a missing required record, prints a one-line reason to
+#   stdout and returns 1.
+mumei_review_trace_ok() {
+  local feature_dir="$1"
+  local is_plan="${2:-0}"
+  local review_dir="${feature_dir%/}/reviews"
+  local cost_log="${feature_dir%/}/cost-log.jsonl"
+  [[ -d "$review_dir" ]] || return 0
+
+  # Resolve the gating review = latest non-detector, non-short-circuit
+  # review; capture the one before it to bound the execution window.
+  local gating="" prev="" f sc
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    [[ "$f" == *-shortcircuit.json ]] && continue
+    sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
+    [[ -n "$sc" ]] && continue
+    if [[ -z "$gating" ]]; then
+      gating="$f"
+    else
+      prev="$f"
+      break
+    fi
+  done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null | sort -r)
+
+  # No real review yet → R2(a) "review missing" handles that case.
+  [[ -n "$gating" ]] || return 0
+
+  local iter t_review t_prev
+  iter="$(jq -r '.iteration // 1' "$gating" 2>/dev/null || echo 1)"
+  # Normalise both timestamps to YYYY-MM-DDTHH-MM-SS so jq codepoint
+  # comparison is chronological: the review filename uses '-' in the
+  # time, the cost-log ts uses ':'. Strip the trailing Z.
+  t_review="$(basename "$gating" .json | sed 's/Z$//; s/:/-/g')"
+  if [[ -n "$prev" ]]; then
+    t_prev="$(basename "$prev" .json | sed 's/Z$//; s/:/-/g')"
+  else
+    t_prev=""
+  fi
+
+  local -a required=("adversarial-reviewer")
+  if [[ "$iter" == "1" ]]; then
+    required+=("security-reviewer")
+    [[ "$is_plan" != "1" ]] && required+=("spec-compliance-reviewer")
+  fi
+
+  if [[ ! -r "$cost_log" ]]; then
+    printf 'no reviewer execution trace (cost-log.jsonl absent) backing %s' \
+      "$(basename "$gating")"
+    return 1
+  fi
+
+  local agent hits
+  for agent in "${required[@]}"; do
+    # Read cost-log as raw lines and parse each with fromjson? so a
+    # single corrupt line cannot wrongly block a legitimate push.
+    hits="$(jq -rn -R \
+      --arg a "$agent" --arg lo "$t_prev" --arg hi "$t_review" '
+      [ inputs
+        | fromjson?
+        | select(.agent == $a and .phase == "after" and (.ts | type) == "string")
+        | (.ts | sub("Z$"; "") | gsub(":"; "-")) as $n
+        | select($n <= $hi)
+        | select($lo == "" or $n > $lo)
+      ] | length' "$cost_log" 2>/dev/null || echo 0)"
+    if [[ "${hits:-0}" -lt 1 ]]; then
+      printf '%s did not run for the gating review %s (no cost-log record in its window)' \
+        "$agent" "$(basename "$gating")"
+      return 1
+    fi
+  done
+  return 0
+}
+
 # Atomically write a review JSON to <review_dir>/<ts>.json (or
 # <ts>-shortcircuit.json when short-circuiting).
 #

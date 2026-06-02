@@ -35,6 +35,8 @@ source "${PLUGIN_ROOT}/hooks/_lib/verify-log.sh"
 source "${PLUGIN_ROOT}/hooks/_lib/worktree-verify.sh"
 # shellcheck disable=SC1091
 source "${PLUGIN_ROOT}/hooks/_lib/config.sh"
+# shellcheck source=_lib/review.sh disable=SC1091
+source "${PLUGIN_ROOT}/hooks/_lib/review.sh"
 
 INPUT="$(cat)"
 COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
@@ -531,13 +533,20 @@ if mumei_is_git_commit "$COMMAND"; then
 fi
 
 # --- R2: git push gating on review state ---
-# Two cases blocked under R2:
+# Three cases blocked under R2:
 #   (a) review pipeline has not run yet but the feature requires one
 #       (spec: phase=review; plan: pending_review=true). Pushing in
 #       this state would ship code that the harness has not vetted.
 #   (b) latest review verdict is MAJOR_ISSUES. Pre-existing rule;
 #       address findings via /mumei:proceed (spec) or /mumei:examine (plan)
 #       before retrying.
+#   (c) verdict clears the gate (not MAJOR_ISSUES) but is NOT backed by a
+#       reviewer-execution trace in cost-log.jsonl — i.e. a PASS that no
+#       reviewer actually produced. The integrity counterpart of (a):
+#       (a) catches a missing review, (c) catches a hollow one
+#       (issues #128 / #132). cost-log is written by the SubagentStop
+#       hook, which the orchestrator cannot fake without launching the
+#       reviewer; see mumei_review_trace_ok in hooks/_lib/review.sh.
 # Detector reports (<ts>-detectors.json) are excluded so the latest
 # *review* (not the detector run) is selected.
 if mumei_is_git_push "$COMMAND"; then
@@ -575,7 +584,8 @@ if mumei_is_git_push "$COMMAND"; then
     fi
   fi
 
-  # (b) latest review verdict is MAJOR_ISSUES
+  # (b) latest review verdict is MAJOR_ISSUES / (c) verdict clears the
+  # gate but lacks a reviewer-execution trace.
   if [[ -n "$LATEST_REVIEW" ]] && [[ -f "$LATEST_REVIEW" ]]; then
     VERDICT="$(jq -r '.verdict // empty' "$LATEST_REVIEW" 2>/dev/null || true)"
     if [[ "$VERDICT" == "MAJOR_ISSUES" ]]; then
@@ -589,6 +599,24 @@ if mumei_is_git_push "$COMMAND"; then
           "Review verdict: MAJOR_ISSUES. Address findings before pushing." \
           "Latest review: ${LATEST_REVIEW}\nRun /mumei:proceed to address findings and re-review." \
           "R2"
+      fi
+    else
+      # (c) the verdict would clear the gate — require it be backed by a
+      # real reviewer run. Phase-independent (like (b)) so it still fires
+      # at phase=done, the moment the push actually happens.
+      FEATURE_DIR="${REVIEW_DIR%/reviews}"
+      if ! TRACE_REASON="$(mumei_review_trace_ok "$FEATURE_DIR" "$IS_PLAN_VEHICLE")"; then
+        if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
+          mumei_deny \
+            "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:examine so the reviewers actually run against the current diff." \
+            "Latest review: ${LATEST_REVIEW}\nThe push-guard cross-checks cost-log.jsonl (written by the SubagentStop hook) for the always-on reviewer(s); a verdict written without launching them is rejected." \
+            "L-R2"
+        else
+          mumei_deny \
+            "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:proceed Phase 5 so the reviewers actually run against the current diff." \
+            "Latest review: ${LATEST_REVIEW}\nThe push-guard cross-checks cost-log.jsonl (written by the SubagentStop hook) for the always-on reviewer(s); a verdict written without launching them is rejected." \
+            "R2"
+        fi
       fi
     fi
   fi
