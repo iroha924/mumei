@@ -857,7 +857,7 @@ binaries (rc ≥ 2 from the binary itself) escalate to `rc == 2`.
 
 Read `high_count` from the captured stdout. Stage 1 branches on it.
 
-### Stage 1 — Parallel reviewers (iter 1 baseline / iter 2+ focused)
+### Stage 1 — Parallel reviewers (full always-on sweep every iter)
 
 **Iter-aware launch logic:**
 
@@ -876,9 +876,9 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   below) and surfaced to block directly. Candidate detector findings flow
   through the Stage 4 adjudication gate like any other candidate.
 
-- **iter 2+ (focused)** — read `next_iter_reviewers` from the
-  previous review JSON for the **same Wave** and **iter N-1**, then
-  launch only the listed reviewers. Wave + iter scoping is mandatory
+- **iter 2+ (full sweep)** — read `next_iter_reviewers` from the
+  previous review JSON for the **same Wave** and **iter N-1** (always the
+  full always-on set), then launch them. Wave + iter scoping is mandatory
   (review iter 1 fix for F-005): without it Stage 1 of Wave N+1 could
   inherit Wave N's stale `next_iter_reviewers` after a crash/resume.
 
@@ -913,11 +913,11 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   done
   ```
 
-  `next_iter_reviewers` always contains `adversarial`;
-  Stage 2 launches `adversarial-reviewer` regardless. The iter-1-all-PASS
-  short-circuit is handled at the iter-loop entry point, not
-  here — by the time Stage 1 of iter 2+ is reached, at least one reviewer
-  in `next_iter_reviewers` is guaranteed to need launching.
+  `next_iter_reviewers` always contains all three always-on reviewers
+  (`spec-compliance`, `security`, `adversarial`); Stage 1 launches
+  spec-compliance + security and Stage 2 launches adversarial. The
+  iter-1-all-PASS short-circuit is handled at the iter-loop entry point,
+  not here.
 
   Under fail-open, `security` is NOT dropped on detector HIGH count: candidate
   detector findings are adjudicated through the Stage 4 gate, not treated as
@@ -1168,32 +1168,22 @@ baseline reviewer) is rejected. Set it via
 fallback so the schema's `^[0-9a-f]{64}$` pattern holds when git/base is
 unavailable).
 
-**`next_iter_reviewers`**: list of reviewer names that
-must launch in iter N+1. Use the helper:
+**`next_iter_reviewers`**: the always-on reviewer set that must launch in
+iter N+1. Use the helper:
 
 ```bash
-# surfaced_json is the findings_surfaced array built earlier in this stage.
-# prev_reviewers comes from the previous iter's review JSON next_iter_reviewers
-# (or "[]" on iter 1). Rotation kicks in when the computed set is a
-# permutation of prev_reviewers — the helper appends a rotation candidate so
-# the runtime never re-launches an identical reviewer set two iterations
-# in a row.
-prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"
-next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
-  "$surfaced_json" "$prev_reviewers" "$feature" "$current_iter")"
+next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers)"
 ```
 
-The helper always includes `"adversarial"` and
-de-duplicates the HIGH/CRITICAL reviewer set across all surfaced
-findings. When `prev_reviewers` matches the freshly-computed set, the
-helper additionally injects a rotation candidate via
-`mumei_review_rotate_reviewers` — `adversarial` is preserved
-in the rotation pool exclusion so the adversarial invariant is never
-broken.
-
-If only `["adversarial"]` remains AND verdict=PASS AND HIGH count=0,
-the iter-1-all-PASS optimization skips iter 2 entirely
-(see Phase 5 iter loop).
+The helper always returns the full set
+`["spec-compliance","security","adversarial"]`. A clearing verdict
+requires every always-on reviewer to have run against the gating diff
+(push-guard's `mumei_review_trace_ok` matches each reviewer's cost-log
+`diff_hash` to the gating review's), so each iteration re-runs all three —
+a narrowed set could never clear because a skipped reviewer's after-record
+would carry an earlier diff_hash. The iter-1-all-PASS optimization still
+short-circuits iter 2 entirely when iter 1 is verdict=PASS with HIGH
+count=0 (see Phase 5 iter loop).
 
 **`detector_skipped` / `detector_reused_from`**: set by Stage 0
 when the iter 2+ ext-diff check determines no detector-relevant file

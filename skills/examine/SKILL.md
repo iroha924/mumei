@@ -181,9 +181,10 @@ instead of requirements.md.
   through Step 7's gate, not treated as ground truth. Only ground_truth
   detectors (osv-scanner / secret-scan / type-check / test-check) block
   directly.
-- iter 2+ focused: read the previous review JSON's `next_iter_reviewers`
-  field and launch only the listed reviewers (always includes
-  `adversarial`).
+- iter 2+ full sweep: read the previous review JSON's `next_iter_reviewers`
+  field (always the full always-on set) and launch them. A clearing verdict
+  requires every always-on reviewer to have run against the gating diff, so
+  each iter re-runs all three.
 
 For each reviewer, use the Task tool with the appropriate subagent_type:
 
@@ -267,11 +268,10 @@ source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
 # REQ-27.9 / REQ-27.10).
 gt_high="$(mumei_review_ground_truth_high_count "$surfaced_json")"
 verdict="$(mumei_review_aggregate_verdict "$gt_high" "$surfaced_json" "$reviewer_verdicts_json")"
-# pass prev_reviewers + slug + iter so the helper applies rotation
-# at the tail (preserves the adversarial invariant).
-prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"
-next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
-  "$surfaced_json" "$prev_reviewers" "$slug" "$current_iter")"
+# next_iter_reviewers is always the full always-on set: a clearing verdict
+# requires every always-on reviewer to have run against the gating diff,
+# so each iter re-runs all three (see hooks/_lib/review.sh).
+next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers)"
 iter_head="$(mumei_review_iter_head)"
 # Hash the review surface this verdict was produced against. push-guard
 # requires each always-on reviewer's cost-log after-record to carry a

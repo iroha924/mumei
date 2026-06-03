@@ -394,96 +394,19 @@ mumei_review_aggregate_verdict() {
   printf '%s' 'PASS'
 }
 
-# Compute the next_iter_reviewers list from a surfaced findings array.
-# Always includes "adversarial". Echoes a JSON array.
+# next_iter_reviewers is always the full always-on set. A clearing verdict
+# requires every always-on reviewer to have run against the gating diff
+# (see mumei_review_trace_ok's per-reviewer diff_hash match), so each
+# iteration re-runs all three. The earlier HIGH-subset focusing +
+# permutation rotation was retired: a focused iter could never clear (a
+# skipped reviewer's after-record would carry an earlier diff_hash that no
+# longer matches the gating diff), so narrowing the set only burned
+# iterations.
 #
-# When prev_reviewers and feature/iter are supplied, rotate is
-# applied at the tail so the runtime pipeline never re-launches an
-# identical reviewer set two iterations in a row. Callers in iter 1 pass
-# `prev_reviewers="[]"` (no rotation possible).
-#
-# Args:
-#   $1 surfaced_findings_json  (JSON array)
-#   $2 prev_reviewers JSON     (optional; default "[]")
-#   $3 feature                 (optional; required for rotation)
-#   $4 iter                    (optional; required for rotation)
+# The surfaced / prev / feature / iter positional args are still accepted
+# for call-site compatibility, but ignored.
 mumei_review_compute_next_iter_reviewers() {
-  local surfaced_json="$1"
-  local prev_json="${2:-[]}"
-  local feature="${3:-}"
-  local iter="${4:-}"
-  local computed
-  computed="$(jq -c '
-    ([.[] | select(.severity == "HIGH" or .severity == "CRITICAL") | .reviewer]
-      + ["adversarial"])
-    | map(select(. != null and . != ""))
-    | unique
-  ' <<<"$surfaced_json" 2>/dev/null || printf '["adversarial"]')"
-
-  if [[ -n "$feature" ]] && [[ -n "$iter" ]]; then
-    mumei_review_rotate_reviewers "$prev_json" "$computed" "$feature" "$iter"
-  else
-    printf '%s' "$computed"
-  fi
-}
-
-# Rotate reviewers when iter N's planned set is a permutation of iter N-1's
-# Hash-based, stateless, deterministic for the same
-# (feature, iter, candidate-pool) tuple. Adversarial is always preserved
-# and excluded from the rotation pool.
-#
-# Args:
-#   $1 prev_reviewers JSON array  ([] for iter 1 → no rotation)
-#   $2 next_reviewers JSON array  (output of compute_next_iter_reviewers)
-#   $3 feature
-#   $4 iter
-#
-# Echoes the (possibly rotated) JSON array.
-mumei_review_rotate_reviewers() {
-  local prev_json="$1"
-  local next_json="$2"
-  local feature="$3"
-  local iter="$4"
-
-  # iter 1 has no prev set; nothing to rotate against.
-  if [[ -z "$prev_json" ]] || [[ "$prev_json" == "[]" ]]; then
-    printf '%s' "$next_json"
-    return 0
-  fi
-
-  local prev_sorted next_sorted
-  prev_sorted="$(jq -c 'sort' <<<"$prev_json" 2>/dev/null || echo '[]')"
-  next_sorted="$(jq -c 'sort' <<<"$next_json" 2>/dev/null || echo '[]')"
-
-  if [[ "$prev_sorted" != "$next_sorted" ]]; then
-    # Already different — no rotation needed.
-    printf '%s' "$next_json"
-    return 0
-  fi
-
-  # Full overlap → rotate. Pool excludes adversarial because the
-  # invariant already keeps it in next_json. Candidates are pool members
-  # not yet present in next_json.
-  local candidates
-  candidates="$(jq -nc --argjson next "$next_json" '
-    ["spec-compliance", "security"] - $next
-  ')"
-
-  local n_cand
-  n_cand="$(jq -r 'length' <<<"$candidates")"
-  if [[ "$n_cand" -eq 0 ]]; then
-    # Nothing to rotate to (e.g. next_json already covers the full pool).
-    printf '%s' "$next_json"
-    return 0
-  fi
-
-  # Hash-based deterministic pick.
-  local hex idx pick
-  hex="$(printf '%s' "${feature}:${iter}:${candidates}" | shasum -a 256 | cut -c1)"
-  idx=$(((16#$hex) % n_cand))
-  pick="$(jq -r --argjson i "$idx" '.[$i]' <<<"$candidates")"
-
-  jq -c --arg p "$pick" '. + [$p] | unique' <<<"$next_json"
+  printf '%s' '["spec-compliance","security","adversarial"]'
 }
 
 # Check the iter-N-all-PASS short-circuit.
@@ -599,23 +522,52 @@ mumei_review_trace_ok() {
     return 1
   fi
 
+  # diff-anchor: the gating review must carry the diff_hash it was
+  # produced against. A review with no diff_hash predates diff-anchor (or
+  # was hand-authored) — fail-closed: we cannot prove which state it
+  # reviewed.
+  local gh
+  gh="$(jq -r '.diff_hash // empty' "$gating" 2>/dev/null || true)"
+  if [[ -z "$gh" ]]; then
+    printf 'gating review %s has no diff_hash (predates diff-anchor / hand-authored); re-run the review against the current diff' \
+      "$(basename "$gating")"
+    return 1
+  fi
+
+  # Freshness: the repo state being pushed must match the diff the verdict
+  # was produced against. A re-edit after a clearing verdict moves the
+  # current hash away from the gating hash. An empty current hash (no
+  # base ref resolvable) means the anchor is not applicable here — skip the
+  # freshness comparison rather than block (matches mumei_review_diff_hash
+  # "anchor N/A" semantics); the per-reviewer trace below still applies.
+  local cur
+  cur="$(mumei_review_diff_hash 2>/dev/null || true)"
+  if [[ -n "$cur" && "$cur" != "$gh" ]]; then
+    printf 'working tree changed since review %s (gating diff %s, current %s); re-run the review against the current diff' \
+      "$(basename "$gating")" "${gh:0:12}" "${cur:0:12}"
+    return 1
+  fi
+
   if [[ ! -r "$cost_log" ]]; then
     printf 'no reviewer execution trace (cost-log.jsonl absent) backing %s' \
       "$(basename "$gating")"
     return 1
   fi
 
-  # Each baseline reviewer must have >=1 phase:"after" record for this
-  # feature. One streaming jq pass: `reduce inputs` accumulates the set of
-  # agents seen (no full-array materialisation), then echo the first
-  # required reviewer NOT in that set (empty when all present). fromjson?
-  # skips unparsable lines and `objects` drops non-object lines, so neither
-  # a corrupt nor a scalar line can throw a type error that truncates the
-  # stream. jq failure → fail-closed (treat as a missing reviewer).
+  # Each always-on reviewer must have >=1 phase:"after" record whose
+  # diff_hash matches the gating review's diff_hash — i.e. it actually ran
+  # against the state the verdict claims. A focused iter that skipped a
+  # baseline reviewer leaves that reviewer's latest after-record on an
+  # earlier diff_hash, so it counts as missing here (this is what makes the
+  # clearing iteration a full sweep). One streaming jq pass: `reduce inputs`
+  # accumulates the set of agents that ran against $gh, then echo the first
+  # required reviewer NOT in that set. fromjson? skips unparsable lines and
+  # `objects` drops non-object lines, so neither a corrupt nor a scalar line
+  # can throw. jq failure → fail-closed (treat as a missing reviewer).
   local missing
-  if ! missing="$(jq -rn -R '
+  if ! missing="$(jq -rn -R --arg gh "$gh" '
     (reduce (inputs | fromjson? | objects
-             | select(.phase == "after" and (.agent | type) == "string")
+             | select(.phase == "after" and .diff_hash == $gh and (.agent | type) == "string")
              | .agent) as $a ({}; .[$a] = true)) as $ran
     | (["adversarial-reviewer", "security-reviewer", "spec-compliance-reviewer"]
        | map(select($ran[.] | not)))
@@ -623,7 +575,7 @@ mumei_review_trace_ok() {
     missing="a baseline reviewer"
   fi
   if [[ -n "$missing" ]]; then
-    printf '%s has no cost-log record for this feature (review not backed by its execution)' \
+    printf '%s has no cost-log record matching the gating diff (review not backed by its execution against the current diff)' \
       "$missing"
     return 1
   fi

@@ -541,12 +541,14 @@ fi
 #       address findings via /mumei:proceed (spec) or /mumei:examine (plan)
 #       before retrying.
 #   (c) verdict clears the gate (not MAJOR_ISSUES) but is NOT backed by a
-#       reviewer-execution trace in cost-log.jsonl — i.e. a PASS that no
-#       reviewer actually produced. The integrity counterpart of (a):
-#       (a) catches a missing review, (c) catches a hollow one
-#       (issues #128 / #132). cost-log is written by the SubagentStop
-#       hook, which the orchestrator cannot fake without launching the
-#       reviewer; see mumei_review_trace_ok in hooks/_lib/review.sh.
+#       reviewer-execution trace anchored to the pushed diff — i.e. a PASS
+#       no reviewer actually produced against this code. The integrity
+#       counterpart of (a): (a) catches a missing review, (c) catches a
+#       hollow one (issues #128 / #132). mumei_review_trace_ok cross-checks
+#       cost-log.jsonl (written by the SubagentStop hook) so each always-on
+#       reviewer ran against the gating review's diff_hash AND the current
+#       repo state still hashes to that value — a re-edit after the verdict
+#       or a focused iter that skipped a reviewer no longer clears.
 # Detector reports (<ts>-detectors.json) are excluded so the latest
 # *review* (not the detector run) is selected.
 if mumei_is_git_push "$COMMAND"; then
@@ -602,10 +604,11 @@ if mumei_is_git_push "$COMMAND"; then
       fi
     else
       # (c) the verdict would clear the gate — require it be backed by
-      # reviewer execution. Phase-independent (like (b)) so it still fires
-      # at phase=done, the moment the push actually happens. Presence-based
-      # (see mumei_review_trace_ok): each baseline reviewer must have a
-      # cost-log record for this feature.
+      # reviewer execution anchored to the pushed diff. Phase-independent
+      # (like (b)) so it still fires at phase=done, the moment the push
+      # happens. mumei_review_trace_ok requires each always-on reviewer's
+      # cost-log diff_hash to match the gating review's, and the current
+      # repo state to still hash to that value.
       FEATURE_DIR="${REVIEW_DIR%/reviews}"
       if ! TRACE_REASON="$(mumei_review_trace_ok "$FEATURE_DIR")"; then
         if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then

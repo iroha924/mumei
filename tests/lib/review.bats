@@ -156,89 +156,21 @@ EOF
   [ "$out" = '[]' ]
 }
 
-# ─── rotate_reviewers (REQ-11.8) ──────────────────────────────────────
+# ─── compute_next_iter_reviewers (full always-on sweep) ──────────────
 
-@test "rotate: iter 1 (no prev) returns next as-is" {
-  out="$(mumei_review_rotate_reviewers '[]' '["adversarial"]' "REQ-1-foo" 1)"
-  [ "$out" = '["adversarial"]' ]
+@test "compute: always returns the full always-on set" {
+  out="$(mumei_review_compute_next_iter_reviewers)"
+  [ "$(jq -c 'sort' <<<"$out")" = '["adversarial","security","spec-compliance"]' ]
 }
 
-@test "rotate: prev != next returns next as-is (already different)" {
-  out="$(mumei_review_rotate_reviewers '["adversarial"]' '["spec-compliance","adversarial"]' "REQ-1-foo" 2)"
-  [ "$out" = '["spec-compliance","adversarial"]' ]
+@test "compute: ignores surfaced/prev/feature/iter args (still full set)" {
+  surfaced='[{"reviewer":"spec-compliance","severity":"LOW"}]'
+  out="$(mumei_review_compute_next_iter_reviewers "$surfaced" '["adversarial"]' "REQ-1-foo" 2)"
+  [ "$(jq -c 'sort' <<<"$out")" = '["adversarial","security","spec-compliance"]' ]
 }
 
-@test "rotate: prev == next (full overlap) adds a rotation candidate" {
-  out="$(mumei_review_rotate_reviewers '["adversarial","spec-compliance"]' '["spec-compliance","adversarial"]' "REQ-1-foo" 2)"
-  count="$(jq 'length' <<<"$out")"
-  [ "$count" = "3" ]
-  has_security="$(jq 'index("security")' <<<"$out")"
-  [ "$has_security" != "null" ]
-}
-
-@test "rotate: adversarial is preserved, never rotated out" {
-  out="$(mumei_review_rotate_reviewers '["adversarial"]' '["adversarial"]' "REQ-1-foo" 2)"
-  has_adv="$(jq 'index("adversarial")' <<<"$out")"
-  [ "$has_adv" != "null" ]
-}
-
-@test "rotate: pool exhausted (next contains all 3) returns next as-is" {
-  full='["spec-compliance","security","adversarial"]'
-  out="$(mumei_review_rotate_reviewers "$full" "$full" "REQ-1-foo" 2)"
-  count="$(jq 'length' <<<"$out")"
-  [ "$count" = "3" ]
-}
-
-@test "rotate: deterministic — same inputs yield same output" {
-  prev='["adversarial","spec-compliance"]'
-  next='["spec-compliance","adversarial"]'
-  o1="$(mumei_review_rotate_reviewers "$prev" "$next" "REQ-1-foo" 2)"
-  o2="$(mumei_review_rotate_reviewers "$prev" "$next" "REQ-1-foo" 2)"
-  [ "$o1" = "$o2" ]
-}
-
-@test "rotate: different iter values can yield different rotations" {
-  # When the candidate pool has more than one option, varying inputs
-  # exercises different hash buckets. Here the pool has 1 candidate, so
-  # the result is the same; we just assert no crash and shape preserved.
-  prev='["adversarial","spec-compliance"]'
-  next='["spec-compliance","adversarial"]'
-  for i in 1 2 3 4 5; do
-    out="$(mumei_review_rotate_reviewers "$prev" "$next" "REQ-1-foo" $i)"
-    count="$(jq 'length' <<<"$out")"
-    [ "$count" = "3" ]
-  done
-}
-
-# ─── compute_next_iter_reviewers wires rotation (REQ-11.8) ────────────
-
-@test "compute: without prev_reviewers args, rotation is not applied (back-compat)" {
-  surfaced='[{"reviewer":"spec-compliance","severity":"HIGH"}]'
-  out="$(mumei_review_compute_next_iter_reviewers "$surfaced")"
-  # Should equal the legacy output without rotation.
-  expected='["adversarial","spec-compliance"]'
-  expected_sorted="$(jq -c 'sort' <<<"$expected")"
-  out_sorted="$(jq -c 'sort' <<<"$out")"
-  [ "$out_sorted" = "$expected_sorted" ]
-}
-
-@test "compute: with prev/feature/iter and full overlap, rotation injects a candidate" {
-  surfaced='[{"reviewer":"spec-compliance","severity":"HIGH"}]'
-  # prev iter launched the same set computed → rotation kicks in.
-  prev='["adversarial","spec-compliance"]'
-  out="$(mumei_review_compute_next_iter_reviewers "$surfaced" "$prev" "REQ-1-foo" 2)"
-  count="$(jq 'length' <<<"$out")"
-  [ "$count" = "3" ]
-  has_security="$(jq 'index("security")' <<<"$out")"
-  [ "$has_security" != "null" ]
-}
-
-@test "compute: with prev/feature/iter and different prev, rotation is no-op" {
-  surfaced='[{"reviewer":"spec-compliance","severity":"HIGH"}]'
-  prev='["adversarial"]'
-  out="$(mumei_review_compute_next_iter_reviewers "$surfaced" "$prev" "REQ-1-foo" 2)"
-  count="$(jq 'length' <<<"$out")"
-  [ "$count" = "2" ]
+@test "compute: rotate_reviewers helper is retired (focused re-review dropped)" {
+  ! declare -F mumei_review_rotate_reviewers >/dev/null 2>&1
 }
 
 # --- mumei_review_apply_advisory_downgrade (REQ-22.2 / REQ-22.3, grounding) ---
@@ -411,8 +343,11 @@ _make_git_repo() {
   git init -q -b main .
   git config user.email t@example.com
   git config user.name tester
+  # .mumei/ holds runtime state (reviews, cost-log) and is gitignored, as
+  # in a real mumei project — so the diff-anchor hash excludes it.
+  printf '.mumei/\n' >.gitignore
   printf 'base\n' >base.txt
-  git add base.txt
+  git add .gitignore base.txt
   git commit -qm base
   git switch -qc feature
 }
@@ -478,4 +413,76 @@ _make_git_repo() {
   printf 'secret\n' >ignored
   withignored="$(mumei_review_diff_hash)"
   [ "$baseline" = "$withignored" ]
+}
+
+# --- mumei_review_trace_ok (diff-anchor) ---
+
+# Build a git repo + feature dir with a gating PASS review and cost-log
+# after-records for all three always-on reviewers, all carrying the
+# current diff_hash (so freshness + per-reviewer match pass by default).
+# Sets the global FDIR and leaves cwd inside the repo. Call directly (NOT
+# in $(...)) so the cd persists into the test body — mumei_review_diff_hash
+# inside trace_ok must run from the repo.
+_setup_trace_fixture() {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  FDIR=".mumei/specs/REQ-1-foo"
+  mkdir -p "${FDIR}/reviews"
+  local gh
+  gh="$(mumei_review_diff_hash)"
+  jq -nc --arg dh "$gh" '{iteration:1,verdict:"PASS",diff_hash:$dh}' \
+    >"${FDIR}/reviews/20260101T000000Z.json"
+  : >"${FDIR}/cost-log.jsonl"
+  local a
+  for a in adversarial-reviewer security-reviewer spec-compliance-reviewer; do
+    jq -nc --arg a "$a" --arg dh "$gh" \
+      '{ts:"t",feature:"REQ-1-foo",agent:$a,phase:"after",diff_hash:$dh}' \
+      >>"${FDIR}/cost-log.jsonl"
+  done
+}
+
+@test "trace_ok: all reviewers match gating diff + fresh state -> pass" {
+  _setup_trace_fixture
+  run mumei_review_trace_ok "$FDIR"
+  [ "$status" -eq 0 ]
+}
+
+@test "trace_ok: a reviewer missing for the gating diff -> block" {
+  _setup_trace_fixture
+  grep -v 'spec-compliance-reviewer' "${FDIR}/cost-log.jsonl" >"${FDIR}/cl.tmp"
+  mv "${FDIR}/cl.tmp" "${FDIR}/cost-log.jsonl"
+  run mumei_review_trace_ok "$FDIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"spec-compliance-reviewer"* ]]
+}
+
+@test "trace_ok: reviewers ran against a different diff -> block" {
+  _setup_trace_fixture
+  zero="$(printf '0%.0s' $(seq 1 64))"
+  : >"${FDIR}/cost-log.jsonl"
+  for a in adversarial-reviewer security-reviewer spec-compliance-reviewer; do
+    jq -nc --arg a "$a" --arg dh "$zero" \
+      '{ts:"t",feature:"REQ-1-foo",agent:$a,phase:"after",diff_hash:$dh}' \
+      >>"${FDIR}/cost-log.jsonl"
+  done
+  run mumei_review_trace_ok "$FDIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"matching the gating diff"* ]]
+}
+
+@test "trace_ok: legacy gating review with no diff_hash -> fail-closed" {
+  _setup_trace_fixture
+  jq -nc '{iteration:1,verdict:"PASS"}' \
+    >"${FDIR}/reviews/20260101T000000Z.json"
+  run mumei_review_trace_ok "$FDIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no diff_hash"* ]]
+}
+
+@test "trace_ok: re-edit after the verdict (current != gating) -> block" {
+  _setup_trace_fixture
+  printf 'post-review edit\n' >>base.txt
+  run mumei_review_trace_ok "$FDIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"working tree changed"* ]]
 }
