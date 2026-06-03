@@ -36,6 +36,11 @@
       "description": "git rev-parse HEAD at iter completion. Used by Stage 0 detector skip logic in iter N+1.",
       "type": "string"
     },
+    "diff_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 hex of the review surface (feature diff vs merge-base) this review was produced against, from mumei_review_diff_hash. push-guard requires each always-on reviewer's cost-log after-record to carry a matching diff_hash and the repo state at push time to hash to the same value. Optional: omitted when git/base is unavailable; older reviews predate the field.",
+      "type": "string"
+    },
     "verdict": {
       "anyOf": [
         {

@@ -1092,6 +1092,7 @@ the next iteration:
   "wave": <n or "all">,
   "iteration": <N>,
   "iter_head": "<git rev-parse HEAD at this iter completion>",
+  "diff_hash": "<mumei_review_diff_hash output — sha256 of the review surface>",
   "verdict": "PASS|NEEDS_IMPROVEMENT|MAJOR_ISSUES",
   "reviewers": { "spec-compliance": {...}, "security": {...}, "adversarial": {...} },
   "findings_surfaced": [...],
@@ -1154,6 +1155,18 @@ building the review JSON.
 **`iter_head`**: capture `git rev-parse HEAD` at iter
 completion. The next iter's Stage 0 reads this to compute the diff
 since the last iter and decide whether to re-run the detector.
+
+**`diff_hash`**: stamp `mumei_review_diff_hash` onto the review JSON so
+the verdict is bound to the exact review surface it was produced against.
+push-guard requires each always-on reviewer's cost-log after-record to
+carry a matching `diff_hash` and the repo state at push time to hash to
+the same value — a verdict whose reviewers ran against a different diff
+(a re-edit after the clearing verdict, or a focused iter that skipped a
+baseline reviewer) is rejected. Set it via
+`--arg diff_hash "$(mumei_review_diff_hash)"` and include
+`diff_hash: $diff_hash` only when non-empty (omit on the empty-string
+fallback so the schema's `^[0-9a-f]{64}$` pattern holds when git/base is
+unavailable).
 
 **`next_iter_reviewers`**: list of reviewer names that
 must launch in iter N+1. Use the helper:

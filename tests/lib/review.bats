@@ -399,3 +399,83 @@ EOF
   gt="$(mumei_review_ground_truth_high_count "$out")"
   [ "$(mumei_review_aggregate_verdict "$gt" "$out" '{}')" = "MAJOR_ISSUES" ]
 }
+
+# --- mumei_review_diff_hash (REQ-29 diff-anchor) ---
+
+# Create a git repo on `main` with a committed base, then switch to a
+# feature branch. cwd ends inside the repo.
+_make_git_repo() {
+  local d="${MUMEI_TEST_TMPDIR}/repo"
+  mkdir -p "$d"
+  cd "$d" || return 1
+  git init -q -b main .
+  git config user.email t@example.com
+  git config user.name tester
+  printf 'base\n' >base.txt
+  git add base.txt
+  git commit -qm base
+  git switch -qc feature
+}
+
+@test "diff_hash: empty string outside a git repo" {
+  cd "$MUMEI_TEST_TMPDIR" || return 1
+  run mumei_review_diff_hash
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "diff_hash: 64-char sha256 hex for a working-tree change" {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  out="$(mumei_review_diff_hash)"
+  [[ "$out" =~ ^[0-9a-f]{64}$ ]]
+}
+
+@test "diff_hash: deterministic across repeated calls on the same state" {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  h1="$(mumei_review_diff_hash)"
+  h2="$(mumei_review_diff_hash)"
+  [ "$h1" = "$h2" ]
+}
+
+@test "diff_hash: changes the hash when the diff changes" {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  before="$(mumei_review_diff_hash)"
+  printf 'more\n' >>base.txt
+  after="$(mumei_review_diff_hash)"
+  [ "$before" != "$after" ]
+}
+
+@test "diff_hash: REQ-29.6 stable across the commit boundary (modified file)" {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  uncommitted="$(mumei_review_diff_hash)"
+  git add base.txt
+  git commit -qm change
+  committed="$(mumei_review_diff_hash)"
+  [ "$uncommitted" = "$committed" ]
+}
+
+@test "diff_hash: REQ-29.6 stable across the commit boundary (new untracked file)" {
+  _make_git_repo
+  printf 'hello\n' >new.txt
+  untracked="$(mumei_review_diff_hash)"
+  git add new.txt
+  git commit -qm add-new
+  committed="$(mumei_review_diff_hash)"
+  [ "$untracked" = "$committed" ]
+}
+
+@test "diff_hash: ignored files do not affect the hash" {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  printf 'ignored\n' >.gitignore
+  git add .gitignore
+  git commit -qm gitignore
+  baseline="$(mumei_review_diff_hash)"
+  printf 'secret\n' >ignored
+  withignored="$(mumei_review_diff_hash)"
+  [ "$baseline" = "$withignored" ]
+}

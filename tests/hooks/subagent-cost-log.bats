@@ -206,3 +206,42 @@ _run_hook() {
   [[ "$stderr" == *"skipped (zero usage)"* ]]
   [ ! -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
 }
+
+@test "diff-anchor: after-record carries diff_hash inside a git repo" {
+  # Make the tmpdir a git repo with a feature change so the diff-anchor
+  # hash is non-empty.
+  (cd "$MUMEI_TEST_TMPDIR" &&
+    git init -q -b main . &&
+    git config user.email t@example.com &&
+    git config user.name tester &&
+    printf 'base\n' >base.txt &&
+    git add base.txt && git commit -qm base &&
+    git switch -qc feature &&
+    printf 'change\n' >>base.txt)
+
+  mkdir -p ".mumei/specs/REQ-1-foo"
+  printf 'REQ-1-foo\n' >".mumei/current"
+  _make_subagent_jsonl agent1 5 100 200 50 >/dev/null
+  event="$(_event_json agent1 mumei:spec-compliance-reviewer)"
+
+  _run_hook "$event"
+  [ "$status" -eq 0 ]
+  [ -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
+  dh="$(jq -r 'select(.phase=="after") | .diff_hash // empty' \
+    ".mumei/specs/REQ-1-foo/cost-log.jsonl" | tail -1)"
+  [[ "$dh" =~ ^[0-9a-f]{64}$ ]]
+}
+
+@test "diff-anchor: diff_hash omitted outside a git repo (record stays valid)" {
+  mkdir -p ".mumei/specs/REQ-1-foo"
+  printf 'REQ-1-foo\n' >".mumei/current"
+  _make_subagent_jsonl agent1 5 100 200 50 >/dev/null
+  event="$(_event_json agent1 mumei:spec-compliance-reviewer)"
+
+  _run_hook "$event"
+  [ "$status" -eq 0 ]
+  [ -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
+  has_dh="$(jq -r 'select(.phase=="after") | has("diff_hash")' \
+    ".mumei/specs/REQ-1-foo/cost-log.jsonl" | tail -1)"
+  [ "$has_dh" = "false" ]
+}

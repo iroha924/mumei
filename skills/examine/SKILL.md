@@ -273,6 +273,11 @@ prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null
 next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
   "$surfaced_json" "$prev_reviewers" "$slug" "$current_iter")"
 iter_head="$(mumei_review_iter_head)"
+# Hash the review surface this verdict was produced against. push-guard
+# requires each always-on reviewer's cost-log after-record to carry a
+# matching diff_hash. Empty when git/base is unavailable; the field is
+# then omitted (the schema keeps it optional).
+diff_hash="$(mumei_review_diff_hash)"
 
 # Residual exposition (pillar D, REQ-23): aggregate every reviewer's
 # filtered_out (annotating each with its reviewer name), then deterministically
@@ -316,6 +321,7 @@ review_json="$(jq -nc \
   --arg feature "$slug" \
   --arg verdict "$verdict" \
   --arg iter_head "$iter_head" \
+  --arg diff_hash "$diff_hash" \
   --argjson iteration "$current_iter" \
   --argjson surfaced "$surfaced_json" \
   --argjson filtered "$filtered_json" \
@@ -332,7 +338,8 @@ review_json="$(jq -nc \
     detector_skipped: $detector_skipped,
     detector_report: $detector_report,
     confidence_ceiling: $confidence_ceiling,
-    residual: $residual}')"
+    residual: $residual}
+   + (if $diff_hash != "" then {diff_hash: $diff_hash} else {} end)')"
 
 # Inject detector_reused_from with proper JSON typing.
 # shellcheck disable=SC2086

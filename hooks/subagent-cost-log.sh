@@ -53,6 +53,17 @@ if ! declare -F mumei_hook_stats_record >/dev/null 2>&1; then
   fi
 fi
 
+# review.sh provides mumei_review_diff_hash, used to anchor each reviewer's
+# after-record to the repo state it ran against (REQ-29).
+# shellcheck disable=SC1091
+if ! declare -F mumei_review_diff_hash >/dev/null 2>&1; then
+  REVIEW_LIB="$(dirname "${BASH_SOURCE[0]}")/_lib/review.sh"
+  if [[ -f "$REVIEW_LIB" ]]; then
+    # shellcheck disable=SC1090
+    source "$REVIEW_LIB"
+  fi
+fi
+
 _mumei_clog_stat() {
   local decision="$1" reason="$2"
   if declare -F mumei_hook_stats_record >/dev/null 2>&1; then
@@ -165,13 +176,19 @@ fi
 # `with_entries` filter drops any extra usage keys (e.g. service_tier,
 # server_tool_use) so the schema stays clean.
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# Anchor this reviewer's run to the repo state it saw. Empty when
+# git/base is unavailable; the field is then omitted (the schema keeps
+# diff_hash optional, so the record stays valid either way).
+DIFF_HASH="$(mumei_review_diff_hash 2>/dev/null || true)"
 RECORD="$(
   jq -nc \
     --arg ts "$TS" \
     --arg feature "$ACTIVE_FEATURE" \
     --arg agent "$AGENT_SHORT" \
+    --arg dh "$DIFF_HASH" \
     --argjson usage "$USAGE_JSON" \
     '{ts: $ts, feature: $feature, wave: null, iteration: null, agent: $agent, phase: "after"}
+     + (if $dh != "" then {diff_hash: $dh} else {} end)
      + ($usage
         | with_entries(select(.key as $k
             | ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
