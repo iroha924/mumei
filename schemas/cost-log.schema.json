@@ -76,7 +76,7 @@
       "type": "integer"
     },
     "diff_hash": {
-      "description": "sha256 hex of the review surface (feature diff vs merge-base) the reviewer ran against, written on phase=after records by hooks/subagent-cost-log.sh. Optional: omitted when git/base is unavailable; older records predate the field.",
+      "description": "Content hash (git tree id of the working-tree snapshot) of the review surface the reviewer ran against, written on phase=after records by hooks/subagent-cost-log.sh. Optional: omitted when git/HEAD is unavailable; older records predate the field.",
       "type": "string"
     }
   }

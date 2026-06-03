@@ -27,64 +27,75 @@ mumei_review_detector_ext_re() {
   printf '%s' '\.(sh|bash|py|js|ts|jsx|tsx|cjs|mjs|cts|mts|rb|go|rs|java|yml|yaml|json|lock|toml)$|(^|/)(Dockerfile|Makefile|Gemfile|Pipfile|Cargo\.lock)(\.[^/]+)?$'
 }
 
-# Deterministic hash of the current review surface (the feature diff
-# against its merge-base), used to anchor a verdict to a repo state. The
-# hash is computed identically at three points — the SubagentStop
-# cost-log writer, review-JSON persistence, and the push-guard freshness
-# check — so all three agree on which state was reviewed.
+# Hash stdin deterministically, preferring shasum but falling back to
+# sha256sum then cksum so a host missing one tool does not silently yield
+# an empty hash (which would wedge the fail-closed push gate permanently).
+# Mirrors the tool-agnostic precedent in hooks/_lib/ledger.sh. Echoes the
+# hash hex/digits on the first field, or empty when no hasher exists.
+_mumei_review_sha256() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  elif command -v cksum >/dev/null 2>&1; then
+    cksum | awk '{print $1}'
+  else
+    printf ''
+  fi
+}
+
+# Deterministic content hash of the current review surface, used to anchor
+# a verdict to a repo state. The hash is computed identically at three
+# points — the SubagentStop cost-log writer, review-JSON persistence, and
+# the push-guard freshness check — so all three agree on which state was
+# reviewed.
 #
-# Base resolution mirrors skills/review/SKILL.md Step 1: origin/HEAD →
-# main → master. The diff is taken against the merge-base and INCLUDES
-# uncommitted working-tree changes plus untracked non-ignored files.
+# The anchor is the git TREE id of the working-tree snapshot, NOT a diff
+# against a base ref. A throwaway index (GIT_INDEX_FILE) is seeded from
+# HEAD then `git add -A`'d to snapshot the working tree, and `git write-tree`
+# records its tree object id. This is:
+#   - Commit-boundary stable: committing the reviewed changes does not
+#     alter the working-tree content, so the tree id (and hash) is identical
+#     whether a change lives in the working tree, the real index, or a commit.
+#   - Base-ref independent: there is no merge-base, so the degenerate
+#     single-branch case (HEAD == the only branch, no origin/HEAD) cannot
+#     collapse the surface to an empty diff and a constant hash. Any content
+#     change moves the tree id; an unchanged tree never moves it.
+# The real index is never touched.
 #
-# Commit-boundary stability: a throwaway index (GIT_INDEX_FILE) is seeded
-# from HEAD then `git add -A`'d to snapshot the working tree.
-# `git diff --cached <merge_base>` against that index yields a
-# byte-identical diff whether a given change currently lives in the
-# working tree, the real index, or a commit — so committing the reviewed
-# changes does not move the hash, and a brand-new file is represented as
-# an addition in both states. The real index is never touched.
-#
-# Echoes a 64-char sha256 hex, or empty string when git is unavailable /
-# no base ref / merge-base cannot be computed (callers treat empty as
-# "anchor not applicable" for non-git / non-mumei repos; the trace gate
-# treats a missing anchor on a real review as fail-closed separately).
+# Echoes a hash on success, or empty string when git / HEAD is unavailable
+# (callers treat empty as "anchor not applicable" for non-git / no-commit
+# repos; the trace gate treats a missing anchor on a real review as
+# fail-closed separately).
 mumei_review_diff_hash() {
   git rev-parse --git-dir >/dev/null 2>&1 || {
     printf ''
     return 0
   }
-
-  local base merge_base tmp_index out
-  base="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null |
-    sed 's#^origin/##')"
-  [[ -z "$base" ]] && { git show-ref --verify --quiet refs/heads/main && base="main"; }
-  [[ -z "$base" ]] && { git show-ref --verify --quiet refs/heads/master && base="master"; }
-  [[ -z "$base" ]] && {
+  # Need a HEAD commit to seed the snapshot index.
+  git rev-parse --verify --quiet HEAD >/dev/null 2>&1 || {
     printf ''
     return 0
   }
 
-  merge_base="$(git merge-base "$base" HEAD 2>/dev/null)"
-  [[ -z "$merge_base" ]] && {
-    printf ''
-    return 0
-  }
-
+  local tmp_index tree
   tmp_index="$(mktemp "${TMPDIR:-/tmp}/mumei-didx.XXXXXX")" || {
     printf ''
     return 0
   }
   if ! GIT_INDEX_FILE="$tmp_index" git read-tree HEAD 2>/dev/null ||
-    ! GIT_INDEX_FILE="$tmp_index" git add -A 2>/dev/null; then
+    ! GIT_INDEX_FILE="$tmp_index" git add -A 2>/dev/null ||
+    ! tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree 2>/dev/null)"; then
     rm -f "$tmp_index"
     printf ''
     return 0
   fi
-  out="$(GIT_INDEX_FILE="$tmp_index" git diff --cached "$merge_base" 2>/dev/null |
-    shasum -a 256 2>/dev/null | awk '{print $1}')"
   rm -f "$tmp_index"
-  printf '%s' "$out"
+  [[ -n "$tree" ]] || {
+    printf ''
+    return 0
+  }
+  printf '%s' "$tree" | _mumei_review_sha256
 }
 
 # Locate the most recent prior review JSON in a review directory,

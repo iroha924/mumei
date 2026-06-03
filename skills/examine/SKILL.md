@@ -381,7 +381,23 @@ fi
 ### Step 8.5 — Memory candidate curation (sync, non-blocking)
 
 After the review JSON is persisted (Step 8) and before phase transition (Step 9),
-walk every reviewer's `memory_candidates` array and dispatch each candidate to
+first stamp `memory_candidates_count` (total candidates across all reviewers)
+onto the persisted review JSON, so push-guard's curator advisory
+(`mumei_review_curator_complete`) can fire for plan-vehicle features too —
+otherwise a skipped curation on the plan path would never surface.
+
+```bash
+latest_review="$(mumei_review_latest "$review_dir")"
+total_candidates=0
+for reviewer in spec-compliance security adversarial; do
+  n="$(jq -r '(.memory_candidates // []) | length' <<<"${reviewer_outputs[$reviewer]:-{}}" 2>/dev/null || echo 0)"
+  total_candidates=$((total_candidates + n))
+done
+jq --argjson c "$total_candidates" '. + {memory_candidates_count: $c}' \
+  <"$latest_review" >"${latest_review}.tmp" && mv "${latest_review}.tmp" "$latest_review"
+```
+
+Then walk every reviewer's `memory_candidates` array and dispatch each candidate to
 `memory-curator`. The curator scores against the 7-axis rubric (>= 15/21
 → ADD or UPDATE, else SKIP). The orchestrator validates the curator's strict JSON
 via `mumei_memory_validate_curator_output` and on validator pass applies the operation

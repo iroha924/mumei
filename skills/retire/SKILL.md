@@ -119,7 +119,8 @@ git mv "$source_dir" "${target_dir}/${feature}" 2>/dev/null \
 if [[ -n "$scratch_src" && -f "$scratch_src" ]]; then
   scratch_dst="${target_dir}/${feature}/scratch.md"
   git mv "$scratch_src" "$scratch_dst" 2>/dev/null \
-    || mv "$scratch_src" "$scratch_dst"
+    || mv "$scratch_src" "$scratch_dst" \
+    || mumei_log_warn "retire: scratch co-move failed for ${scratch_src} (left in place); move it manually or it will linger in .mumei/scratch/"
 fi
 
 # Auto-clear .mumei/current if it points at the feature being retired.

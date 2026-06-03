@@ -415,6 +415,38 @@ _make_git_repo() {
   [ "$baseline" = "$withignored" ]
 }
 
+@test "diff_hash: F-001 — main-only repo (no feature branch) does not collapse to a constant" {
+  # Develop directly on the default branch with no second branch and no
+  # origin/HEAD. The old merge-base approach collapsed to sha256("") here;
+  # the tree-id anchor must give distinct committed states distinct hashes.
+  local d="${MUMEI_TEST_TMPDIR}/mainonly"
+  mkdir -p "$d"
+  cd "$d" || return 1
+  git init -q -b main .
+  git config user.email t@example.com
+  git config user.name tester
+  printf '.mumei/\n' >.gitignore
+  printf 'one\n' >f.txt
+  git add .gitignore f.txt
+  git commit -qm c1
+  h1="$(mumei_review_diff_hash)"
+  printf 'two\n' >>f.txt
+  git add f.txt
+  git commit -qm c2
+  h2="$(mumei_review_diff_hash)"
+  [ -n "$h1" ]
+  [ "$h1" != "$h2" ]
+}
+
+@test "diff_hash: hasher is deterministic and non-empty (F-002 fallback chain)" {
+  a="$(printf 'hash-input-1' | _mumei_review_sha256)"
+  b="$(printf 'hash-input-1' | _mumei_review_sha256)"
+  [ -n "$a" ]
+  [ "$a" = "$b" ]
+  c="$(printf 'hash-input-2' | _mumei_review_sha256)"
+  [ "$a" != "$c" ]
+}
+
 # --- mumei_review_trace_ok (diff-anchor) ---
 
 # Build a git repo + feature dir with a gating PASS review and cost-log
