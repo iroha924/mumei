@@ -272,11 +272,11 @@ mumei stores zero state outside the project tree. Everything lives under
 │   ├── requirements.md           # User Story + EARS ACs (each with inline Examples block)
 │   ├── design.md                 # Architecture + Wave Plan
 │   ├── tasks.md                  # Wave > Task hierarchy with _Files: _Depends: _Requirements:
-│   ├── state.json                # phase / current_wave / created_at / updated_at (gitignored)
+│   ├── state.json                # phase / current_wave / created_at / updated_at / scratch_source (gitignored)
 │   ├── spec-reviews/             # per-iteration JSON from spec-reviewers (created lazily by /mumei:proceed; absent on fresh features)
 │   └── reviews/                  # Phase 5 review results + detector reports
 ├── archive/<YYYY-MM>/<feature>/  # completed features moved here by /mumei:retire
-└── scratch/<feature>.md          # /mumei:gather output (tracked, team-shared)
+└── scratch/<feature>.md          # /mumei:gather output (tracked, team-shared); co-moved into archive/<feature>/scratch.md by /mumei:retire via the recorded state.json scratch_source
 ```
 
 The split `gitignored vs tracked` is precise:

@@ -93,15 +93,17 @@ if [[ -e "${target_dir}/${feature}" ]]; then
   exit 1
 fi
 
-# Capture the gather scratch path BEFORE moving the source dir.
-# mumei_state_read_any reads from the live state.json; once moved, the
-# lookup would silently no-op the scratch block. spec vehicle stores the
-# bare slug in state.json; plan vehicle uses the bare slug as the dir
-# name itself (so $feature already is the slug there). Both cases land
-# on .mumei/scratch/<slug>.md.
+# Capture the gather scratch path BEFORE moving the source dir
+# (mumei_state_read_any no-ops once the dir is moved). Prefer the recorded
+# scratch_source — it survives a feature slug that diverged from the scratch
+# basename (collision -N suffix, rename), so the originating scratch is
+# co-moved instead of orphaned. Fall back to the legacy slug-match for
+# features predating the field. When neither resolves to an existing file,
+# the co-move below silently skips.
 slug="$(mumei_state_read_any "$feature" '.slug' 2>/dev/null || true)"
 [[ -z "$slug" ]] && slug="$feature"
-scratch_src=".mumei/scratch/${slug}.md"
+scratch_src="$(mumei_state_scratch_source "$feature" 2>/dev/null || true)"
+[[ -z "$scratch_src" ]] && scratch_src=".mumei/scratch/${slug}.md"
 
 # Move the source directory. The move + git history serves as
 # the audit trail. Refuse to continue if both git mv and the bare mv
@@ -114,7 +116,7 @@ git mv "$source_dir" "${target_dir}/${feature}" 2>/dev/null \
 # Move the gather scratch file alongside the spec / plan, if
 # present. Vehicle-independent: plan vehicle uses the same scratch
 # co-move behaviour as spec vehicle.
-if [[ -n "$slug" && -f "$scratch_src" ]]; then
+if [[ -n "$scratch_src" && -f "$scratch_src" ]]; then
   scratch_dst="${target_dir}/${feature}/scratch.md"
   git mv "$scratch_src" "$scratch_dst" 2>/dev/null \
     || mv "$scratch_src" "$scratch_dst"

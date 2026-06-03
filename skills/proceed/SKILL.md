@@ -261,7 +261,10 @@ feature_dir_key="${id}-${slug}"
 
 mkdir -p ".mumei/specs/${feature_dir_key}"
 mkdir -p ".mumei/specs/${feature_dir_key}/spec-reviews"
-mumei_state_init "${feature_dir_key}" "${slug}" "${id}"
+# Pass the attached scratch path (Phase 0.1 `scratch_path`, empty when none)
+# as the 4th arg so it is recorded in state.json and /mumei:retire co-moves
+# the exact scratch even if the slug later diverges from its basename.
+mumei_state_init "${feature_dir_key}" "${slug}" "${id}" "${scratch_path:-}"
 echo "${feature_dir_key}" > .mumei/current
 ```
 
