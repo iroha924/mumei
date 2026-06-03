@@ -582,6 +582,56 @@ mumei_review_trace_ok() {
   return 0
 }
 
+# Advisory completeness check for memory curation. Returns 0 (complete /
+# not-applicable) when the gating review emitted no memory_candidates, or a
+# memory-curator ran against the gating diff. Returns 1 with a message on
+# stdout when candidates were emitted but no curator ran for the gating
+# diff_hash — a silently-skipped curation. This is ADVISORY: callers warn,
+# they do NOT block (a skipped curation loses memory telemetry but does not
+# make the verdict hollow).
+mumei_review_curator_complete() {
+  local feature_dir="$1"
+  local review_dir="${feature_dir%/}/reviews"
+  local cost_log="${feature_dir%/}/cost-log.jsonl"
+  [[ -d "$review_dir" ]] || return 0
+
+  # Resolve the gating review (latest non-detector, non-short-circuit).
+  local gating="" f sc
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    [[ "$f" == *-shortcircuit.json ]] && continue
+    sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
+    [[ -n "$sc" ]] && continue
+    gating="$f"
+    break
+  done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null | sort -r)
+  [[ -z "$gating" ]] && return 0
+
+  local cand
+  cand="$(jq -r '.memory_candidates_count // 0' "$gating" 2>/dev/null || echo 0)"
+  [[ "$cand" =~ ^[0-9]+$ ]] || cand=0
+  ((cand > 0)) || return 0 # no candidates emitted → nothing to curate
+
+  local gh
+  gh="$(jq -r '.diff_hash // empty' "$gating" 2>/dev/null || true)"
+  [[ -z "$gh" ]] && return 0 # no anchor → cannot check; stay silent
+
+  local ran=0
+  if [[ -r "$cost_log" ]]; then
+    ran="$(jq -rn -R --arg gh "$gh" '
+      [inputs | fromjson? | objects
+       | select(.phase == "after" and .agent == "memory-curator" and .diff_hash == $gh)]
+      | length' "$cost_log" 2>/dev/null || echo 0)"
+  fi
+  [[ "$ran" =~ ^[0-9]+$ ]] || ran=0
+  if ((ran == 0)); then
+    printf '%s reviewer memory candidate(s) were emitted but memory-curator has no cost-log record matching the gating diff' "$cand"
+    return 1
+  fi
+  return 0
+}
+
 # Atomically write a review JSON to <review_dir>/<ts>.json (or
 # <ts>-shortcircuit.json when short-circuiting).
 #

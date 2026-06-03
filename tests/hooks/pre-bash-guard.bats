@@ -322,6 +322,42 @@ EOF
   [[ "$reason" == *"working tree changed"* ]]
 }
 
+@test "curator advisory: clearing push with skipped curation warns but allows (R2)" {
+  _init_feature_with_tasks
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff","memory_candidates_count":2}' \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+  # All three reviewers ran (trace clears), but no memory-curator record.
+  {
+    _cost_record adversarial-reviewer
+    _cost_record security-reviewer
+    _cost_record spec-compliance-reviewer
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision // "none"')"
+  [ "$decision" = "none" ]
+  ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext // ""')"
+  [[ "$ctx" == *"Advisory"* ]]
+  [[ "$ctx" == *"curation"* ]]
+}
+
+@test "curator advisory: clearing push with curation done emits no advisory (R2)" {
+  _init_feature_with_tasks
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff","memory_candidates_count":2}' \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+  {
+    _cost_record adversarial-reviewer
+    _cost_record security-reviewer
+    _cost_record spec-compliance-reviewer
+    _cost_record memory-curator
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+}
+
 @test "denies git push when phase=review but no review JSON exists yet (R2)" {
   _init_feature REQ-1-foo review 1
   cat >".mumei/specs/REQ-1-foo/tasks.md" <<'EOF'

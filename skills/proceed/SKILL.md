@@ -1299,8 +1299,28 @@ fi
 ### Stage 6.5 — Memory candidate curation (sync, non-blocking)
 
 After the review JSON is persisted (Stage 6) and before any phase transition,
-walk every reviewer's `memory_candidates` array and dispatch each candidate to
-`memory-curator` (sync invocation). The curator scores against the
+first stamp `memory_candidates_count` (the total candidates emitted across all
+reviewers this iter) onto the persisted review JSON, then walk every reviewer's
+`memory_candidates` array and dispatch each candidate to `memory-curator` (sync
+invocation). The count lets push-guard surface a non-blocking advisory if this
+stage is later skipped while candidates existed (the curator records its own
+`diff_hash` cost-log entry on SubagentStop, which the advisory matches against).
+
+```bash
+# Stamp the candidate total onto the just-persisted review JSON so the
+# push-guard curator advisory (mumei_review_curator_complete) can tell
+# "no candidates" from "candidates emitted but curation skipped".
+latest_review="$(mumei_review_latest "$review_dir")"
+total_candidates=0
+for reviewer in spec-compliance security adversarial; do
+  n="$(jq -r '(.memory_candidates // []) | length' <<<"${reviewer_outputs[$reviewer]:-{}}" 2>/dev/null || echo 0)"
+  total_candidates=$((total_candidates + n))
+done
+jq --argjson c "$total_candidates" '. + {memory_candidates_count: $c}' \
+  <"$latest_review" >"${latest_review}.tmp" && mv "${latest_review}.tmp" "$latest_review"
+```
+
+The curator scores against the
 7-axis rubric (>= 15/21 → ADD or UPDATE, else SKIP). The orchestrator validates
 the curator's strict JSON via `mumei_memory_validate_curator_output` and on
 validator pass applies the operation to `.claude/agent-memory/<reviewer>/MEMORY.md`

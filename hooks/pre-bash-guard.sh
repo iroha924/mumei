@@ -357,6 +357,21 @@ mumei_deny() {
   exit 0
 }
 
+# Emit a non-blocking advisory: surface additionalContext without a
+# permissionDecision (so the action is allowed) and return — the caller
+# falls through to its normal exit. Used for the curator-completeness
+# advisory, which must never block a push.
+mumei_advisory() {
+  local context="$1"
+  context="${context//\\n/$'\n'}"
+  jq -n --arg c "$context" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      additionalContext: $c
+    }
+  }'
+}
+
 # Detect a git commit invocation, including chained commands.
 mumei_is_git_commit() {
   printf '%s' "$1" | grep -qE '(^|[[:space:];|&])git[[:space:]]+commit([[:space:]]|$)'
@@ -621,6 +636,15 @@ if mumei_is_git_push "$COMMAND"; then
             "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:proceed Phase 5 so the reviewers actually run against the current diff." \
             "Latest review: ${LATEST_REVIEW}\nThe push-guard cross-checks cost-log.jsonl (written by the SubagentStop hook) for the always-on reviewer(s); a verdict written without launching them is rejected." \
             "R2"
+        fi
+      else
+        # Trace cleared. Surface a NON-blocking advisory if memory curation
+        # was silently skipped (reviewers emitted candidates but no
+        # memory-curator ran for the gating diff). This never blocks the
+        # push — a skipped curation loses telemetry, not verdict integrity.
+        if ! CURATOR_REASON="$(mumei_review_curator_complete "$FEATURE_DIR")"; then
+          mumei_advisory \
+            "Advisory (non-blocking): ${CURATOR_REASON}. Memory curation appears to have been skipped; re-run the review's curation stage if you want those candidates scored, or ignore if intentional."
         fi
       fi
     fi
