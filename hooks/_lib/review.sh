@@ -98,6 +98,12 @@ mumei_review_diff_hash() {
   # product (source + non-mumei docs) stays in the tree. No-op when .mumei
   # is gitignored/untracked (the dev repo's own case).
   GIT_INDEX_FILE="$tmp_index" git rm -r --cached --quiet -- .mumei >/dev/null 2>&1 || true
+  # Also exclude mumei's curated reviewer memory: the Stage 6.5 curation
+  # applies ADD/UPDATE to .claude/agent-memory/<reviewer>/MEMORY.md (tracked
+  # in an arranged project) AFTER the gating hash + reviewer records are
+  # produced, so leaving it in would move the anchor post-PASS and false-deny
+  # the next push (Codex P1). .claude/agent-memory-local/ is gitignored.
+  GIT_INDEX_FILE="$tmp_index" git rm -r --cached --quiet -- .claude/agent-memory >/dev/null 2>&1 || true
   if ! tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree 2>/dev/null)"; then
     rm -f "$tmp_index"
     printf ''
@@ -478,6 +484,13 @@ mumei_review_should_short_circuit() {
     local prev_dh
     prev_dh="$(jq -r '.diff_hash // empty' "$prev_review" 2>/dev/null || true)"
     [[ -z "$prev_dh" ]] && return 1
+    # Only short-circuit when the repo is UNCHANGED since that clean PASS.
+    # A stale anchored PASS (repo edited since) must force a real re-run: the
+    # synthetic PASS would carry prev_dh, which no longer matches the current
+    # tree, and push-guard would then deadlock on the mismatch (Codex P1).
+    local cur_dh
+    cur_dh="$(mumei_review_diff_hash 2>/dev/null || true)"
+    [[ -n "$cur_dh" && "$cur_dh" != "$prev_dh" ]] && return 1
     printf '%s' "$prev_review"
     return 0
   fi

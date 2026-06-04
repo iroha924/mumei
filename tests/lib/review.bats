@@ -564,3 +564,46 @@ _setup_trace_fixture() {
   run mumei_review_should_short_circuit "$rdir" 1 2
   [ "$status" -eq 1 ]
 }
+
+@test "should_short_circuit: anchored PASS but repo edited since (stale) -> do NOT short-circuit (1)" {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  cur="$(mumei_review_diff_hash)"
+  local rdir=".mumei/specs/x/reviews"
+  mkdir -p "$rdir"
+  jq -nc --arg dh "stale-${cur}" '{wave:1,iteration:1,verdict:"PASS",diff_hash:$dh,findings_surfaced:[]}' \
+    >"${rdir}/2026-01-01T00-00-00Z.json"
+  run mumei_review_should_short_circuit "$rdir" 1 2
+  [ "$status" -eq 1 ]
+}
+
+@test "should_short_circuit: anchored PASS matching current repo -> short-circuit (0)" {
+  _make_git_repo
+  printf 'change\n' >>base.txt
+  cur="$(mumei_review_diff_hash)"
+  local rdir=".mumei/specs/x/reviews"
+  mkdir -p "$rdir"
+  jq -nc --arg dh "$cur" '{wave:1,iteration:1,verdict:"PASS",diff_hash:$dh,findings_surfaced:[]}' \
+    >"${rdir}/2026-01-01T00-00-00Z.json"
+  run mumei_review_should_short_circuit "$rdir" 1 2
+  [ "$status" -eq 0 ]
+}
+
+@test "diff_hash: P1 — tracked .claude/agent-memory does not move the anchor" {
+  local d="${MUMEI_TEST_TMPDIR}/agentmem"
+  mkdir -p "$d"
+  cd "$d" || return 1
+  git init -q -b main .
+  git config user.email t@example.com
+  git config user.name tester
+  mkdir -p .claude/agent-memory/security-reviewer
+  printf 'src\n' >app.txt
+  printf '# mem\n' >.claude/agent-memory/security-reviewer/MEMORY.md
+  git add app.txt .claude/agent-memory
+  git commit -qm base
+  h1="$(mumei_review_diff_hash)"
+  printf -- '- curated pattern\n' >>.claude/agent-memory/security-reviewer/MEMORY.md
+  h2="$(mumei_review_diff_hash)"
+  [ -n "$h1" ]
+  [ "$h1" = "$h2" ]
+}
