@@ -16,7 +16,7 @@ Principle: 3 spec drafts are produced non-stop, each gated by an independent spe
 
 You orchestrate the full lifecycle of a feature in mumei: gather input → clarification → requirements → design → tasks → single user approval gate → implement (Wave by Wave) → 4-stage review → done.
 
-This skill is the heart of mumei. Every other skill (gather, arrange, retire) plays a supporting role.
+This skill is the heart of mumei. Every other skill (glean, kindle, shelve) plays a supporting role.
 
 ## Language conventions (applies to all spec drafts: requirements / design / tasks)
 
