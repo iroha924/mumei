@@ -321,6 +321,6 @@ single escape hatch is `MUMEI_BYPASS=1`.
 ## Where to next
 
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — runtime structure, distribution layout, full hook rules table, reviewer pipeline, file-based state model.
-- [docs/opus-4-7-playbook.md](./opus-4-7-playbook.md) — practical guidance for running mumei on Claude Opus 4.7.
+- [docs/operations-playbook.md](./operations-playbook.md) — practical guidance for running mumei (proactive `/compact`, subagent cost, prompt cache, byte-exact tools, `MUMEI_BYPASS=1` discipline).
 - [docs/security-policy.md](./security-policy.md) — verification recipes for tarball / SBOM / SLSA.
 - [docs/threat-model.md](./threat-model.md) — threat surface and mitigations.

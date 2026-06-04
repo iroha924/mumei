@@ -17,7 +17,7 @@ on:
         description: Claude model id to drive the review.
         type: string
         required: false
-        default: claude-opus-4-7
+        default: claude-opus-4-8
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: Max-subscription OAuth token (no per-call API billing).

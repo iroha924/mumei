@@ -1,9 +1,9 @@
-# Opus 4.7 era playbook for mumei users
+# Operations playbook for mumei users
 
-Five practical guidelines for getting the most out of mumei when running on
-Claude Opus 4.7 (or Sonnet 4.6 / Haiku 4.5). Each section explains what
-changed in the 4.x family, how it interacts with mumei's enforcement layer,
-and the concrete action you should take.
+Five practical guidelines for getting the most out of mumei, whichever current
+Claude model (Opus / Sonnet / Haiku) you run it on. Each section explains a
+behavior of the underlying model and tooling, how it interacts with mumei's
+enforcement layer, and the concrete action you should take.
 
 These are habits, not hard requirements. mumei's hooks already enforce the
 phase / Wave / commit invariants at the OS boundary. The guidelines below
@@ -11,8 +11,8 @@ optimize cost, latency, and signal quality on top of that floor.
 
 ## 1. Compact proactively at 60% context
 
-Opus 4.7 reports a 1M token context window, but in practice cache hit rate
-and recall fall off well before that headroom is exhausted. The transcript's
+Claude's large context window (up to 1M tokens) reports more headroom than is
+practical — cache hit rate and recall fall off well before it is exhausted. The transcript's
 auto-compact heuristic also misfires under heavy tool use, sometimes
 firing too late, sometimes producing summaries that lose critical
 state (open `_Files:_` scopes, in-flight reviewer findings, partially

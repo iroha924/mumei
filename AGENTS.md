@@ -35,7 +35,7 @@ export-ignore` in `.gitattributes`); the hooks reference them by
   Tracked exceptions: `docs/document-corruption.md`,
   `docs/threat-model.md`, `docs/security-policy.md`,
   `docs/getting-started.md` / `.ja.md`,
-  `docs/opus-4-7-playbook.md`.
+  `docs/operations-playbook.md`.
 
 ## Setup commands
 

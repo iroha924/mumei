@@ -293,13 +293,13 @@ spec history but not the in-progress cursor.
 The plugin payload is English; mumei's internal development uses Japanese in a
 parallel set of dev-only files that are gitignored. Distinct boundaries:
 
-| Directory / file                                                                                                                               | Distributed?          | Language                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------- |
-| `agents/`, `skills/`, `hooks/`, `scripts/`, `.claude-plugin/`                                                                                  | Yes                   | English                                             |
-| `README.md`, `README.ja.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`, `ARCHITECTURE.md`                | Yes                   | English (README.ja.md mirrors in Japanese)          |
-| `docs/document-corruption.md`, `docs/getting-started{,.ja}.md`, `docs/opus-4-7-playbook.md`, `docs/security-policy.md`, `docs/threat-model.md` | Yes                   | English (getting-started.ja.md mirrors in Japanese) |
-| `CLAUDE.md`, `.claude/`, other `docs/` (`mumei-decisions.md`, `harness-engineering.md`, etc.)                                                  | No (gitignored)       | Japanese                                            |
-| `tests/`, `.github/`, `.editorconfig`, `.markdownlint-cli2.jsonc`, `_typos.toml`, `lychee.toml`, `.pre-commit-config.yaml`                     | No (CI / dev tooling) | Mixed                                               |
+| Directory / file                                                                                                                                 | Distributed?          | Language                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- | --------------------------------------------------- |
+| `agents/`, `skills/`, `hooks/`, `scripts/`, `.claude-plugin/`                                                                                    | Yes                   | English                                             |
+| `README.md`, `README.ja.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`, `ARCHITECTURE.md`                  | Yes                   | English (README.ja.md mirrors in Japanese)          |
+| `docs/document-corruption.md`, `docs/getting-started{,.ja}.md`, `docs/operations-playbook.md`, `docs/security-policy.md`, `docs/threat-model.md` | Yes                   | English (getting-started.ja.md mirrors in Japanese) |
+| `CLAUDE.md`, `.claude/`, other `docs/` (`mumei-decisions.md`, `harness-engineering.md`, etc.)                                                    | No (gitignored)       | Japanese                                            |
+| `tests/`, `.github/`, `.editorconfig`, `.markdownlint-cli2.jsonc`, `_typos.toml`, `lychee.toml`, `.pre-commit-config.yaml`                       | No (CI / dev tooling) | Mixed                                               |
 
 Maintainers: do not add Japanese prose to distributable files; the
 [CONTRIBUTING.md](./CONTRIBUTING.md) Conventions section explains how to use

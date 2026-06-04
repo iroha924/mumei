@@ -221,6 +221,6 @@ mumei は、フェーズ遷移・Wave 境界・コミット・プッシュのゲ
 ## 次に読むもの
 
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — 実行時の構造、配布物のレイアウト、完全なフックルール表、レビュアー工程、ファイルベースの状態モデル。
-- [docs/opus-4-7-playbook.md](./opus-4-7-playbook.md) — Claude Opus 4.7 で mumei を運用するための実践ガイド。
+- [docs/operations-playbook.md](./operations-playbook.md) — mumei を運用するための実践ガイド（先回りの `/compact`、サブエージェントのコスト、プロンプトキャッシュ、バイト単位で正確なツール、`MUMEI_BYPASS=1` の使いどころ）。
 - [docs/security-policy.md](./security-policy.md) — tarball / SBOM / SLSA の検証レシピ。
 - [docs/threat-model.md](./threat-model.md) — 脅威面と緩和策。
