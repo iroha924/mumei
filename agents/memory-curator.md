@@ -10,7 +10,7 @@ color: cyan
 Role: independent gating for reviewer-emitted memory candidates
 Input: a single candidate JSON (text + source_reviewer + source_finding_id + observation_count) plus the target reviewer's existing MEMORY.md
 Output: stdout only, strict JSON {operation, score_total, score_breakdown, final_text, merge_target_id, reason}
-Principle: The reviewer that *produced* the candidate cannot also decide whether to save it (利益相反). This agent is the gate.
+Principle: The reviewer that *produced* the candidate cannot also decide whether to save it (a conflict of interest). This agent is the gate.
 -->
 
 # Role
@@ -107,7 +107,7 @@ Input candidate:
 
 ```json
 {
-  "text": "jq の `// empty` は 0-byte stdin でも空配列を返すが、stdin 自体が空なら exit 1 で失敗する。bash hook で stdin を pipe する際は `empty // \"\"` か `--null-input` で zero-row を保証する。",
+  "text": "jq's `// empty` returns an empty array even on 0-byte stdin, but if stdin itself is empty it fails with exit 1. When piping stdin in a bash hook, guarantee a zero row with `empty // \"\"` or `--null-input`.",
   "source_reviewer": "adversarial-reviewer",
   "source_finding_id": "F-003",
   "observation_count": 3
@@ -131,7 +131,7 @@ Output:
     "density": 2,
     "confidence": 1
   },
-  "final_text": "jq の `// empty` は 0-byte stdin でも空配列を返すが、stdin 自体が空なら exit 1 で失敗する。bash hook で stdin を pipe する際は `empty // \"\"` か `--null-input` で zero-row を保証する。",
+  "final_text": "jq's `// empty` returns an empty array even on 0-byte stdin, but if stdin itself is empty it fails with exit 1. When piping stdin in a bash hook, guarantee a zero row with `empty // \"\"` or `--null-input`.",
   "merge_target_id": null,
   "reason": "abstract jq behavior, observed across 3 features, durable shell semantics"
 }

@@ -164,8 +164,8 @@ fi
 When `recommended` is non-empty, ask the user with `AskUserQuestion`,
 header `Recommend`, multiSelect: false:
 
-- `[1] 推奨 (<recommended>) で進める` — confirms the recommendation and skips the 2-option picker.
-- `[2] 変更する — 既存の picker を表示` — falls through to the standard picker below.
+- `[1] Proceed with the recommendation (<recommended>)` — confirms the recommendation and skips the 2-option picker.
+- `[2] Change — show the standard picker` — falls through to the standard picker below.
 
 When `[1]` is chosen, set `vehicle = "$recommended"` and proceed to Phase
 0.3. When `[2]` is chosen, OR when `recommended` is empty (scratch absent
@@ -173,9 +173,9 @@ or unparsable), present the standard picker:
 
 `AskUserQuestion` with header `Vehicle`, multiSelect: false. Two options:
 
-- `[1] spec — full SDD workflow (推奨: > 3 files OR > 100 lines / 複数 AC / cross-cutting)` — runs Phase 1.0–5 in this skill (requirements → design → tasks → implementation → review).
+- `[1] spec — full SDD workflow (recommended: > 3 files OR > 100 lines / multiple ACs / cross-cutting)` — runs Phase 1.0–5 in this skill (requirements → design → tasks → implementation → review).
   - Best for: new features with significant scope.
-- `[2] plan — Claude plan mode wrapper (推奨: ≤ 3 files AND ≤ 100 lines / 単純な bug fix)` — uses Claude Code's native plan mode plus TaskCreate; mumei's review pipeline runs at the end via `/mumei:peruse`.
+- `[2] plan — Claude plan mode wrapper (recommended: ≤ 3 files AND ≤ 100 lines / simple bug fix)` — uses Claude Code's native plan mode plus TaskCreate; mumei's review pipeline runs at the end via `/mumei:peruse`.
   - Best for: bug fixes, small features, or projects where the SDD workflow feels heavy.
 
 Record the chosen vehicle in a local variable. The quantitative bounds
@@ -408,7 +408,7 @@ Branch on `verdict`:
   if [[ "$verdict" == "NEEDS_IMPROVEMENT" && "$current_iter" -ge 2 ]]; then
     high_med="$(jq -r '[.findings[] | select(.severity != "LOW")] | length' <<<"$reviewer_output")"
     if [[ "$high_med" == "0" ]]; then
-      echo "iter ${current_iter} で LOW finding のみ → PASS short-circuit"
+      echo "iter ${current_iter}: only LOW findings → PASS short-circuit"
       verdict="PASS"
     fi
   fi

@@ -149,7 +149,7 @@ Confidence: [CONFIRMED]
   - <happy path example>
   - <edge or negative path example, optional>
 
-Each AC carries an inline `Examples:` block of zero, one, or two natural-language list items. AC が単純 (`IF` / `UNLESS` / `WHILE` 節を持たない、unconditional な単一動作) なら 0 例も可。最大 2 例まで (BDD 崩壊ライン: feature あたり 3-7 scenario が高パフォーマンス、20+ で崩壊)。Examples body は AC body と同一言語で書く (Language conventions に従う)。
+Each AC carries an inline `Examples:` block of zero, one, or two natural-language list items. A simple AC (a single unconditional action with no `IF` / `UNLESS` / `WHILE` clause) may have 0 examples; cap at 2 (BDD collapse line: 3-7 scenarios per feature performs well, 20+ collapses). Write the Examples body in the same language as the AC body (per Language conventions).
 
 ## Rejected Alternatives
 
