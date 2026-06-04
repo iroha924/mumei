@@ -186,7 +186,7 @@ _backdate() {
   [ ! -f ".mumei/in-flight-agents/stale-orphan" ]
 }
 
-@test "REQ-30.3: MUMEI_INFLIGHT_SWEEP_HOURS override lowers the cutoff" {
+@test "REQ-30.3: MUMEI_INFLIGHT_SWEEP_HOURS override lowers the cutoff + emits a swept count" {
   _setup_fake_home
   feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
   mkdir -p ".mumei/in-flight-agents"
@@ -198,4 +198,36 @@ _backdate() {
     bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
   [ "$status" -eq 0 ]
   [ ! -f ".mumei/in-flight-agents/two-hr-orphan" ]
+  [[ "$stderr" == *"swept 1 orphan"* ]]
+}
+
+@test "REQ-30.3: non-numeric MUMEI_INFLIGHT_SWEEP_HOURS degrades to 24 (no break, no mass-sweep)" {
+  _setup_fake_home
+  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
+  mkdir -p ".mumei/in-flight-agents"
+  # A 2h-old sidecar: under the safe 24h default it must SURVIVE; a broken
+  # knob must not error the run or strip live anchors.
+  printf 'REQ-99-test\nHASH\n' >".mumei/in-flight-agents/live"
+  _backdate ".mumei/in-flight-agents/live" $((2 * 3600))
+
+  run --separate-stderr env MUMEI_INFLIGHT_SWEEP_HOURS=24h \
+    bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
+  [ "$status" -eq 0 ]
+  [[ "$stderr" == *"invalid MUMEI_INFLIGHT_SWEEP_HOURS=24h"* ]]
+  [[ "$stderr" != *"value too great"* ]]
+  [ -f ".mumei/in-flight-agents/live" ]
+}
+
+@test "REQ-30.3: MUMEI_INFLIGHT_SWEEP_HOURS=0 is rejected (no longer mass-sweeps live sidecars)" {
+  _setup_fake_home
+  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
+  mkdir -p ".mumei/in-flight-agents"
+  printf 'REQ-99-test\nHASH\n' >".mumei/in-flight-agents/live"
+  _backdate ".mumei/in-flight-agents/live" $((2 * 3600))
+
+  run --separate-stderr env MUMEI_INFLIGHT_SWEEP_HOURS=0 \
+    bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
+  [ "$status" -eq 0 ]
+  [[ "$stderr" == *"invalid MUMEI_INFLIGHT_SWEEP_HOURS=0"* ]]
+  [ -f ".mumei/in-flight-agents/live" ]
 }

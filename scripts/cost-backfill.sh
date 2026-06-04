@@ -156,17 +156,30 @@ inflight_dir="$(dirname "$(dirname "$feature_dir")")/in-flight-agents"
 
 # Age-based sweep (REQ-30.3): drop orphan sidecars older than the threshold so
 # a session that died before either the eager hook or this backfill could
-# consume them does not accumulate. Default 24h; overridable for tests.
+# consume them does not accumulate. Default 24h; overridable (positive integer
+# hours). A non-numeric value would error the arithmetic, and 0 / negative
+# would push the cutoff to now-or-future and mass-sweep LIVE sidecars — so
+# validate and degrade to 24 rather than trust the knob blindly.
 : "${MUMEI_INFLIGHT_SWEEP_HOURS:=24}"
+if ! [[ "$MUMEI_INFLIGHT_SWEEP_HOURS" =~ ^[1-9][0-9]*$ ]]; then
+  printf '[mumei] cost-backfill: invalid MUMEI_INFLIGHT_SWEEP_HOURS=%s, using 24\n' \
+    "$MUMEI_INFLIGHT_SWEEP_HOURS" >&2
+  MUMEI_INFLIGHT_SWEEP_HOURS=24
+fi
 if [[ -d "$inflight_dir" ]]; then
   sweep_cutoff=$(($(date +%s) - MUMEI_INFLIGHT_SWEEP_HOURS * 3600))
+  swept=0
   while IFS= read -r -d '' sc; do
     if scm="$(stat -f %m "$sc" 2>/dev/null || stat -c %Y "$sc" 2>/dev/null)"; then
       if [[ "$scm" -lt "$sweep_cutoff" ]]; then
-        rm -f "$sc" 2>/dev/null || true
+        if rm -f "$sc" 2>/dev/null; then swept=$((swept + 1)); fi
       fi
     fi
   done < <(find "$inflight_dir" -maxdepth 1 -type f -print0 2>/dev/null)
+  if [[ "$swept" -gt 0 ]]; then
+    printf '[mumei] cost-backfill: swept %d orphan sidecar(s) older than %dh\n' \
+      "$swept" "$MUMEI_INFLIGHT_SWEEP_HOURS" >&2
+  fi
 fi
 
 # `find -print0 / read -d ''` keeps the loop safe on paths with spaces.
