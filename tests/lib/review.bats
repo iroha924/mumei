@@ -393,14 +393,20 @@ _make_git_repo() {
   [ "$uncommitted" = "$committed" ]
 }
 
-@test "diff_hash: REQ-29.6 stable across the commit boundary (new untracked file)" {
+@test "diff_hash: untracked new file is excluded; committing it moves the anchor (Codex P1)" {
+  # Reviewers see `git diff <base>`, which does not show untracked files, so
+  # the anchor must exclude them too (git add -u, not -A). A new file becomes
+  # reviewable only once committed (it then appears in the diff), at which
+  # point the anchor must move to force a re-review.
   _make_git_repo
+  base="$(mumei_review_diff_hash)"
   printf 'hello\n' >new.txt
   untracked="$(mumei_review_diff_hash)"
+  [ "$base" = "$untracked" ]
   git add new.txt
   git commit -qm add-new
   committed="$(mumei_review_diff_hash)"
-  [ "$untracked" = "$committed" ]
+  [ "$base" != "$committed" ]
 }
 
 @test "diff_hash: ignored files do not affect the hash" {
@@ -543,6 +549,17 @@ _setup_trace_fixture() {
   run mumei_review_trace_ok "$FDIR"
   [ "$status" -eq 1 ]
   [[ "$output" == *"working tree changed"* ]]
+}
+
+@test "trace_ok: recompute failure in a git repo (empty cur, gating anchored) -> fail-closed (Codex P1)" {
+  _setup_trace_fixture
+  # Simulate a recompute failure (missing clean filter / unreadable file):
+  # mumei_review_diff_hash returns empty even though we are in a git repo and
+  # the gating review carries a diff_hash. Must fail-closed, not skip freshness.
+  mumei_review_diff_hash() { printf ''; }
+  run mumei_review_trace_ok "$FDIR"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"cannot recompute"* ]]
 }
 
 # --- mumei_review_should_short_circuit (anchored-prev requirement, Codex P1) ---

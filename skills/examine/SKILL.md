@@ -181,10 +181,14 @@ instead of requirements.md.
   through Step 7's gate, not treated as ground truth. Only ground_truth
   detectors (osv-scanner / secret-scan / type-check / test-check) block
   directly.
-- iter 2+ full sweep: read the previous review JSON's `next_iter_reviewers`
-  field (always the full always-on set) and launch them. A clearing verdict
-  requires every always-on reviewer to have run against the gating diff, so
-  each iter re-runs all three.
+- iter 2+ full sweep: launch the full always-on set (spec-compliance +
+  security here, adversarial in the sequential stage) unconditionally — do
+  NOT derive it from the previous review's `next_iter_reviewers`, which may be
+  a narrow legacy value on a feature reviewed before the diff-anchor upgrade
+  (launching only that would PASS without the baseline reviewers' cost-log
+  records for the gating diff_hash, and the push-guard trace gate would reject
+  the push — Codex P1). A clearing verdict requires every always-on reviewer
+  to have run against the gating diff, so each iter re-runs all three.
 
 For each reviewer, use the Task tool with the appropriate subagent_type:
 

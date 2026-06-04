@@ -879,41 +879,22 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   below) and surfaced to block directly. Candidate detector findings flow
   through the Stage 4 adjudication gate like any other candidate.
 
-- **iter 2+ (full sweep)** — read `next_iter_reviewers` from the
-  previous review JSON for the **same Wave** and **iter N-1** (always the
-  full always-on set), then launch them. Wave + iter scoping is mandatory
-  (review iter 1 fix for F-005): without it Stage 1 of Wave N+1 could
-  inherit Wave N's stale `next_iter_reviewers` after a crash/resume.
+- **iter 2+ (full sweep)** — launch the **full always-on set** every
+  iteration: `spec-compliance-reviewer` + `security-reviewer` here in Stage 1,
+  `adversarial-reviewer` in Stage 2. Do NOT derive the launch set from the
+  previous review's `next_iter_reviewers`: an in-flight feature reviewed
+  before the diff-anchor upgrade may carry a narrow legacy value (e.g. only
+  `["adversarial"]`); launching just that would PASS without the baseline
+  reviewers' cost-log records for the gating diff_hash, and the push-guard
+  trace gate would then reject the push (Codex P1). The full sweep is required
+  for a clearing verdict regardless of the stored field.
 
   ```bash
-  prev_iter=$(( current_iter - 1 ))
-  prev_review=""
-  while IFS= read -r f; do
-    [[ -z "$f" ]] && continue
-    w="$(jq -r '.wave // empty' "$f" 2>/dev/null)"
-    i="$(jq -r '.iteration // empty' "$f" 2>/dev/null)"
-    if { [[ "$w" == "$current_wave" ]] || [[ "$w" == "all" ]]; } && [[ "$i" == "$prev_iter" ]]; then
-      prev_review="$f"
-      break
-    fi
-  done < <(find ".mumei/specs/${feature}/reviews" -maxdepth 1 -type f -name '*.json' \
-    ! -name '*-detectors.json' 2>/dev/null | sort -r)
-
-  if [[ -z "$prev_review" ]]; then
-    echo "::error::iter ${current_iter} entered but no Wave ${current_wave} iter ${prev_iter} review JSON found" >&2
-    exit 2  # fail loud rather than silently launching only adversarial
-  fi
-  to_launch="$(jq -r '.next_iter_reviewers[] // empty' < "$prev_review")"
-  for r in $to_launch; do
-    case "$r" in
-      spec-compliance|security)
-        Task(subagent_type: "${r}-reviewer", ...)
-        ;;
-      adversarial)
-        # adversarial is launched in Stage 2 (sequential), do nothing here
-        ;;
-    esac
-  done
+  # next_iter_reviewers is informational only; the clearing iter is always a
+  # full sweep, so launch the baseline unconditionally.
+  Task(subagent_type: "spec-compliance-reviewer", ...)
+  Task(subagent_type: "security-reviewer", ...)
+  # adversarial-reviewer is launched in Stage 2 (sequential).
   ```
 
   `next_iter_reviewers` always contains all three always-on reviewers

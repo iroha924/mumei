@@ -50,17 +50,22 @@ _mumei_review_sha256() {
 # the push-guard freshness check — so all three agree on which state was
 # reviewed.
 #
-# The anchor is the git TREE id of the working-tree snapshot, NOT a diff
-# against a base ref. A throwaway index (GIT_INDEX_FILE) is seeded from
-# HEAD then `git add -A`'d to snapshot the working tree, and `git write-tree`
-# records its tree object id. This is:
-#   - Commit-boundary stable: committing the reviewed changes does not
-#     alter the working-tree content, so the tree id (and hash) is identical
-#     whether a change lives in the working tree, the real index, or a commit.
+# The anchor is the git TREE id of the TRACKED working-tree snapshot, NOT a
+# diff against a base ref. A throwaway index (GIT_INDEX_FILE) is seeded from
+# HEAD then `git add -u`'d (tracked modifications/deletions only — NOT
+# untracked files), and `git write-tree` records its tree object id. This is:
+#   - Reviewer-surface faithful: reviewers see `git diff <base>`, which does
+#     NOT show untracked files, so the anchor must exclude them too. Including
+#     untracked files (the old `git add -A`) anchored content reviewers never
+#     saw, letting an untracked-then-committed file clear the gate unreviewed
+#     (Codex P1). Committing a NEW file therefore correctly moves the anchor,
+#     forcing a re-review of code that only became part of the diff on commit.
+#   - Commit-boundary stable for TRACKED changes: committing a tracked
+#     modification does not alter the tracked content, so the tree id is
+#     identical whether the change lives in the working tree or a commit.
 #   - Base-ref independent: there is no merge-base, so the degenerate
 #     single-branch case (HEAD == the only branch, no origin/HEAD) cannot
-#     collapse the surface to an empty diff and a constant hash. Any content
-#     change moves the tree id; an unchanged tree never moves it.
+#     collapse the surface to an empty diff and a constant hash.
 # The real index is never touched.
 #
 # Echoes a hash on success, or empty string when git / HEAD is unavailable
@@ -84,7 +89,7 @@ mumei_review_diff_hash() {
     return 0
   }
   if ! GIT_INDEX_FILE="$tmp_index" git read-tree HEAD 2>/dev/null ||
-    ! GIT_INDEX_FILE="$tmp_index" git add -A 2>/dev/null; then
+    ! GIT_INDEX_FILE="$tmp_index" git add -u 2>/dev/null; then
     rm -f "$tmp_index"
     printf ''
     return 0
@@ -581,16 +586,26 @@ mumei_review_trace_ok() {
 
   # Freshness: the repo state being pushed must match the diff the verdict
   # was produced against. A re-edit after a clearing verdict moves the
-  # current hash away from the gating hash. An empty current hash (no
-  # base ref resolvable) means the anchor is not applicable here — skip the
-  # freshness comparison rather than block (matches mumei_review_diff_hash
-  # "anchor N/A" semantics); the per-reviewer trace below still applies.
-  local cur
-  cur="$(mumei_review_diff_hash 2>/dev/null || true)"
-  if [[ -n "$cur" && "$cur" != "$gh" ]]; then
-    printf 'working tree changed since review %s (gating diff %s, current %s); re-run the review against the current diff' \
-      "$(basename "$gating")" "${gh:0:12}" "${cur:0:12}"
-    return 1
+  # current hash away from the gating hash. The gating review carries a
+  # diff_hash (checked above), so the anchor WAS computable when it ran;
+  # if we are in a git repo now, an empty current hash means the recompute
+  # FAILED (missing clean filter, unreadable file, ...) — fail-closed,
+  # because we cannot prove the pushed state equals the reviewed state
+  # (Codex P1). Only a genuinely non-git tree (anchor N/A) skips freshness;
+  # there the per-reviewer trace below still applies.
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    local cur
+    cur="$(mumei_review_diff_hash 2>/dev/null || true)"
+    if [[ -z "$cur" ]]; then
+      printf 'cannot recompute the current diff hash to verify freshness against review %s (gating diff %s); refusing to clear' \
+        "$(basename "$gating")" "${gh:0:12}"
+      return 1
+    fi
+    if [[ "$cur" != "$gh" ]]; then
+      printf 'working tree changed since review %s (gating diff %s, current %s); re-run the review against the current diff' \
+        "$(basename "$gating")" "${gh:0:12}" "${cur:0:12}"
+      return 1
+    fi
   fi
 
   if [[ ! -r "$cost_log" ]]; then
