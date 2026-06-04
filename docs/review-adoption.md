@@ -85,7 +85,7 @@ model differences, not divergent criteria).
   bug.
 - **Cost**: the OAuth token uses your Claude Max subscription quota; there is
   no per-call API billing from this workflow. The model defaults to
-  `claude-opus-4-7` and can be overridden via the workflow input.
+  `claude-opus-4-8` and can be overridden via the workflow input.
 - **Audit record**: each run appends a structured record to the GitHub
   Actions job summary (reviewed SHA, grounding tool versions and finding
   counts, the four perspective passes executed, timestamp). Inspect the
