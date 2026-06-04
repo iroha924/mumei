@@ -11,7 +11,7 @@ development and physical-enforcement of phase transitions.
 
 ### Workflow
 
-1. `/mumei:glean <topic>` — structured gathering before specing
+1. `/mumei:glean <topic>` — structured gleaning before specing
 2. `/mumei:compose <feature>` — generate requirements / design / tasks (each
    auto-reviewed by an independent spec-reviewer agent; single user approval
    gate at the end)

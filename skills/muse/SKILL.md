@@ -98,7 +98,7 @@ The cost section in `muse.md` reflects whatever ended up in `cost-log.jsonl` aft
 
 ## Don'ts
 
-- Don't fail when partial data is missing — emit the section with `(no data)` and move on. A feature aborted mid-Phase 1 still benefits from a retrospective.
+- Don't fail when partial data is missing — emit the section with `(no data)` and move on. A feature aborted mid-Phase 1 still benefits from a muse retrospective.
 - Don't auto-commit the muse.md. Let the user edit lessons / suggestions, then commit themselves.
 - Don't re-trigger /mumei:shelve from here. muse is read-only with respect to the feature lifecycle.
 - Don't overwrite an existing muse.md without confirmation. If `feature_dir/muse.md` exists, suggest a timestamped sibling instead.
