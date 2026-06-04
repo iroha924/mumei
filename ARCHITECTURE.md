@@ -85,7 +85,7 @@ mumei/
 │   ├── config-change-audit.sh  # ConfigChange: audit + invalid JSON exit 2
 │   ├── session-end-audit.sh  # SessionEnd: session metadata audit log
 │   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log
-│   ├── subagent-cost-log-start.sh  # SubagentStart: pin active feature to .mumei/in-flight-agents/<agent_id>
+│   ├── subagent-cost-log-start.sh  # SubagentStart: pin active feature + launch-time diff_hash to .mumei/in-flight-agents/<agent_id>
 │   ├── subagent-context-inject.sh  # SubagentStart (matcher *): framing prefix + active feature artifact (pillar E.3); property-author receives blind context only (pillar B)
 │   ├── subagent-cost-log.sh  # SubagentStop: agent_id-based subagent jsonl usage extraction
 │   └── stop-cost-backfill.sh  # Stop (async): safety-net cost-backfill for SubagentStop hooks that lost the jsonl-flush race

@@ -89,10 +89,16 @@ AGENT_SHORT="${AGENT_TYPE#mumei:}"
 # .mumei/current to survive feature switches between launch and stop.
 ACTIVE_FEATURE=""
 SIDECAR=""
+LAUNCH_DIFF_HASH=""
 if [[ -n "$AGENT_ID" ]]; then
   SIDECAR=".mumei/in-flight-agents/${AGENT_ID}"
   if [[ -f "$SIDECAR" ]]; then
-    ACTIVE_FEATURE="$(tr -d '[:space:]' <"$SIDECAR" 2>/dev/null || true)"
+    # Two-line sidecar: line 1 = feature key, line 2 = launch-time diff_hash.
+    # head -1 keeps the feature read identical for the legacy single-line
+    # shape; the optional second line anchors the reviewer to the state it
+    # was LAUNCHED against (not SubagentStop time).
+    ACTIVE_FEATURE="$(sed -n 1p "$SIDECAR" 2>/dev/null | tr -d '[:space:]' || true)"
+    LAUNCH_DIFF_HASH="$(sed -n 2p "$SIDECAR" 2>/dev/null | tr -d '[:space:]' || true)"
   fi
 fi
 if [[ -z "$ACTIVE_FEATURE" ]] && [[ -f .mumei/current ]]; then
@@ -177,10 +183,15 @@ fi
 # `with_entries` filter drops any extra usage keys (e.g. service_tier,
 # server_tool_use) so the schema stays clean.
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-# Anchor this reviewer's run to the repo state it saw. Empty when
-# git/base is unavailable; the field is then omitted (the schema keeps
-# diff_hash optional, so the record stays valid either way).
-DIFF_HASH="$(mumei_review_diff_hash 2>/dev/null || true)"
+# Anchor this reviewer's run to the repo state it saw. Prefer the
+# LAUNCH-time hash captured in the sidecar by subagent-cost-log-start.sh —
+# the reviewer evaluated the launch-time state, so a stop-time recompute
+# could pick up a concurrent edit and falsely anchor a hollow review (Codex
+# P1). Fall back to a stop-time compute only when the sidecar carried none
+# (legacy single-line sidecar, or feature resolved via .mumei/current).
+# Empty → field omitted (schema keeps diff_hash optional).
+DIFF_HASH="$LAUNCH_DIFF_HASH"
+[[ -z "$DIFF_HASH" ]] && DIFF_HASH="$(mumei_review_diff_hash 2>/dev/null || true)"
 RECORD="$(
   jq -nc \
     --arg ts "$TS" \

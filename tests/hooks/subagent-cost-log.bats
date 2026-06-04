@@ -245,3 +245,17 @@ _run_hook() {
     ".mumei/specs/REQ-1-foo/cost-log.jsonl" | tail -1)"
   [ "$has_dh" = "false" ]
 }
+
+@test "diff-anchor: after-record uses the launch-time diff_hash from the sidecar (Codex P1 TOCTOU)" {
+  mkdir -p ".mumei/specs/REQ-1-foo" ".mumei/in-flight-agents"
+  printf 'REQ-1-foo\n' >".mumei/current"
+  # Two-line sidecar: feature + launch-time hash captured at SubagentStart.
+  printf 'REQ-1-foo\nLAUNCHHASH123\n' >".mumei/in-flight-agents/agentL"
+  _make_subagent_jsonl agentL 5 100 200 50 >/dev/null
+  event="$(_event_json agentL mumei:adversarial-reviewer)"
+  _run_hook "$event"
+  [ "$status" -eq 0 ]
+  dh="$(jq -r 'select(.phase=="after") | .diff_hash // empty' \
+    ".mumei/specs/REQ-1-foo/cost-log.jsonl" | tail -1)"
+  [ "$dh" = "LAUNCHHASH123" ]
+}
