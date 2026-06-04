@@ -12,14 +12,14 @@ producer and consumer a single reference for the on-disk shape.
 
 ## Files
 
-| Schema                        | Producer                                         | Consumer                                                 |
-| ----------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| `state.schema.json`           | `hooks/_lib/state.sh`                            | `/mumei:muse`                                         |
-| `review.schema.json`          | `hooks/_lib/review.sh`, `pre-review-detector.sh` | `/mumei:muse`                                         |
-| `cost-log.schema.json`        | `hooks/_lib/cost-log.sh`, `subagent-cost-log.sh` | `/mumei:muse`, `scripts/aggregate-cost.sh`            |
-| `plugin.schema.json`          | maintained by hand (Claude Code plugin manifest) | `release-reusable.yml` validate-manifest job             |
-| `config.schema.json`          | `hooks/_lib/config.sh` (`.mumei/config.json`)    | validation only                                          |
-| `reliability-log.schema.json` | `hooks/_lib/reliability.sh`                      | `/mumei:attest`, `/mumei:glance`                        |
+| Schema                        | Producer                                         | Consumer                                     |
+| ----------------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `state.schema.json`           | `hooks/_lib/state.sh`                            | `/mumei:muse`                                |
+| `review.schema.json`          | `hooks/_lib/review.sh`, `pre-review-detector.sh` | `/mumei:muse`                                |
+| `cost-log.schema.json`        | `hooks/_lib/cost-log.sh`, `subagent-cost-log.sh` | `/mumei:muse`, `scripts/aggregate-cost.sh`   |
+| `plugin.schema.json`          | maintained by hand (Claude Code plugin manifest) | `release-reusable.yml` validate-manifest job |
+| `config.schema.json`          | `hooks/_lib/config.sh` (`.mumei/config.json`)    | validation only                              |
+| `reliability-log.schema.json` | `hooks/_lib/reliability.sh`                      | `/mumei:attest`, `/mumei:glance`             |
 
 ## How the bash side consumes them
 
