@@ -123,3 +123,79 @@ _make_subagent() {
   # Refuse-to-backfill must NOT collapse to all-of-history.
   [ ! -f "${feature_dir}/cost-log.jsonl" ]
 }
+
+# Helper: stamp a path's mtime to N seconds before now (BSD/GNU touch).
+_backdate() {
+  local path="$1" secs_ago="$2" epoch stamp
+  epoch=$(($(date +%s) - secs_ago))
+  stamp="$(date -u -r "$epoch" '+%Y%m%d%H%M.%S' 2>/dev/null ||
+    date -u -d "@${epoch}" '+%Y%m%d%H%M.%S' 2>/dev/null)"
+  touch -t "$stamp" "$path"
+}
+
+@test "REQ-30.2: backfill anchors the record with the sidecar launch diff_hash + consumes it" {
+  _setup_fake_home
+  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
+  _make_subagent agent-aaa mumei:spec-compliance-reviewer 1778000000
+  mkdir -p ".mumei/in-flight-agents"
+  # extracted agent_id from agent-agent-aaa.meta.json is "agent-aaa".
+  printf 'REQ-99-test\nDEADBEEFHASH\n' >".mumei/in-flight-agents/agent-aaa"
+
+  run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
+  [ "$status" -eq 0 ]
+  rec="$(cat "${feature_dir}/cost-log.jsonl")"
+  [ "$(jq -r '.diff_hash' <<<"$rec")" = "DEADBEEFHASH" ]
+  # Sidecar consumed after use (also proves a fresh sidecar is not swept).
+  [ ! -f ".mumei/in-flight-agents/agent-aaa" ]
+}
+
+@test "REQ-30.2: no sidecar → record written without diff_hash (no stop-time recompute)" {
+  _setup_fake_home
+  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
+  _make_subagent agent-aaa mumei:security-reviewer 1778000000
+
+  run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
+  [ "$status" -eq 0 ]
+  rec="$(cat "${feature_dir}/cost-log.jsonl")"
+  [ "$(jq -r 'has("diff_hash")' <<<"$rec")" = "false" ]
+}
+
+@test "REQ-30.2: sidecar with empty launch hash → record stays unanchored" {
+  _setup_fake_home
+  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
+  _make_subagent agent-aaa mumei:adversarial-reviewer 1778000000
+  mkdir -p ".mumei/in-flight-agents"
+  printf 'REQ-99-test\n\n' >".mumei/in-flight-agents/agent-aaa"
+
+  run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
+  [ "$status" -eq 0 ]
+  rec="$(cat "${feature_dir}/cost-log.jsonl")"
+  [ "$(jq -r 'has("diff_hash")' <<<"$rec")" = "false" ]
+}
+
+@test "REQ-30.3: age-based sweep removes a stale orphan sidecar (default 24h)" {
+  _setup_fake_home
+  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
+  mkdir -p ".mumei/in-flight-agents"
+  # Orphan with no matching subagent jsonl → only the sweep can remove it.
+  printf 'REQ-99-test\nOLDHASH\n' >".mumei/in-flight-agents/stale-orphan"
+  _backdate ".mumei/in-flight-agents/stale-orphan" $((48 * 3600))
+
+  run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
+  [ "$status" -eq 0 ]
+  [ ! -f ".mumei/in-flight-agents/stale-orphan" ]
+}
+
+@test "REQ-30.3: MUMEI_INFLIGHT_SWEEP_HOURS override lowers the cutoff" {
+  _setup_fake_home
+  feature_dir="$(_make_feature REQ-99-test 2026-05-01T00:00:00Z 2026-12-31T00:00:00Z)"
+  mkdir -p ".mumei/in-flight-agents"
+  printf 'REQ-99-test\nHASH\n' >".mumei/in-flight-agents/two-hr-orphan"
+  _backdate ".mumei/in-flight-agents/two-hr-orphan" $((2 * 3600))
+
+  # Default 24h would keep a 2h-old sidecar; override to 1h sweeps it.
+  run --separate-stderr env MUMEI_INFLIGHT_SWEEP_HOURS=1 \
+    bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
+  [ "$status" -eq 0 ]
+  [ ! -f ".mumei/in-flight-agents/two-hr-orphan" ]
+}

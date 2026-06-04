@@ -11,6 +11,15 @@
 # state.json.created_at and updated_at, sum the assistant entries'
 # usage and append a record to feature_dir/cost-log.jsonl.
 #
+# Diff-anchor (REQ-30.2): when an in-flight sidecar
+# (<.mumei>/in-flight-agents/<agent_id>, written by
+# subagent-cost-log-start.sh and preserved by subagent-cost-log.sh on its
+# failure paths) carries a launch-time diff_hash on line 2, fold it into the
+# reconstructed record so the push-gate trace (mumei_review_trace_ok) is
+# satisfiable even though the eager SubagentStop hook lost the jsonl flush
+# race. A consumed sidecar is removed; sidecars older than
+# MUMEI_INFLIGHT_SWEEP_HOURS (default 24) are swept before the walk.
+#
 # Usage: bash scripts/cost-backfill.sh <feature_dir>
 #
 # Always exits 0 — backfill is best-effort. Reasons that prevent
@@ -140,6 +149,26 @@ candidates=0
 mtime_min=0
 mtime_max=0
 
+# In-flight sidecar dir (REQ-30.2/3). Derived from feature_dir so it resolves
+# regardless of cwd (backfill is also invoked by /mumei:muse from a subdir).
+# .mumei/specs/<f> or .mumei/plans/<f> → .mumei/in-flight-agents.
+inflight_dir="$(dirname "$(dirname "$feature_dir")")/in-flight-agents"
+
+# Age-based sweep (REQ-30.3): drop orphan sidecars older than the threshold so
+# a session that died before either the eager hook or this backfill could
+# consume them does not accumulate. Default 24h; overridable for tests.
+: "${MUMEI_INFLIGHT_SWEEP_HOURS:=24}"
+if [[ -d "$inflight_dir" ]]; then
+  sweep_cutoff=$(($(date +%s) - MUMEI_INFLIGHT_SWEEP_HOURS * 3600))
+  while IFS= read -r -d '' sc; do
+    if scm="$(stat -f %m "$sc" 2>/dev/null || stat -c %Y "$sc" 2>/dev/null)"; then
+      if [[ "$scm" -lt "$sweep_cutoff" ]]; then
+        rm -f "$sc" 2>/dev/null || true
+      fi
+    fi
+  done < <(find "$inflight_dir" -maxdepth 1 -type f -print0 2>/dev/null)
+fi
+
 # `find -print0 / read -d ''` keeps the loop safe on paths with spaces.
 while IFS= read -r -d '' meta_path; do
   candidates=$((candidates + 1))
@@ -170,6 +199,19 @@ while IFS= read -r -d '' meta_path; do
   fi
 
   agent_short="${agent_type#mumei:}"
+
+  # Diff-anchor (REQ-30.2): recover the launch-time diff_hash from the
+  # in-flight sidecar keyed by this subagent's agent_id (the meta filename is
+  # agent-<id>.meta.json). Line 2 of the sidecar is the launch hash; empty or
+  # absent → record stays unanchored (no stop-time recompute — Codex P1).
+  agent_id="$(basename "$meta_path")"
+  agent_id="${agent_id#agent-}"
+  agent_id="${agent_id%.meta.json}"
+  sidecar="${inflight_dir}/${agent_id}"
+  launch_dh=""
+  if [[ -f "$sidecar" ]]; then
+    launch_dh="$(sed -n 2p "$sidecar" 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
 
   usage_json="$(
     jq -s '
@@ -204,8 +246,10 @@ while IFS= read -r -d '' meta_path; do
       --arg ts "$ts_iso" \
       --arg feature "$feature_basename" \
       --arg agent "$agent_short" \
+      --arg dh "$launch_dh" \
       --argjson usage "$usage_json" \
       '{ts: $ts, feature: $feature, wave: null, iteration: null, agent: $agent, phase: "after"}
+       + (if $dh != "" then {diff_hash: $dh} else {} end)
        + ($usage
           | with_entries(select(.key as $k
               | ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
@@ -220,6 +264,8 @@ while IFS= read -r -d '' meta_path; do
   [[ -d "$(dirname "$cost_log")" ]] || continue
   printf '%s\n' "$record" >>"$cost_log" 2>/dev/null || continue
   appended=$((appended + 1))
+  # Consume the sidecar now that its launch diff_hash (if any) is recorded.
+  [[ -f "$sidecar" ]] && rm -f "$sidecar" 2>/dev/null || true
 done < <(find "$project_root" -type f -name '*.meta.json' -path '*/subagents/*' -print0 2>/dev/null)
 
 if [[ "$appended" -eq 0 ]]; then
