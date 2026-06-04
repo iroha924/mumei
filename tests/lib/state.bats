@@ -175,3 +175,31 @@ setup() {
   run jq -r '.custom' .mumei/specs/REQ-1-foo/state.json
   [ "$output" = "keep-me" ]
 }
+
+# ─── scratch_source (REQ-29 US-2) ─────────────────────────────
+
+@test "state_init records scratch_source when given" {
+  mumei_state_init "REQ-9-foo" "foo" "REQ-9" ".mumei/scratch/foo.md"
+  run jq -r '.scratch_source' .mumei/specs/REQ-9-foo/state.json
+  [ "$output" = ".mumei/scratch/foo.md" ]
+}
+
+@test "state_init omits scratch_source when not given" {
+  mumei_state_init "REQ-9-foo" "foo" "REQ-9"
+  run jq -r 'has("scratch_source")' .mumei/specs/REQ-9-foo/state.json
+  [ "$output" = "false" ]
+}
+
+@test "scratch_source getter returns the recorded path even when the slug diverges" {
+  # Feature key carries a -2 collision suffix; the scratch basename is the
+  # original 'foo'. retire must still co-move .mumei/scratch/foo.md.
+  mumei_state_init "REQ-9-foo-2" "foo-2" "REQ-9" ".mumei/scratch/foo.md"
+  run mumei_state_scratch_source "REQ-9-foo-2"
+  [ "$output" = ".mumei/scratch/foo.md" ]
+}
+
+@test "scratch_source getter is empty for legacy features (retire falls back to slug-match)" {
+  mumei_state_init "REQ-9-foo" "foo" "REQ-9"
+  run mumei_state_scratch_source "REQ-9-foo"
+  [ -z "$output" ]
+}

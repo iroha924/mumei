@@ -357,6 +357,21 @@ mumei_deny() {
   exit 0
 }
 
+# Emit a non-blocking advisory: surface additionalContext without a
+# permissionDecision (so the action is allowed) and return — the caller
+# falls through to its normal exit. Used for the curator-completeness
+# advisory, which must never block a push.
+mumei_advisory() {
+  local context="$1"
+  context="${context//\\n/$'\n'}"
+  jq -n --arg c "$context" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      additionalContext: $c
+    }
+  }'
+}
+
 # Detect a git commit invocation, including chained commands.
 mumei_is_git_commit() {
   printf '%s' "$1" | grep -qE '(^|[[:space:];|&])git[[:space:]]+commit([[:space:]]|$)'
@@ -541,12 +556,14 @@ fi
 #       address findings via /mumei:proceed (spec) or /mumei:examine (plan)
 #       before retrying.
 #   (c) verdict clears the gate (not MAJOR_ISSUES) but is NOT backed by a
-#       reviewer-execution trace in cost-log.jsonl — i.e. a PASS that no
-#       reviewer actually produced. The integrity counterpart of (a):
-#       (a) catches a missing review, (c) catches a hollow one
-#       (issues #128 / #132). cost-log is written by the SubagentStop
-#       hook, which the orchestrator cannot fake without launching the
-#       reviewer; see mumei_review_trace_ok in hooks/_lib/review.sh.
+#       reviewer-execution trace anchored to the pushed diff — i.e. a PASS
+#       no reviewer actually produced against this code. The integrity
+#       counterpart of (a): (a) catches a missing review, (c) catches a
+#       hollow one (issues #128 / #132). mumei_review_trace_ok cross-checks
+#       cost-log.jsonl (written by the SubagentStop hook) so each always-on
+#       reviewer ran against the gating review's diff_hash AND the current
+#       repo state still hashes to that value — a re-edit after the verdict
+#       or a focused iter that skipped a reviewer no longer clears.
 # Detector reports (<ts>-detectors.json) are excluded so the latest
 # *review* (not the detector run) is selected.
 if mumei_is_git_push "$COMMAND"; then
@@ -602,10 +619,11 @@ if mumei_is_git_push "$COMMAND"; then
       fi
     else
       # (c) the verdict would clear the gate — require it be backed by
-      # reviewer execution. Phase-independent (like (b)) so it still fires
-      # at phase=done, the moment the push actually happens. Presence-based
-      # (see mumei_review_trace_ok): each baseline reviewer must have a
-      # cost-log record for this feature.
+      # reviewer execution anchored to the pushed diff. Phase-independent
+      # (like (b)) so it still fires at phase=done, the moment the push
+      # happens. mumei_review_trace_ok requires each always-on reviewer's
+      # cost-log diff_hash to match the gating review's, and the current
+      # repo state to still hash to that value.
       FEATURE_DIR="${REVIEW_DIR%/reviews}"
       if ! TRACE_REASON="$(mumei_review_trace_ok "$FEATURE_DIR")"; then
         if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
@@ -618,6 +636,15 @@ if mumei_is_git_push "$COMMAND"; then
             "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:proceed Phase 5 so the reviewers actually run against the current diff." \
             "Latest review: ${LATEST_REVIEW}\nThe push-guard cross-checks cost-log.jsonl (written by the SubagentStop hook) for the always-on reviewer(s); a verdict written without launching them is rejected." \
             "R2"
+        fi
+      else
+        # Trace cleared. Surface a NON-blocking advisory if memory curation
+        # was silently skipped (reviewers emitted candidates but no
+        # memory-curator ran for the gating diff). This never blocks the
+        # push — a skipped curation loses telemetry, not verdict integrity.
+        if ! CURATOR_REASON="$(mumei_review_curator_complete "$FEATURE_DIR")"; then
+          mumei_advisory \
+            "Advisory (non-blocking): ${CURATOR_REASON}. Memory curation appears to have been skipped; re-run the review's curation stage if you want those candidates scored, or ignore if intentional."
         fi
       fi
     fi

@@ -181,9 +181,10 @@ instead of requirements.md.
   through Step 7's gate, not treated as ground truth. Only ground_truth
   detectors (osv-scanner / secret-scan / type-check / test-check) block
   directly.
-- iter 2+ focused: read the previous review JSON's `next_iter_reviewers`
-  field and launch only the listed reviewers (always includes
-  `adversarial`).
+- iter 2+ full sweep: read the previous review JSON's `next_iter_reviewers`
+  field (always the full always-on set) and launch them. A clearing verdict
+  requires every always-on reviewer to have run against the gating diff, so
+  each iter re-runs all three.
 
 For each reviewer, use the Task tool with the appropriate subagent_type:
 
@@ -267,12 +268,16 @@ source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/residual.sh"
 # REQ-27.9 / REQ-27.10).
 gt_high="$(mumei_review_ground_truth_high_count "$surfaced_json")"
 verdict="$(mumei_review_aggregate_verdict "$gt_high" "$surfaced_json" "$reviewer_verdicts_json")"
-# pass prev_reviewers + slug + iter so the helper applies rotation
-# at the tail (preserves the adversarial invariant).
-prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"
-next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
-  "$surfaced_json" "$prev_reviewers" "$slug" "$current_iter")"
+# next_iter_reviewers is always the full always-on set: a clearing verdict
+# requires every always-on reviewer to have run against the gating diff,
+# so each iter re-runs all three (see hooks/_lib/review.sh).
+next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers)"
 iter_head="$(mumei_review_iter_head)"
+# Hash the review surface this verdict was produced against. push-guard
+# requires each always-on reviewer's cost-log after-record to carry a
+# matching diff_hash. Empty when git/base is unavailable; the field is
+# then omitted (the schema keeps it optional).
+diff_hash="$(mumei_review_diff_hash)"
 
 # Residual exposition (pillar D, REQ-23): aggregate every reviewer's
 # filtered_out (annotating each with its reviewer name), then deterministically
@@ -316,6 +321,7 @@ review_json="$(jq -nc \
   --arg feature "$slug" \
   --arg verdict "$verdict" \
   --arg iter_head "$iter_head" \
+  --arg diff_hash "$diff_hash" \
   --argjson iteration "$current_iter" \
   --argjson surfaced "$surfaced_json" \
   --argjson filtered "$filtered_json" \
@@ -332,7 +338,8 @@ review_json="$(jq -nc \
     detector_skipped: $detector_skipped,
     detector_report: $detector_report,
     confidence_ceiling: $confidence_ceiling,
-    residual: $residual}')"
+    residual: $residual}
+   + (if $diff_hash != "" then {diff_hash: $diff_hash} else {} end)')"
 
 # Inject detector_reused_from with proper JSON typing.
 # shellcheck disable=SC2086
@@ -374,7 +381,28 @@ fi
 ### Step 8.5 — Memory candidate curation (sync, non-blocking)
 
 After the review JSON is persisted (Step 8) and before phase transition (Step 9),
-walk every reviewer's `memory_candidates` array and dispatch each candidate to
+first stamp `memory_candidates_count` (total candidates across all reviewers)
+onto the persisted review JSON, so push-guard's curator advisory
+(`mumei_review_curator_complete`) can fire for plan-vehicle features too —
+otherwise a skipped curation on the plan path would never surface.
+
+```bash
+latest_review="$(mumei_review_latest "$review_dir")"
+total_candidates=0
+# declare -p guard: under set -u, dereferencing reviewer_outputs when it is
+# undeclared raises 'unbound variable' (bash 3.2). Same guard as the residual
+# block in Step 8.
+if declare -p reviewer_outputs >/dev/null 2>&1; then
+  for reviewer in spec-compliance security adversarial; do
+    n="$(jq -r '(.memory_candidates // []) | length' <<<"${reviewer_outputs[$reviewer]:-{}}" 2>/dev/null || echo 0)"
+    total_candidates=$((total_candidates + n))
+  done
+fi
+jq --argjson c "$total_candidates" '. + {memory_candidates_count: $c}' \
+  <"$latest_review" >"${latest_review}.tmp" && mv "${latest_review}.tmp" "$latest_review"
+```
+
+Then walk every reviewer's `memory_candidates` array and dispatch each candidate to
 `memory-curator`. The curator scores against the 7-axis rubric (>= 15/21
 → ADD or UPDATE, else SKIP). The orchestrator validates the curator's strict JSON
 via `mumei_memory_validate_curator_output` and on validator pass applies the operation

@@ -261,7 +261,10 @@ feature_dir_key="${id}-${slug}"
 
 mkdir -p ".mumei/specs/${feature_dir_key}"
 mkdir -p ".mumei/specs/${feature_dir_key}/spec-reviews"
-mumei_state_init "${feature_dir_key}" "${slug}" "${id}"
+# Pass the attached scratch path (Phase 0.1 `scratch_path`, empty when none)
+# as the 4th arg so it is recorded in state.json and /mumei:retire co-moves
+# the exact scratch even if the slug later diverges from its basename.
+mumei_state_init "${feature_dir_key}" "${slug}" "${id}" "${scratch_path:-}"
 echo "${feature_dir_key}" > .mumei/current
 ```
 
@@ -857,7 +860,7 @@ binaries (rc ≥ 2 from the binary itself) escalate to `rc == 2`.
 
 Read `high_count` from the captured stdout. Stage 1 branches on it.
 
-### Stage 1 — Parallel reviewers (iter 1 baseline / iter 2+ focused)
+### Stage 1 — Parallel reviewers (full always-on sweep every iter)
 
 **Iter-aware launch logic:**
 
@@ -876,9 +879,9 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   below) and surfaced to block directly. Candidate detector findings flow
   through the Stage 4 adjudication gate like any other candidate.
 
-- **iter 2+ (focused)** — read `next_iter_reviewers` from the
-  previous review JSON for the **same Wave** and **iter N-1**, then
-  launch only the listed reviewers. Wave + iter scoping is mandatory
+- **iter 2+ (full sweep)** — read `next_iter_reviewers` from the
+  previous review JSON for the **same Wave** and **iter N-1** (always the
+  full always-on set), then launch them. Wave + iter scoping is mandatory
   (review iter 1 fix for F-005): without it Stage 1 of Wave N+1 could
   inherit Wave N's stale `next_iter_reviewers` after a crash/resume.
 
@@ -913,11 +916,11 @@ Read `high_count` from the captured stdout. Stage 1 branches on it.
   done
   ```
 
-  `next_iter_reviewers` always contains `adversarial`;
-  Stage 2 launches `adversarial-reviewer` regardless. The iter-1-all-PASS
-  short-circuit is handled at the iter-loop entry point, not
-  here — by the time Stage 1 of iter 2+ is reached, at least one reviewer
-  in `next_iter_reviewers` is guaranteed to need launching.
+  `next_iter_reviewers` always contains all three always-on reviewers
+  (`spec-compliance`, `security`, `adversarial`); Stage 1 launches
+  spec-compliance + security and Stage 2 launches adversarial. The
+  iter-1-all-PASS short-circuit is handled at the iter-loop entry point,
+  not here.
 
   Under fail-open, `security` is NOT dropped on detector HIGH count: candidate
   detector findings are adjudicated through the Stage 4 gate, not treated as
@@ -1092,6 +1095,7 @@ the next iteration:
   "wave": <n or "all">,
   "iteration": <N>,
   "iter_head": "<git rev-parse HEAD at this iter completion>",
+  "diff_hash": "<mumei_review_diff_hash output — sha256 of the review surface>",
   "verdict": "PASS|NEEDS_IMPROVEMENT|MAJOR_ISSUES",
   "reviewers": { "spec-compliance": {...}, "security": {...}, "adversarial": {...} },
   "findings_surfaced": [...],
@@ -1155,32 +1159,34 @@ building the review JSON.
 completion. The next iter's Stage 0 reads this to compute the diff
 since the last iter and decide whether to re-run the detector.
 
-**`next_iter_reviewers`**: list of reviewer names that
-must launch in iter N+1. Use the helper:
+**`diff_hash`**: stamp `mumei_review_diff_hash` onto the review JSON so
+the verdict is bound to the exact review surface it was produced against.
+push-guard requires each always-on reviewer's cost-log after-record to
+carry a matching `diff_hash` and the repo state at push time to hash to
+the same value — a verdict whose reviewers ran against a different diff
+(a re-edit after the clearing verdict, or a focused iter that skipped a
+baseline reviewer) is rejected. Set it via
+`--arg diff_hash "$(mumei_review_diff_hash)"` and include
+`diff_hash: $diff_hash` only when non-empty (omit on the empty-string
+fallback so the schema's `^[0-9a-f]{64}$` pattern holds when git/base is
+unavailable).
+
+**`next_iter_reviewers`**: the always-on reviewer set that must launch in
+iter N+1. Use the helper:
 
 ```bash
-# surfaced_json is the findings_surfaced array built earlier in this stage.
-# prev_reviewers comes from the previous iter's review JSON next_iter_reviewers
-# (or "[]" on iter 1). Rotation kicks in when the computed set is a
-# permutation of prev_reviewers — the helper appends a rotation candidate so
-# the runtime never re-launches an identical reviewer set two iterations
-# in a row.
-prev_reviewers="$(jq -c '.next_iter_reviewers // []' <"$prev_review" 2>/dev/null || echo '[]')"
-next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers \
-  "$surfaced_json" "$prev_reviewers" "$feature" "$current_iter")"
+next_iter_reviewers="$(mumei_review_compute_next_iter_reviewers)"
 ```
 
-The helper always includes `"adversarial"` and
-de-duplicates the HIGH/CRITICAL reviewer set across all surfaced
-findings. When `prev_reviewers` matches the freshly-computed set, the
-helper additionally injects a rotation candidate via
-`mumei_review_rotate_reviewers` — `adversarial` is preserved
-in the rotation pool exclusion so the adversarial invariant is never
-broken.
-
-If only `["adversarial"]` remains AND verdict=PASS AND HIGH count=0,
-the iter-1-all-PASS optimization skips iter 2 entirely
-(see Phase 5 iter loop).
+The helper always returns the full set
+`["spec-compliance","security","adversarial"]`. A clearing verdict
+requires every always-on reviewer to have run against the gating diff
+(push-guard's `mumei_review_trace_ok` matches each reviewer's cost-log
+`diff_hash` to the gating review's), so each iteration re-runs all three —
+a narrowed set could never clear because a skipped reviewer's after-record
+would carry an earlier diff_hash. The iter-1-all-PASS optimization still
+short-circuits iter 2 entirely when iter 1 is verdict=PASS with HIGH
+count=0 (see Phase 5 iter loop).
 
 **`detector_skipped` / `detector_reused_from`**: set by Stage 0
 when the iter 2+ ext-diff check determines no detector-relevant file
@@ -1296,8 +1302,33 @@ fi
 ### Stage 6.5 — Memory candidate curation (sync, non-blocking)
 
 After the review JSON is persisted (Stage 6) and before any phase transition,
-walk every reviewer's `memory_candidates` array and dispatch each candidate to
-`memory-curator` (sync invocation). The curator scores against the
+first stamp `memory_candidates_count` (the total candidates emitted across all
+reviewers this iter) onto the persisted review JSON, then walk every reviewer's
+`memory_candidates` array and dispatch each candidate to `memory-curator` (sync
+invocation). The count lets push-guard surface a non-blocking advisory if this
+stage is later skipped while candidates existed (the curator records its own
+`diff_hash` cost-log entry on SubagentStop, which the advisory matches against).
+
+```bash
+# Stamp the candidate total onto the just-persisted review JSON so the
+# push-guard curator advisory (mumei_review_curator_complete) can tell
+# "no candidates" from "candidates emitted but curation skipped".
+latest_review="$(mumei_review_latest "$review_dir")"
+total_candidates=0
+# declare -p guard: under set -u, dereferencing reviewer_outputs when it is
+# undeclared raises 'unbound variable' (bash 3.2). Same guard as the residual
+# block in Stage 6.
+if declare -p reviewer_outputs >/dev/null 2>&1; then
+  for reviewer in spec-compliance security adversarial; do
+    n="$(jq -r '(.memory_candidates // []) | length' <<<"${reviewer_outputs[$reviewer]:-{}}" 2>/dev/null || echo 0)"
+    total_candidates=$((total_candidates + n))
+  done
+fi
+jq --argjson c "$total_candidates" '. + {memory_candidates_count: $c}' \
+  <"$latest_review" >"${latest_review}.tmp" && mv "${latest_review}.tmp" "$latest_review"
+```
+
+The curator scores against the
 7-axis rubric (>= 15/21 → ADD or UPDATE, else SKIP). The orchestrator validates
 the curator's strict JSON via `mumei_memory_validate_curator_output` and on
 validator pass applies the operation to `.claude/agent-memory/<reviewer>/MEMORY.md`

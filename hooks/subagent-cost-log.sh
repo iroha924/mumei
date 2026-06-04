@@ -53,6 +53,18 @@ if ! declare -F mumei_hook_stats_record >/dev/null 2>&1; then
   fi
 fi
 
+# review.sh provides mumei_review_diff_hash, used to anchor each reviewer's
+# after-record to the repo state it ran against. Resolve via the exported
+# PLUGIN_ROOT (set by anchor.sh, sourced above) per the repo convention.
+# shellcheck disable=SC1091
+if ! declare -F mumei_review_diff_hash >/dev/null 2>&1; then
+  REVIEW_LIB="${PLUGIN_ROOT}/hooks/_lib/review.sh"
+  if [[ -f "$REVIEW_LIB" ]]; then
+    # shellcheck disable=SC1090
+    source "$REVIEW_LIB"
+  fi
+fi
+
 _mumei_clog_stat() {
   local decision="$1" reason="$2"
   if declare -F mumei_hook_stats_record >/dev/null 2>&1; then
@@ -77,10 +89,16 @@ AGENT_SHORT="${AGENT_TYPE#mumei:}"
 # .mumei/current to survive feature switches between launch and stop.
 ACTIVE_FEATURE=""
 SIDECAR=""
+LAUNCH_DIFF_HASH=""
 if [[ -n "$AGENT_ID" ]]; then
   SIDECAR=".mumei/in-flight-agents/${AGENT_ID}"
   if [[ -f "$SIDECAR" ]]; then
-    ACTIVE_FEATURE="$(tr -d '[:space:]' <"$SIDECAR" 2>/dev/null || true)"
+    # Two-line sidecar: line 1 = feature key, line 2 = launch-time diff_hash.
+    # head -1 keeps the feature read identical for the legacy single-line
+    # shape; the optional second line anchors the reviewer to the state it
+    # was LAUNCHED against (not SubagentStop time).
+    ACTIVE_FEATURE="$(sed -n 1p "$SIDECAR" 2>/dev/null | tr -d '[:space:]' || true)"
+    LAUNCH_DIFF_HASH="$(sed -n 2p "$SIDECAR" 2>/dev/null | tr -d '[:space:]' || true)"
   fi
 fi
 if [[ -z "$ACTIVE_FEATURE" ]] && [[ -f .mumei/current ]]; then
@@ -165,13 +183,24 @@ fi
 # `with_entries` filter drops any extra usage keys (e.g. service_tier,
 # server_tool_use) so the schema stays clean.
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# Anchor this reviewer's run to the repo state it saw. Prefer the
+# LAUNCH-time hash captured in the sidecar by subagent-cost-log-start.sh —
+# the reviewer evaluated the launch-time state, so a stop-time recompute
+# could pick up a concurrent edit and falsely anchor a hollow review (Codex
+# P1). Fall back to a stop-time compute only when the sidecar carried none
+# (legacy single-line sidecar, or feature resolved via .mumei/current).
+# Empty → field omitted (schema keeps diff_hash optional).
+DIFF_HASH="$LAUNCH_DIFF_HASH"
+[[ -z "$DIFF_HASH" ]] && DIFF_HASH="$(mumei_review_diff_hash 2>/dev/null || true)"
 RECORD="$(
   jq -nc \
     --arg ts "$TS" \
     --arg feature "$ACTIVE_FEATURE" \
     --arg agent "$AGENT_SHORT" \
+    --arg dh "$DIFF_HASH" \
     --argjson usage "$USAGE_JSON" \
     '{ts: $ts, feature: $feature, wave: null, iteration: null, agent: $agent, phase: "after"}
+     + (if $dh != "" then {diff_hash: $dh} else {} end)
      + ($usage
         | with_entries(select(.key as $k
             | ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]

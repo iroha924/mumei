@@ -27,6 +27,96 @@ mumei_review_detector_ext_re() {
   printf '%s' '\.(sh|bash|py|js|ts|jsx|tsx|cjs|mjs|cts|mts|rb|go|rs|java|yml|yaml|json|lock|toml)$|(^|/)(Dockerfile|Makefile|Gemfile|Pipfile|Cargo\.lock)(\.[^/]+)?$'
 }
 
+# Hash stdin deterministically, preferring shasum but falling back to
+# sha256sum then cksum so a host missing one tool does not silently yield
+# an empty hash (which would wedge the fail-closed push gate permanently).
+# Mirrors the tool-agnostic precedent in hooks/_lib/ledger.sh. Echoes the
+# hash hex/digits on the first field, or empty when no hasher exists.
+_mumei_review_sha256() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  elif command -v cksum >/dev/null 2>&1; then
+    cksum | awk '{print $1}'
+  else
+    printf ''
+  fi
+}
+
+# Deterministic content hash of the current review surface, used to anchor
+# a verdict to a repo state. The hash is computed identically at three
+# points — the SubagentStop cost-log writer, review-JSON persistence, and
+# the push-guard freshness check — so all three agree on which state was
+# reviewed.
+#
+# The anchor is the git TREE id of the working-tree snapshot, NOT a diff
+# against a base ref. A throwaway index (GIT_INDEX_FILE) is seeded from
+# HEAD then `git add -A`'d to snapshot the working tree, and `git write-tree`
+# records its tree object id. This is:
+#   - Commit-boundary stable: committing the reviewed changes does not
+#     alter the working-tree content, so the tree id (and hash) is identical
+#     whether a change lives in the working tree, the real index, or a commit.
+#   - Base-ref independent: there is no merge-base, so the degenerate
+#     single-branch case (HEAD == the only branch, no origin/HEAD) cannot
+#     collapse the surface to an empty diff and a constant hash. Any content
+#     change moves the tree id; an unchanged tree never moves it.
+# The real index is never touched.
+#
+# Echoes a hash on success, or empty string when git / HEAD is unavailable
+# (callers treat empty as "anchor not applicable" for non-git / no-commit
+# repos; the trace gate treats a missing anchor on a real review as
+# fail-closed separately).
+mumei_review_diff_hash() {
+  git rev-parse --git-dir >/dev/null 2>&1 || {
+    printf ''
+    return 0
+  }
+  # Need a HEAD commit to seed the snapshot index.
+  git rev-parse --verify --quiet HEAD >/dev/null 2>&1 || {
+    printf ''
+    return 0
+  }
+
+  local tmp_index tree
+  tmp_index="$(mktemp "${TMPDIR:-/tmp}/mumei-didx.XXXXXX")" || {
+    printf ''
+    return 0
+  }
+  if ! GIT_INDEX_FILE="$tmp_index" git read-tree HEAD 2>/dev/null ||
+    ! GIT_INDEX_FILE="$tmp_index" git add -A 2>/dev/null; then
+    rm -f "$tmp_index"
+    printf ''
+    return 0
+  fi
+  # Exclude mumei's own bookkeeping from the anchor. In an arranged project
+  # `.mumei/` is TRACKED (only `current` + `specs/*/state.json` are
+  # gitignored), and the review pipeline itself appends to cost-log.jsonl
+  # and writes reviews/ DURING the review — so leaving .mumei in the tree
+  # would move the hash on every SubagentStop and make the anchor diverge
+  # from itself, false-denying clearing pushes (Codex P1). The reviewed
+  # product (source + non-mumei docs) stays in the tree. No-op when .mumei
+  # is gitignored/untracked (the dev repo's own case).
+  GIT_INDEX_FILE="$tmp_index" git rm -r --cached --quiet -- .mumei >/dev/null 2>&1 || true
+  # Also exclude mumei's curated reviewer memory: the Stage 6.5 curation
+  # applies ADD/UPDATE to .claude/agent-memory/<reviewer>/MEMORY.md (tracked
+  # in an arranged project) AFTER the gating hash + reviewer records are
+  # produced, so leaving it in would move the anchor post-PASS and false-deny
+  # the next push (Codex P1). .claude/agent-memory-local/ is gitignored.
+  GIT_INDEX_FILE="$tmp_index" git rm -r --cached --quiet -- .claude/agent-memory >/dev/null 2>&1 || true
+  if ! tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree 2>/dev/null)"; then
+    rm -f "$tmp_index"
+    printf ''
+    return 0
+  fi
+  rm -f "$tmp_index"
+  [[ -n "$tree" ]] || {
+    printf ''
+    return 0
+  }
+  printf '%s' "$tree" | _mumei_review_sha256
+}
+
 # Locate the most recent prior review JSON in a review directory,
 # excluding detector reports. Echo path or empty.
 mumei_review_latest() {
@@ -334,96 +424,19 @@ mumei_review_aggregate_verdict() {
   printf '%s' 'PASS'
 }
 
-# Compute the next_iter_reviewers list from a surfaced findings array.
-# Always includes "adversarial". Echoes a JSON array.
+# next_iter_reviewers is always the full always-on set. A clearing verdict
+# requires every always-on reviewer to have run against the gating diff
+# (see mumei_review_trace_ok's per-reviewer diff_hash match), so each
+# iteration re-runs all three. The earlier HIGH-subset focusing +
+# permutation rotation was retired: a focused iter could never clear (a
+# skipped reviewer's after-record would carry an earlier diff_hash that no
+# longer matches the gating diff), so narrowing the set only burned
+# iterations.
 #
-# When prev_reviewers and feature/iter are supplied, rotate is
-# applied at the tail so the runtime pipeline never re-launches an
-# identical reviewer set two iterations in a row. Callers in iter 1 pass
-# `prev_reviewers="[]"` (no rotation possible).
-#
-# Args:
-#   $1 surfaced_findings_json  (JSON array)
-#   $2 prev_reviewers JSON     (optional; default "[]")
-#   $3 feature                 (optional; required for rotation)
-#   $4 iter                    (optional; required for rotation)
+# The surfaced / prev / feature / iter positional args are still accepted
+# for call-site compatibility, but ignored.
 mumei_review_compute_next_iter_reviewers() {
-  local surfaced_json="$1"
-  local prev_json="${2:-[]}"
-  local feature="${3:-}"
-  local iter="${4:-}"
-  local computed
-  computed="$(jq -c '
-    ([.[] | select(.severity == "HIGH" or .severity == "CRITICAL") | .reviewer]
-      + ["adversarial"])
-    | map(select(. != null and . != ""))
-    | unique
-  ' <<<"$surfaced_json" 2>/dev/null || printf '["adversarial"]')"
-
-  if [[ -n "$feature" ]] && [[ -n "$iter" ]]; then
-    mumei_review_rotate_reviewers "$prev_json" "$computed" "$feature" "$iter"
-  else
-    printf '%s' "$computed"
-  fi
-}
-
-# Rotate reviewers when iter N's planned set is a permutation of iter N-1's
-# Hash-based, stateless, deterministic for the same
-# (feature, iter, candidate-pool) tuple. Adversarial is always preserved
-# and excluded from the rotation pool.
-#
-# Args:
-#   $1 prev_reviewers JSON array  ([] for iter 1 → no rotation)
-#   $2 next_reviewers JSON array  (output of compute_next_iter_reviewers)
-#   $3 feature
-#   $4 iter
-#
-# Echoes the (possibly rotated) JSON array.
-mumei_review_rotate_reviewers() {
-  local prev_json="$1"
-  local next_json="$2"
-  local feature="$3"
-  local iter="$4"
-
-  # iter 1 has no prev set; nothing to rotate against.
-  if [[ -z "$prev_json" ]] || [[ "$prev_json" == "[]" ]]; then
-    printf '%s' "$next_json"
-    return 0
-  fi
-
-  local prev_sorted next_sorted
-  prev_sorted="$(jq -c 'sort' <<<"$prev_json" 2>/dev/null || echo '[]')"
-  next_sorted="$(jq -c 'sort' <<<"$next_json" 2>/dev/null || echo '[]')"
-
-  if [[ "$prev_sorted" != "$next_sorted" ]]; then
-    # Already different — no rotation needed.
-    printf '%s' "$next_json"
-    return 0
-  fi
-
-  # Full overlap → rotate. Pool excludes adversarial because the
-  # invariant already keeps it in next_json. Candidates are pool members
-  # not yet present in next_json.
-  local candidates
-  candidates="$(jq -nc --argjson next "$next_json" '
-    ["spec-compliance", "security"] - $next
-  ')"
-
-  local n_cand
-  n_cand="$(jq -r 'length' <<<"$candidates")"
-  if [[ "$n_cand" -eq 0 ]]; then
-    # Nothing to rotate to (e.g. next_json already covers the full pool).
-    printf '%s' "$next_json"
-    return 0
-  fi
-
-  # Hash-based deterministic pick.
-  local hex idx pick
-  hex="$(printf '%s' "${feature}:${iter}:${candidates}" | shasum -a 256 | cut -c1)"
-  idx=$(((16#$hex) % n_cand))
-  pick="$(jq -r --argjson i "$idx" '.[$i]' <<<"$candidates")"
-
-  jq -c --arg p "$pick" '. + [$p] | unique' <<<"$next_json"
+  printf '%s' '["spec-compliance","security","adversarial"]'
 }
 
 # Check the iter-N-all-PASS short-circuit.
@@ -463,6 +476,21 @@ mumei_review_should_short_circuit() {
   prev_verdict="$(jq -r '.verdict' "$prev_review")"
   prev_high="$(jq -r '[.findings_surfaced[] | select(.severity=="HIGH" or .severity=="CRITICAL")] | length' "$prev_review")"
   if [[ "$prev_verdict" == "PASS" ]] && [[ "$prev_high" == "0" ]]; then
+    # Only short-circuit on an ANCHORED clean PASS. A legacy clean PASS with
+    # no diff_hash must NOT be short-circuited: trace_ok fail-closes on the
+    # missing anchor, and skipping the iter would just stack another synthetic
+    # PASS on the same unanchored review, deadlocking the push (Codex P1).
+    # Returning 1 forces a real re-run that produces an anchored review.
+    local prev_dh
+    prev_dh="$(jq -r '.diff_hash // empty' "$prev_review" 2>/dev/null || true)"
+    [[ -z "$prev_dh" ]] && return 1
+    # Only short-circuit when the repo is UNCHANGED since that clean PASS.
+    # A stale anchored PASS (repo edited since) must force a real re-run: the
+    # synthetic PASS would carry prev_dh, which no longer matches the current
+    # tree, and push-guard would then deadlock on the mismatch (Codex P1).
+    local cur_dh
+    cur_dh="$(mumei_review_diff_hash 2>/dev/null || true)"
+    [[ -n "$cur_dh" && "$cur_dh" != "$prev_dh" ]] && return 1
     printf '%s' "$prev_review"
     return 0
   fi
@@ -539,23 +567,52 @@ mumei_review_trace_ok() {
     return 1
   fi
 
+  # diff-anchor: the gating review must carry the diff_hash it was
+  # produced against. A review with no diff_hash predates diff-anchor (or
+  # was hand-authored) — fail-closed: we cannot prove which state it
+  # reviewed.
+  local gh
+  gh="$(jq -r '.diff_hash // empty' "$gating" 2>/dev/null || true)"
+  if [[ -z "$gh" ]]; then
+    printf 'gating review %s has no diff_hash (predates diff-anchor / hand-authored); re-run the review against the current diff' \
+      "$(basename "$gating")"
+    return 1
+  fi
+
+  # Freshness: the repo state being pushed must match the diff the verdict
+  # was produced against. A re-edit after a clearing verdict moves the
+  # current hash away from the gating hash. An empty current hash (no
+  # base ref resolvable) means the anchor is not applicable here — skip the
+  # freshness comparison rather than block (matches mumei_review_diff_hash
+  # "anchor N/A" semantics); the per-reviewer trace below still applies.
+  local cur
+  cur="$(mumei_review_diff_hash 2>/dev/null || true)"
+  if [[ -n "$cur" && "$cur" != "$gh" ]]; then
+    printf 'working tree changed since review %s (gating diff %s, current %s); re-run the review against the current diff' \
+      "$(basename "$gating")" "${gh:0:12}" "${cur:0:12}"
+    return 1
+  fi
+
   if [[ ! -r "$cost_log" ]]; then
     printf 'no reviewer execution trace (cost-log.jsonl absent) backing %s' \
       "$(basename "$gating")"
     return 1
   fi
 
-  # Each baseline reviewer must have >=1 phase:"after" record for this
-  # feature. One streaming jq pass: `reduce inputs` accumulates the set of
-  # agents seen (no full-array materialisation), then echo the first
-  # required reviewer NOT in that set (empty when all present). fromjson?
-  # skips unparsable lines and `objects` drops non-object lines, so neither
-  # a corrupt nor a scalar line can throw a type error that truncates the
-  # stream. jq failure → fail-closed (treat as a missing reviewer).
+  # Each always-on reviewer must have >=1 phase:"after" record whose
+  # diff_hash matches the gating review's diff_hash — i.e. it actually ran
+  # against the state the verdict claims. A focused iter that skipped a
+  # baseline reviewer leaves that reviewer's latest after-record on an
+  # earlier diff_hash, so it counts as missing here (this is what makes the
+  # clearing iteration a full sweep). One streaming jq pass: `reduce inputs`
+  # accumulates the set of agents that ran against $gh, then echo the first
+  # required reviewer NOT in that set. fromjson? skips unparsable lines and
+  # `objects` drops non-object lines, so neither a corrupt nor a scalar line
+  # can throw. jq failure → fail-closed (treat as a missing reviewer).
   local missing
-  if ! missing="$(jq -rn -R '
+  if ! missing="$(jq -rn -R --arg gh "$gh" '
     (reduce (inputs | fromjson? | objects
-             | select(.phase == "after" and (.agent | type) == "string")
+             | select(.phase == "after" and .diff_hash == $gh and (.agent | type) == "string")
              | .agent) as $a ({}; .[$a] = true)) as $ran
     | (["adversarial-reviewer", "security-reviewer", "spec-compliance-reviewer"]
        | map(select($ran[.] | not)))
@@ -563,8 +620,58 @@ mumei_review_trace_ok() {
     missing="a baseline reviewer"
   fi
   if [[ -n "$missing" ]]; then
-    printf '%s has no cost-log record for this feature (review not backed by its execution)' \
+    printf '%s has no cost-log record matching the gating diff (review not backed by its execution against the current diff)' \
       "$missing"
+    return 1
+  fi
+  return 0
+}
+
+# Advisory completeness check for memory curation. Returns 0 (complete /
+# not-applicable) when the gating review emitted no memory_candidates, or a
+# memory-curator ran against the gating diff. Returns 1 with a message on
+# stdout when candidates were emitted but no curator ran for the gating
+# diff_hash — a silently-skipped curation. This is ADVISORY: callers warn,
+# they do NOT block (a skipped curation loses memory telemetry but does not
+# make the verdict hollow).
+mumei_review_curator_complete() {
+  local feature_dir="$1"
+  local review_dir="${feature_dir%/}/reviews"
+  local cost_log="${feature_dir%/}/cost-log.jsonl"
+  [[ -d "$review_dir" ]] || return 0
+
+  # Resolve the gating review (latest non-detector, non-short-circuit).
+  local gating="" f sc
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    [[ "$f" == *-shortcircuit.json ]] && continue
+    sc="$(jq -r '.short_circuited_from // empty' "$f" 2>/dev/null || true)"
+    [[ -n "$sc" ]] && continue
+    gating="$f"
+    break
+  done < <(find "$review_dir" -maxdepth 1 -type f -name '*.json' \
+    ! -name '*-detectors.json' 2>/dev/null | sort -r)
+  [[ -z "$gating" ]] && return 0
+
+  local cand
+  cand="$(jq -r '.memory_candidates_count // 0' "$gating" 2>/dev/null || echo 0)"
+  [[ "$cand" =~ ^[0-9]+$ ]] || cand=0
+  ((cand > 0)) || return 0 # no candidates emitted → nothing to curate
+
+  local gh
+  gh="$(jq -r '.diff_hash // empty' "$gating" 2>/dev/null || true)"
+  [[ -z "$gh" ]] && return 0 # no anchor → cannot check; stay silent
+
+  local ran=0
+  if [[ -r "$cost_log" ]]; then
+    ran="$(jq -rn -R --arg gh "$gh" '
+      reduce (inputs | fromjson? | objects
+              | select(.phase == "after" and .agent == "memory-curator" and .diff_hash == $gh)) as $c
+             (0; . + 1)' "$cost_log" 2>/dev/null || echo 0)"
+  fi
+  [[ "$ran" =~ ^[0-9]+$ ]] || ran=0
+  if ((ran == 0)); then
+    printf '%s reviewer memory candidate(s) were emitted but memory-curator has no cost-log record matching the gating diff' "$cand"
     return 1
   fi
   return 0

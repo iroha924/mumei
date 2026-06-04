@@ -269,15 +269,21 @@ mumei_state_init() {
   local feature="$1"
   local slug="$2"
   local id="$3"
+  local scratch_source="${4:-}"
   local sf
   sf="$(mumei_state_path "$feature")"
   [[ -f "$sf" ]] && return 0
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  # scratch_source records the exact scratch file this feature was created
+  # from, so /mumei:retire can co-move it even when the feature slug diverges
+  # from the scratch basename (collision -N suffix, rename). Omitted when no
+  # scratch was attached.
   jq -n \
     --arg id "$id" \
     --arg slug "$slug" \
     --arg now "$now" \
+    --arg scratch "$scratch_source" \
     '{
       id: $id,
       slug: $slug,
@@ -285,7 +291,17 @@ mumei_state_init() {
       current_wave: 0,
       created_at: $now,
       updated_at: $now
-    }' | mumei_state_write_full "$feature"
+    }
+    + (if $scratch != "" then {scratch_source: $scratch} else {} end)' |
+    mumei_state_write_full "$feature"
+}
+
+# Echo the recorded scratch_source path for a feature (either vehicle), or
+# empty when none was recorded (legacy features predating the field). Used
+# by /mumei:retire to co-move the originating scratch reliably.
+mumei_state_scratch_source() {
+  local feature="$1"
+  mumei_state_read_any "$feature" '.scratch_source' 2>/dev/null || true
 }
 
 # Initialize a plan-vehicle state.json under .mumei/plans/<slug>/.

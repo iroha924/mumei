@@ -74,6 +74,10 @@
       "minimum": 0,
       "description": "Cache MISS first-write (tokens that just landed in a new cache breakpoint). Anthropic canonical field.",
       "type": "integer"
+    },
+    "diff_hash": {
+      "description": "Content hash (git tree id of the working-tree snapshot) of the review surface the reviewer ran against, written on phase=after records by hooks/subagent-cost-log.sh. Optional: omitted when git/HEAD is unavailable; older records predate the field.",
+      "type": "string"
     }
   }
 }

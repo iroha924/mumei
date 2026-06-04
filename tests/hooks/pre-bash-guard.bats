@@ -27,10 +27,14 @@ _run_hook() {
 }
 
 # Emit one SubagentStop-shaped cost-log record. $1 agent, $2 feature
-# (default REQ-1-foo). iteration is null — the presence check ignores it.
+# (default REQ-1-foo), $3 diff_hash (default TDH). The diff-anchor trace
+# matches this against the gating review's diff_hash; tests run in a
+# non-git tmpdir so mumei_review_diff_hash returns empty and the freshness
+# comparison is skipped, leaving the per-reviewer diff_hash match in force.
+TDH="deadbeefdiff"
 _cost_record() {
-  printf '{"ts":"2026-01-01T00:00:00Z","feature":"%s","wave":null,"iteration":null,"agent":"%s","phase":"after","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n' \
-    "${2:-REQ-1-foo}" "$1"
+  printf '{"ts":"2026-01-01T00:00:00Z","feature":"%s","wave":null,"iteration":null,"agent":"%s","phase":"after","diff_hash":"%s","input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}\n' \
+    "${2:-REQ-1-foo}" "$1" "${3:-$TDH}"
 }
 # Local wrapper: delegate state.json to test_helper's _init_feature,
 # then add tasks.md content specific to this suite.
@@ -115,7 +119,7 @@ EOF
 @test "allows git push when PASS is backed by all baseline reviewer records (R2)" {
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  printf '{"verdict":"PASS","iteration":1}' \
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff"}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   # Every feature's baseline launches all three; each must have a record.
   {
@@ -132,7 +136,7 @@ EOF
 @test "denies git push when a clearing verdict has no reviewer-execution trace (hollow PASS) (R2)" {
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  printf '{"verdict":"PASS","iteration":1}' \
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff"}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   # No cost-log.jsonl → the PASS is hollow (no reviewer ran).
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
@@ -146,7 +150,7 @@ EOF
 @test "denies git push when a baseline reviewer has no cost-log record (partial trace) (R2)" {
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  printf '{"verdict":"PASS","iteration":1}' \
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff"}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   # adversarial + security ran, but spec-compliance has no record.
   {
@@ -164,7 +168,7 @@ EOF
 @test "allows git push when a malformed cost-log line precedes valid baseline records (R2)" {
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  printf '{"verdict":"PASS","iteration":1}' \
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff"}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   # A malformed object (non-string agent) + a bare scalar must be skipped,
   # not abort the scan and false-block the valid records that follow.
@@ -206,7 +210,7 @@ EOF
 @test "allows git push when the latest review is a short-circuit resting on a real review (R2)" {
   _init_feature_with_tasks
   mkdir -p .mumei/specs/REQ-1-foo/reviews
-  printf '{"verdict":"PASS","iteration":1,"short_circuited_from":null}' \
+  printf '{"verdict":"PASS","iteration":1,"short_circuited_from":null,"diff_hash":"deadbeefdiff"}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
   printf '{"verdict":"PASS","iteration":2,"short_circuited_from":".mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json"}' \
     >.mumei/specs/REQ-1-foo/reviews/2026-01-01T01-00-00Z-shortcircuit.json
@@ -251,7 +255,7 @@ EOF
   printf '%s\n' fix-login >.mumei/current
   jq -n '{vehicle:"plan",slug:"fix-login",phase:"done",task_created_count:1,task_completed_count:1,pending_review:true,created_at:"2026-01-01T00:00:00Z",updated_at:"2026-01-01T00:00:00Z"}' \
     >.mumei/plans/fix-login/state.json
-  printf '{"verdict":"PASS","iteration":1}' \
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff"}' \
     >.mumei/plans/fix-login/reviews/2026-01-01T00-00-00Z.json
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
   [ "$status" -eq 0 ]
@@ -266,7 +270,7 @@ EOF
   printf '%s\n' fix-login >.mumei/current
   jq -n '{vehicle:"plan",slug:"fix-login",phase:"done",task_created_count:1,task_completed_count:1,pending_review:true,created_at:"2026-01-01T00:00:00Z",updated_at:"2026-01-01T00:00:00Z"}' \
     >.mumei/plans/fix-login/state.json
-  printf '{"verdict":"PASS","iteration":1}' \
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff"}' \
     >.mumei/plans/fix-login/reviews/2026-01-01T00-00-00Z.json
   {
     _cost_record adversarial-reviewer fix-login
@@ -277,6 +281,81 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
   [ -z "$stderr" ]
+}
+
+@test "diff-anchor: denies git push after a re-edit since the PASS review (R2)" {
+  # Real git repo so the diff-anchor hash is live. .mumei/ (runtime state)
+  # and .input.json (the hook's stdin fixture) are gitignored so only the
+  # tracked source change moves the hash.
+  git init -q -b main .
+  git config user.email t@example.com
+  git config user.name tester
+  printf '.mumei/\n.input.json\n' >.gitignore
+  printf 'base\n' >base.txt
+  git add .gitignore base.txt && git commit -qm base
+  git switch -qc feature
+  printf 'reviewed change\n' >>base.txt
+
+  _init_feature REQ-1-foo review 1
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  gh="$(
+    source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/review.sh"
+    mumei_review_diff_hash
+  )"
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"%s"}' "$gh" \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+  {
+    _cost_record adversarial-reviewer REQ-1-foo "$gh"
+    _cost_record security-reviewer REQ-1-foo "$gh"
+    _cost_record spec-compliance-reviewer REQ-1-foo "$gh"
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
+
+  # Re-edit AFTER the review — the pushed state no longer matches the diff
+  # the verdict was produced against.
+  printf 'sneaky post-review edit\n' >>base.txt
+
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
+  [ "$decision" = "deny" ]
+  reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
+  [[ "$reason" == *"working tree changed"* ]]
+}
+
+@test "curator advisory: clearing push with skipped curation warns but allows (R2)" {
+  _init_feature_with_tasks
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff","memory_candidates_count":2}' \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+  # All three reviewers ran (trace clears), but no memory-curator record.
+  {
+    _cost_record adversarial-reviewer
+    _cost_record security-reviewer
+    _cost_record spec-compliance-reviewer
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision // "none"')"
+  [ "$decision" = "none" ]
+  ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext // ""')"
+  [[ "$ctx" == *"Advisory"* ]]
+  [[ "$ctx" == *"curation"* ]]
+}
+
+@test "curator advisory: clearing push with curation done emits no advisory (R2)" {
+  _init_feature_with_tasks
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  printf '{"verdict":"PASS","iteration":1,"diff_hash":"deadbeefdiff","memory_candidates_count":2}' \
+    >.mumei/specs/REQ-1-foo/reviews/2026-01-01T00-00-00Z.json
+  {
+    _cost_record adversarial-reviewer
+    _cost_record security-reviewer
+    _cost_record spec-compliance-reviewer
+    _cost_record memory-curator
+  } >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  _run_hook '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
 }
 
 @test "denies git push when phase=review but no review JSON exists yet (R2)" {

@@ -36,6 +36,15 @@
       "description": "git rev-parse HEAD at iter completion. Used by Stage 0 detector skip logic in iter N+1.",
       "type": "string"
     },
+    "diff_hash": {
+      "description": "Content hash of the review surface (git tree id of the working-tree snapshot) this review was produced against, from mumei_review_diff_hash. push-guard requires each always-on reviewer's cost-log after-record to carry a matching diff_hash and the repo state at push time to hash to the same value. Normally a sha256 hex; on hosts lacking shasum/sha256sum a cksum fallback is used, so the exact format is not constrained. Optional: omitted when git/HEAD is unavailable; older reviews predate the field.",
+      "type": "string"
+    },
+    "memory_candidates_count": {
+      "minimum": 0,
+      "description": "Total memory_candidates emitted across all reviewers this iter, stamped at Stage 6.5. push-guard's curator-completeness advisory uses it to tell 'no candidates' from 'candidates emitted but curation skipped'. Optional: omitted by reviews that ran no curation stage.",
+      "type": "integer"
+    },
     "verdict": {
       "anyOf": [
         {
