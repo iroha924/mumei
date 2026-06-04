@@ -84,8 +84,21 @@ mumei_review_diff_hash() {
     return 0
   }
   if ! GIT_INDEX_FILE="$tmp_index" git read-tree HEAD 2>/dev/null ||
-    ! GIT_INDEX_FILE="$tmp_index" git add -A 2>/dev/null ||
-    ! tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree 2>/dev/null)"; then
+    ! GIT_INDEX_FILE="$tmp_index" git add -A 2>/dev/null; then
+    rm -f "$tmp_index"
+    printf ''
+    return 0
+  fi
+  # Exclude mumei's own bookkeeping from the anchor. In an arranged project
+  # `.mumei/` is TRACKED (only `current` + `specs/*/state.json` are
+  # gitignored), and the review pipeline itself appends to cost-log.jsonl
+  # and writes reviews/ DURING the review — so leaving .mumei in the tree
+  # would move the hash on every SubagentStop and make the anchor diverge
+  # from itself, false-denying clearing pushes (Codex P1). The reviewed
+  # product (source + non-mumei docs) stays in the tree. No-op when .mumei
+  # is gitignored/untracked (the dev repo's own case).
+  GIT_INDEX_FILE="$tmp_index" git rm -r --cached --quiet -- .mumei >/dev/null 2>&1 || true
+  if ! tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree 2>/dev/null)"; then
     rm -f "$tmp_index"
     printf ''
     return 0
@@ -631,9 +644,9 @@ mumei_review_curator_complete() {
   local ran=0
   if [[ -r "$cost_log" ]]; then
     ran="$(jq -rn -R --arg gh "$gh" '
-      [inputs | fromjson? | objects
-       | select(.phase == "after" and .agent == "memory-curator" and .diff_hash == $gh)]
-      | length' "$cost_log" 2>/dev/null || echo 0)"
+      reduce (inputs | fromjson? | objects
+              | select(.phase == "after" and .agent == "memory-curator" and .diff_hash == $gh)) as $c
+             (0; . + 1)' "$cost_log" 2>/dev/null || echo 0)"
   fi
   [[ "$ran" =~ ^[0-9]+$ ]] || ran=0
   if ((ran == 0)); then

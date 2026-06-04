@@ -54,10 +54,11 @@ if ! declare -F mumei_hook_stats_record >/dev/null 2>&1; then
 fi
 
 # review.sh provides mumei_review_diff_hash, used to anchor each reviewer's
-# after-record to the repo state it ran against (REQ-29).
+# after-record to the repo state it ran against. Resolve via the exported
+# PLUGIN_ROOT (set by anchor.sh, sourced above) per the repo convention.
 # shellcheck disable=SC1091
 if ! declare -F mumei_review_diff_hash >/dev/null 2>&1; then
-  REVIEW_LIB="$(dirname "${BASH_SOURCE[0]}")/_lib/review.sh"
+  REVIEW_LIB="${PLUGIN_ROOT}/hooks/_lib/review.sh"
   if [[ -f "$REVIEW_LIB" ]]; then
     # shellcheck disable=SC1090
     source "$REVIEW_LIB"

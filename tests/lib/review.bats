@@ -438,6 +438,32 @@ _make_git_repo() {
   [ "$h1" != "$h2" ]
 }
 
+@test "diff_hash: P1 — tracked .mumei review artifacts do not move the anchor" {
+  # Arranged-project shape: .mumei is TRACKED (only current + specs/*/state.json
+  # are gitignored), so reviews/ and cost-log.jsonl are committed. The review
+  # pipeline appends to its own cost-log DURING the review; that self-mutation
+  # must NOT move the anchor (Codex P1), while a real source change must.
+  local d="${MUMEI_TEST_TMPDIR}/tracked-mumei"
+  mkdir -p "$d"
+  cd "$d" || return 1
+  git init -q -b main .
+  git config user.email t@example.com
+  git config user.name tester
+  mkdir -p .mumei/specs/REQ-1-foo/reviews
+  printf 'src\n' >app.txt
+  printf '{}\n' >.mumei/specs/REQ-1-foo/cost-log.jsonl
+  git add app.txt .mumei/specs/REQ-1-foo/cost-log.jsonl
+  git commit -qm base
+  h1="$(mumei_review_diff_hash)"
+  printf '{"agent":"x"}\n' >>.mumei/specs/REQ-1-foo/cost-log.jsonl
+  h2="$(mumei_review_diff_hash)"
+  [ -n "$h1" ]
+  [ "$h1" = "$h2" ]
+  printf 'edit\n' >>app.txt
+  h3="$(mumei_review_diff_hash)"
+  [ "$h1" != "$h3" ]
+}
+
 @test "diff_hash: hasher is deterministic and non-empty (F-002 fallback chain)" {
   a="$(printf 'hash-input-1' | _mumei_review_sha256)"
   b="$(printf 'hash-input-1' | _mumei_review_sha256)"
