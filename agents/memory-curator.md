@@ -1,6 +1,6 @@
 ---
 name: memory-curator
-description: Independent evaluator that scores a candidate memory entry from a reviewer agent against a 7-axis rubric (generality, recurrence, longevity, coverage_gap, actionability, density, confidence) and decides ADD / UPDATE / SKIP. Triggered by /mumei:proceed Phase 5 Stage 6 and /mumei:examine after each review-pipeline candidate is emitted; runs once per candidate. Read-only — never writes to memory; the orchestrator persists ADD/UPDATE via hooks/_lib/memory.sh atomic helpers.
+description: Independent evaluator that scores a candidate memory entry from a reviewer agent against a 7-axis rubric (generality, recurrence, longevity, coverage_gap, actionability, density, confidence) and decides ADD / UPDATE / SKIP. Triggered by /mumei:compose Phase 5 Stage 6 and /mumei:peruse after each review-pipeline candidate is emitted; runs once per candidate. Read-only — never writes to memory; the orchestrator persists ADD/UPDATE via hooks/_lib/memory.sh atomic helpers.
 tools: Read
 model: sonnet
 color: cyan

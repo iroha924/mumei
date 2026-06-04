@@ -11,8 +11,8 @@ description: |
   adjudication gate → class-aware fail-open verdict. Has ZERO side effects: it
   never creates `.mumei` state, never writes the ledger or agent memory, and
   never commits. Triggers on "/mumei:review", "review my diff", "review this PR
-  locally". For the full SDD workflow use /mumei:proceed; for plan-vehicle
-  review use /mumei:examine.
+  locally". For the full SDD workflow use /mumei:compose; for plan-vehicle
+  review use /mumei:peruse.
 allowed-tools: [Read, Grep, Glob, Bash, Task]
 argument-hint: "[base-ref] [spec-file]"
 disable-model-invocation: false
@@ -21,7 +21,7 @@ user-invocable: true
 
 <!--
 Role: standalone (detached) review entry point. Shares hooks/_lib/review.sh +
-detectors with /mumei:examine and /mumei:proceed Phase 5, but runs without any
+detectors with /mumei:peruse and /mumei:compose Phase 5, but runs without any
 feature dir and writes nothing under .mumei.
 Principle: fail-open, metadata-quarantined, evidence-gated. Same pipeline math
 as the vehicle reviews (mumei_review_apply_advisory_downgrade /
@@ -36,7 +36,7 @@ verdict in the conversation. No `.mumei` footprint, no commits, no memory writes
 ## When to use
 
 - The user wants a strong review of the current changes but is NOT driving the
-  feature through `/mumei:proceed` (spec) or `/mumei:examine` (plan).
+  feature through `/mumei:compose` (spec) or `/mumei:peruse` (plan).
 - The user keeps their own spec/SDD and wants mumei's detector + reviewer + gate
   pipeline on top of it (pass the spec file as the second argument).
 - A change too small to plan, where the user still wants the strongest review.
@@ -44,7 +44,7 @@ verdict in the conversation. No `.mumei` footprint, no commits, no memory writes
 ## When NOT to use
 
 - An active mumei feature is mid-flight and the user wants its lifecycle review —
-  use `/mumei:proceed` (spec) or `/mumei:examine` (plan) instead.
+  use `/mumei:compose` (spec) or `/mumei:peruse` (plan) instead.
 - The user wants findings persisted / phase advanced / archived — this skill is
   intentionally read-only.
 

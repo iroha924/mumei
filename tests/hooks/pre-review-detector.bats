@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Tests for hooks/pre-review-detector.sh — the skill-led Phase 0
-# entry point invoked by /mumei:proceed before reviewer fan-out.
+# entry point invoked by /mumei:compose before reviewer fan-out.
 #
 # Each test runs in a fresh tmpdir with a stubbed PATH so semgrep
 # and osv-scanner are simulated. The hook treats them as ground-truth

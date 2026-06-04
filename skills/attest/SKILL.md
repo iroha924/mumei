@@ -1,6 +1,6 @@
 ---
-name: assure
-description: "Render a detailed reliability view of a mumei feature — pass^3 over the most recent 10 trials plus a table of the last 10 trial rows from reliability-log.jsonl. Triggered only by explicit user invocation `/mumei:assure <feature>`. Reads .mumei/specs/<feature>/reliability-log.jsonl or .mumei/plans/<feature>/reliability-log.jsonl via hooks/_lib/reliability.sh. Exits non-zero with `feature not found: <feature>` to stderr when the feature directory is absent. The k=3 / window=10 parameters are fixed."
+name: attest
+description: "Render a detailed reliability view of a mumei feature — pass^3 over the most recent 10 trials plus a table of the last 10 trial rows from reliability-log.jsonl. Triggered only by explicit user invocation `/mumei:attest <feature>`. Reads .mumei/specs/<feature>/reliability-log.jsonl or .mumei/plans/<feature>/reliability-log.jsonl via hooks/_lib/reliability.sh. Exits non-zero with `feature not found: <feature>` to stderr when the feature directory is absent. The k=3 / window=10 parameters are fixed."
 allowed-tools: [Bash]
 disable-model-invocation: true
 argument-hint: "<feature>"
@@ -12,7 +12,7 @@ Render the reliability snapshot for one mumei feature so the user can judge whet
 
 ## Trigger
 
-User invokes `/mumei:assure <feature>` explicitly. The `<feature>` argument is a feature key — `REQ-N-<slug>` for spec vehicle, bare `<slug>` for plan vehicle. The skill is `disable-model-invocation: true`; it never fires from the model's own initiative.
+User invokes `/mumei:attest <feature>` explicitly. The `<feature>` argument is a feature key — `REQ-N-<slug>` for spec vehicle, bare `<slug>` for plan vehicle. The skill is `disable-model-invocation: true`; it never fires from the model's own initiative.
 
 ## What it does
 
@@ -26,10 +26,10 @@ User invokes `/mumei:assure <feature>` explicitly. The `<feature>` argument is a
 
 ## How to invoke
 
-Run the CLI implementation in `scripts/mumei-assure.sh` and print its stdout verbatim:
+Run the CLI implementation in `scripts/mumei-attest.sh` and print its stdout verbatim:
 
 ```bash
-bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-assure.sh" "$1"
+bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-attest.sh" "$1"
 ```
 
 The script handles the feature-not-found / missing-log / fewer-than-k-trials cases and writes the three blocks to stdout (errors to stderr). Do not reformat the output.

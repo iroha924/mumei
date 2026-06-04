@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# CLI implementation for /mumei:present [feature].
+# CLI implementation for /mumei:glance [feature].
 # Renders a one-line reliability summary for the active feature
 # (.mumei/current) or the specified feature.
 #
 # Usage:
-#   bash scripts/mumei-present.sh           # active feature
-#   bash scripts/mumei-present.sh <feature> # explicit feature
+#   bash scripts/mumei-glance.sh           # active feature
+#   bash scripts/mumei-glance.sh <feature> # explicit feature
 #
 # Exit codes:
 #   0 — always (no active feature is not an error per REQ-25.2.3)
@@ -14,7 +14,7 @@ set -u
 
 # Anchor cwd to the project root so .mumei/current and
 # .mumei/specs|plans/<feature>/ resolve correctly when invoked from a
-# subdirectory (Codex C3 / C4 fix — `/mumei:present` previously
+# subdirectory (Codex C3 / C4 fix — `/mumei:glance` previously
 # printed "no active feature" from any nested working dir). Prefer
 # Claude Code's CLAUDE_PROJECT_DIR env, then fall back to git
 # toplevel, then leave cwd alone.

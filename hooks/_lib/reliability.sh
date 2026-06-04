@@ -263,7 +263,7 @@ mumei_reliability_recent() {
   fi
 
   # fromjson? | objects filters non-object rows so downstream consumers
-  # (scripts/mumei-assure.sh table render) never see scalar JSON values
+  # (scripts/mumei-attest.sh table render) never see scalar JSON values
   # (Codex C14 fix).
   tail -n "$limit" "$logfile" |
     jq -Rs -c '[split("\n")[] | select(length > 0) | fromjson? | objects]' 2>/dev/null ||

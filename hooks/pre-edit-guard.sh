@@ -79,7 +79,7 @@ fi
 #   1. .mumei/current                               — active feature pointer
 #   2. .mumei/{specs,plans}/<f>/state.json          — phase / wave / counter state
 #   3. .mumei/specs/<f>/spec-reviews/*.json         — spec reviewer audit trail
-#   4. .mumei/{specs,plans}/<f>/reviews/*.json      — Phase 5 / /mumei:examine audit trail
+#   4. .mumei/{specs,plans}/<f>/reviews/*.json      — Phase 5 / /mumei:peruse audit trail
 # Same placement rationale as M1: harness state protection must hold
 # regardless of mumei session state. The orchestrator's bash mutators
 # (mumei_state_set / mumei_review_persist / etc.) use file ops that do
@@ -98,7 +98,7 @@ if [[ "$CANON_PATH" =~ /\.mumei/current$ ]] ||
     mumei_hook_stats_record "S1" "deny" "${TOOL_NAME:-Edit}" "Direct write to mumei harness state denied"
   fi
   jq -n --arg r "Direct write to ${FILE_PATH} is denied. mumei harness internal state (current pointer / state.json / spec-reviews / reviews) flows through orchestrator helpers in hooks/_lib/state.sh and hooks/_lib/review.sh." \
-    --arg c "Use /mumei:proceed or /mumei:examine to mutate state legitimately. Edits to requirements.md / design.md / tasks.md are not covered by this rule. Set MUMEI_BYPASS=1 only for emergency manual edits." \
+    --arg c "Use /mumei:compose or /mumei:peruse to mutate state legitimately. Edits to requirements.md / design.md / tasks.md are not covered by this rule. Set MUMEI_BYPASS=1 only for emergency manual edits." \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
   exit 0
 fi
@@ -145,7 +145,7 @@ FEATURE="$(mumei_current_feature 2>/dev/null || true)"
 # _Files: meta) which the plan vehicle lacks. The plan vehicle exits right
 # after the mumei_deny definition below, before any of them run.
 # Resolution goes through mumei_state_active_vehicle so dispatch is consistent
-# with pre-bash-guard.sh and skills/retire (spec wins on dual-state).
+# with pre-bash-guard.sh and skills/shelve (spec wins on dual-state).
 VEHICLE="$(mumei_state_active_vehicle "$FEATURE")"
 case "$VEHICLE" in
 spec | plan) ;;
@@ -191,7 +191,7 @@ if [[ "$FILE_PATH" == ".mumei/specs/${FEATURE}/design.md" ]]; then
   if [[ -f "$REQ_FILE" ]] && grep -q '\[NEEDS CLARIFICATION' "$REQ_FILE"; then
     mumei_deny \
       "requirements.md has unresolved [NEEDS CLARIFICATION] markers. Resolve them before drafting design." \
-      "Run /mumei:proceed to step through clarifications, or edit requirements.md directly to remove the markers." \
+      "Run /mumei:compose to step through clarifications, or edit requirements.md directly to remove the markers." \
       "P2"
   fi
 fi
@@ -202,7 +202,7 @@ if [[ "$FILE_PATH" == ".mumei/specs/${FEATURE}/tasks.md" ]]; then
   if [[ ! -f "$DESIGN_FILE" ]]; then
     mumei_deny \
       "design.md missing for feature ${FEATURE}. Generate design before tasks." \
-      "Run /mumei:proceed or create .mumei/specs/${FEATURE}/design.md first." \
+      "Run /mumei:compose or create .mumei/specs/${FEATURE}/design.md first." \
       "P3"
   fi
 fi
@@ -305,7 +305,7 @@ if [[ "$PHASE" == "plan" ]]; then
   if ! mumei_is_meta_path "$FILE_PATH"; then
     mumei_deny \
       "Cannot edit ${FILE_PATH} while phase=plan for feature ${FEATURE}. Complete the spec (requirements/design/tasks) first." \
-      "Current phase: plan. Approve all spec phases via /mumei:proceed, then phase will advance to implement." \
+      "Current phase: plan. Approve all spec phases via /mumei:compose, then phase will advance to implement." \
       "P1"
   fi
 fi

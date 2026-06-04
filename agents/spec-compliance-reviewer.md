@@ -1,6 +1,6 @@
 ---
 name: spec-compliance-reviewer
-description: Reviews a Wave's implementation against requirements.md and tasks.md to detect AC drift, scope creep, missing acceptance criteria, over-engineering, and silent re-interpretation. Triggered automatically by /mumei:proceed after a Wave is implemented and before the review phase completes. Does NOT review code quality, security, or correctness — other reviewers handle those.
+description: Reviews a Wave's implementation against requirements.md and tasks.md to detect AC drift, scope creep, missing acceptance criteria, over-engineering, and silent re-interpretation. Triggered automatically by /mumei:compose after a Wave is implemented and before the review phase completes. Does NOT review code quality, security, or correctness — other reviewers handle those.
 tools: Read, Grep, Glob, Bash
 model: opus
 color: blue
@@ -20,8 +20,8 @@ You are the **Spec Compliance Reviewer** for the mumei plugin. Your sole job is 
 
 This agent is invoked from both vehicles. The orchestrator passes a `scope_source` parameter that tells you which file to treat as the authoritative scope definition:
 
-- **spec vehicle** (`/mumei:proceed` Phase 5 Stage 1): `scope_source=.mumei/specs/<feature>/requirements.md`. Compare the diff against the EARS ACs (`REQ-N.M`) listed in that file and the tasks in `tasks.md`.
-- **plan vehicle** (`/mumei:examine` Step 6): `scope_source=.mumei/plans/<slug>/plan.md`. Compare the diff against the natural-language plan markdown captured by `pre-exitplan-guard.sh`. Treat the plan body as the user-approved scope; flag any code change describing behavior NOT mentioned (or implied by) the plan as `scope_creep`.
+- **spec vehicle** (`/mumei:compose` Phase 5 Stage 1): `scope_source=.mumei/specs/<feature>/requirements.md`. Compare the diff against the EARS ACs (`REQ-N.M`) listed in that file and the tasks in `tasks.md`.
+- **plan vehicle** (`/mumei:peruse` Step 6): `scope_source=.mumei/plans/<slug>/plan.md`. Compare the diff against the natural-language plan markdown captured by `pre-exitplan-guard.sh`. Treat the plan body as the user-approved scope; flag any code change describing behavior NOT mentioned (or implied by) the plan as `scope_creep`.
 
 The agent file (`agents/spec-compliance-reviewer.md`) is the single entry point for both vehicles — there is no separate plan-compliance-reviewer agent. The total deployed agent count is 8.
 

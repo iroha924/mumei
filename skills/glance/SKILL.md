@@ -1,6 +1,6 @@
 ---
-name: present
-description: "Render a one-line reliability summary of the active mumei feature (or a specified one). Prints `<feature> | pass^3: <value-or-N/A> (n=<n_trials>, window=10, k=3)` to stdout — exactly one line, no headers. Triggered only by explicit user invocation `/mumei:present` (no args reads `.mumei/current`) or `/mumei:present <feature>`. Outputs `no active feature` to stdout (not stderr) and exits 0 when `.mumei/current` is missing or points to a non-existent feature. Read-only via hooks/_lib/reliability.sh."
+name: glance
+description: "Render a one-line reliability summary of the active mumei feature (or a specified one). Prints `<feature> | pass^3: <value-or-N/A> (n=<n_trials>, window=10, k=3)` to stdout — exactly one line, no headers. Triggered only by explicit user invocation `/mumei:glance` (no args reads `.mumei/current`) or `/mumei:glance <feature>`. Outputs `no active feature` to stdout (not stderr) and exits 0 when `.mumei/current` is missing or points to a non-existent feature. Read-only via hooks/_lib/reliability.sh."
 allowed-tools: [Bash]
 disable-model-invocation: true
 argument-hint: "[feature]"
@@ -12,7 +12,7 @@ Surface the active feature's reliability in a single line so the user can check 
 
 ## Trigger
 
-User invokes `/mumei:present` (no args) or `/mumei:present <feature>`. The skill is `disable-model-invocation: true`; it never fires on the model's own initiative.
+User invokes `/mumei:glance` (no args) or `/mumei:glance <feature>`. The skill is `disable-model-invocation: true`; it never fires on the model's own initiative.
 
 ## What it does
 
@@ -30,10 +30,10 @@ User invokes `/mumei:present` (no args) or `/mumei:present <feature>`. The skill
 
 ## How to invoke
 
-Run the CLI implementation in `scripts/mumei-present.sh` and print its stdout verbatim:
+Run the CLI implementation in `scripts/mumei-glance.sh` and print its stdout verbatim:
 
 ```bash
-bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-present.sh" "${1:-}"
+bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-glance.sh" "${1:-}"
 ```
 
 The script always exits 0 (missing active feature is not an error). Do not reformat the output.

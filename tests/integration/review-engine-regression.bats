@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Integration regression guard for the shared review engine (REQ-27.17).
-# The standalone /mumei:review skill, /mumei:examine, and /mumei:proceed Phase 5
+# The standalone /mumei:review skill, /mumei:peruse, and /mumei:compose Phase 5
 # all drive the same hooks/_lib/review.sh + detector registry. These tests pin
 # the end-to-end engine contract so the fail-open change does not regress the
 # vehicle review paths beyond the intended behavior.

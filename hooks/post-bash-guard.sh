@@ -216,7 +216,7 @@ if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];|&])git[[:space:]]+commit([[
     _rel_pass="$(mumei_reliability_derive_pass "$_rel_log_dir" 600)"
     if [[ -z "$_rel_pass" ]]; then
       # No in-window test signal — skip the whole append (REQ-26.3). Emit a
-      # log + stat so a "/mumei:assure shows N/A forever" investigation can
+      # log + stat so a "/mumei:attest shows N/A forever" investigation can
       # tell a no-signal skip apart from a source failure (adversarial F-003).
       mumei_log_info "post-bash-guard: reliability append skipped for ${FEATURE} (no test signal in window)"
       if [[ -f "${CLAUDE_PLUGIN_ROOT:-}/hooks/_lib/hook-stats.sh" ]]; then

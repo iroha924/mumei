@@ -1,5 +1,5 @@
 ---
-name: arrange
+name: kindle
 description: One-time setup for a project to use mumei. Detects existing CLAUDE.md / .claude/rules/, proposes additions about mumei's expectations (phase gates, Wave commits, review pipeline), and applies them with user approval. Triggers when the user says "set up mumei", "install mumei", or "initialize mumei in this project".
 allowed-tools: [Read, Write, Edit, Glob, Grep, Bash]
 ---
@@ -21,8 +21,8 @@ Set up `mumei` for the current project. This skill is run **once** per project. 
 
 ## When to use
 
-- The user explicitly says "set up mumei", "install mumei in this project", or invokes `/mumei:arrange`.
-- The first time `/mumei:proceed` is invoked in a project where `.mumei/` does not exist (route to this skill first).
+- The user explicitly says "set up mumei", "install mumei in this project", or invokes `/mumei:kindle`.
+- The first time `/mumei:compose` is invoked in a project where `.mumei/` does not exist (route to this skill first).
 
 ## Method
 
@@ -85,11 +85,11 @@ This project uses [mumei](https://github.com/.../mumei) for spec-driven developm
 
 ### Workflow
 
-1. `/mumei:gather <topic>` — structured gathering before specing
-2. `/mumei:proceed <feature>` — generate requirements / design / tasks (each auto-reviewed by an independent spec-reviewer agent; single user approval gate at the end)
+1. `/mumei:glean <topic>` — structured gathering before specing
+2. `/mumei:compose <feature>` — generate requirements / design / tasks (each auto-reviewed by an independent spec-reviewer agent; single user approval gate at the end)
 3. Implement Wave by Wave; commit after each Wave completes
-4. `/mumei:proceed` re-invocation triggers the 4-stage review when all tasks are `[x]`
-5. `/mumei:retire <feature>` after the feature is done
+4. `/mumei:compose` re-invocation triggers the 4-stage review when all tasks are `[x]`
+5. `/mumei:shelve <feature>` after the feature is done
 
 ### Conventions
 
@@ -152,7 +152,7 @@ directly at any time.
 
 ### Step 7 — Detector binary check
 
-mumei's review pipeline (`/mumei:proceed` Stage 0) executes deterministic
+mumei's review pipeline (`/mumei:compose` Stage 0) executes deterministic
 detectors as ground truth before LLM reviewers run. These binaries are a
 hard prerequisite — the review-phase Hook will fail without them.
 
@@ -162,14 +162,14 @@ for b in semgrep osv-scanner; do
   command -v "$b" >/dev/null 2>&1 || missing+=("$b")
 done
 if (( ${#missing[@]} > 0 )); then
-  echo "WARNING: mumei requires the following binaries for /mumei:proceed review:"
+  echo "WARNING: mumei requires the following binaries for /mumei:compose review:"
   printf '  - %s\n' "${missing[@]}"
   echo
   echo "macOS:  brew install ${missing[*]}"
   echo "Linux:  see https://semgrep.dev/docs/getting-started"
   echo "        and https://github.com/google/osv-scanner/releases"
   echo
-  echo "Install before invoking /mumei:proceed, or set MUMEI_BYPASS=1"
+  echo "Install before invoking /mumei:compose, or set MUMEI_BYPASS=1"
   echo "to skip detectors (not recommended for production reviews)."
 fi
 ```
@@ -180,7 +180,7 @@ later, at review time.
 
 ### Step 8 — Suggest first feature
 
-> Setup complete. To create your first feature, run `/mumei:gather <topic>` for an interactive gathering, or `/mumei:proceed <feature-slug>` if you already know what you want.
+> Setup complete. To create your first feature, run `/mumei:glean <topic>` for an interactive gathering, or `/mumei:compose <feature-slug>` if you already know what you want.
 
 ## Idempotency
 

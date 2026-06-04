@@ -32,7 +32,7 @@ flowchart LR
 
 ## Risks
 
-- Risk: example drifts from the real `/mumei:proceed` template as the orchestrator
+- Risk: example drifts from the real `/mumei:compose` template as the orchestrator
   evolves.
   - Mitigation: the example is regenerated whenever the plan SKILL.md template
     changes; CI does not auto-verify drift, so this is a manual maintainer

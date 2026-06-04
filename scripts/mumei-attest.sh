@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# CLI implementation for /mumei:assure <feature>.
+# CLI implementation for /mumei:attest <feature>.
 # Renders detailed reliability view: pass^3 summary + recent 10 trials table.
 #
 # Usage:
-#   bash scripts/mumei-assure.sh <feature>
+#   bash scripts/mumei-attest.sh <feature>
 #
 # Exit codes:
 #   0 — feature found, output written to stdout
@@ -13,7 +13,7 @@ set -u
 
 # Anchor cwd to the project root so .mumei/specs/<feature>/ and
 # .mumei/plans/<feature>/ resolve correctly when invoked from a
-# subdirectory (Codex C3 / C4 fix — `/mumei:assure` previously
+# subdirectory (Codex C3 / C4 fix — `/mumei:attest` previously
 # returned "feature not found" from any nested working dir). Prefer
 # Claude Code's CLAUDE_PROJECT_DIR env, then fall back to git
 # toplevel, then leave cwd alone.
@@ -29,7 +29,7 @@ source "${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(realpath "$0")")")}/hooks/
 
 feature="${1:-}"
 if [[ -z "$feature" ]]; then
-  printf 'usage: /mumei:assure <feature>\n' >&2
+  printf 'usage: /mumei:attest <feature>\n' >&2
   exit 1
 fi
 

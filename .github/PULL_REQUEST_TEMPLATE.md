@@ -7,7 +7,7 @@
 <!--
 Why is this change needed? Link to the issue, the user-facing pain, or the
 mumei spec under .mumei/specs/ that drove this change. If this PR implements
-a Wave from a /mumei:proceed run, link to the requirements.md / tasks.md
+a Wave from a /mumei:compose run, link to the requirements.md / tasks.md
 locally and quote the affected REQ-N.M.
 -->
 

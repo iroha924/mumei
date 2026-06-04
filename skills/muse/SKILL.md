@@ -1,6 +1,6 @@
 ---
-name: reflect
-description: Generate a retrospective markdown for an archived (or about-to-be-archived) mumei feature. Reads requirements / design / tasks / spec-reviews / reviews / cost-log and emits reflect.md with AC count, Wave count, review iter counts, fix-spiral detection, token cost, cache hit rate, and hook firing breakdown. Triggered by the user invoking /mumei:reflect <feature> after /mumei:retire (or before, if explicitly requested). Read-only with respect to feature content; writes only the reflect.md output file.
+name: muse
+description: Generate a retrospective markdown for an archived (or about-to-be-archived) mumei feature. Reads requirements / design / tasks / spec-reviews / reviews / cost-log and emits muse.md with AC count, Wave count, review iter counts, fix-spiral detection, token cost, cache hit rate, and hook firing breakdown. Triggered by the user invoking /mumei:muse <feature> after /mumei:shelve (or before, if explicitly requested). Read-only with respect to feature content; writes only the muse.md output file.
 allowed-tools: [Read, Bash, Glob, Write]
 disable-model-invocation: true
 argument-hint: <feature>
@@ -12,8 +12,8 @@ Produce a single markdown document summarising a finished mumei feature so the t
 
 ## When to use
 
-- The user invokes `/mumei:reflect <feature>` after `/mumei:retire`.
-- The user invokes it on a `phase: done` feature before archival (rare; lets them edit the reflect.md before retire moves the docs).
+- The user invokes `/mumei:muse <feature>` after `/mumei:shelve`.
+- The user invokes it on a `phase: done` feature before archival (rare; lets them edit the muse.md before retire moves the docs).
 
 This skill is `disable-model-invocation: true` — only fires on explicit user request. Never auto-trigger.
 
@@ -31,7 +31,7 @@ Refuse with a clear message if none match.
 
 ```bash
 feature="$1"
-[[ -n "$feature" ]] || { echo "usage: /mumei:reflect <feature>" >&2; exit 1; }
+[[ -n "$feature" ]] || { echo "usage: /mumei:muse <feature>" >&2; exit 1; }
 
 # Resolve feature dir.
 feature_dir=""
@@ -55,17 +55,17 @@ if [[ ! -f "$cost_log" ]] || [[ "$(wc -c <"$cost_log")" -eq 0 ]]; then
   bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir" || true
 fi
 
-# Delegate the heavy lifting to scripts/generate-reflect.sh which knows
+# Delegate the heavy lifting to scripts/generate-muse.sh which knows
 # how to read all the input files (including the now-possibly-backfilled
 # cost-log.jsonl) and produce the markdown.
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/generate-reflect.sh" "$feature_dir"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/generate-muse.sh" "$feature_dir"
 ```
 
-The generator script writes `reflect.md` into `feature_dir`. Tell the user the path, then suggest committing it (when the feature lives under archive) or letting `/mumei:retire` carry it along (when it's still under specs/plans).
+The generator script writes `muse.md` into `feature_dir`. Tell the user the path, then suggest committing it (when the feature lives under archive) or letting `/mumei:shelve` carry it along (when it's still under specs/plans).
 
-The cost section in `reflect.md` reflects whatever ended up in `cost-log.jsonl` after the backfill attempt: forward-recorded entries (from the SubagentStop hook), backfilled entries (from session logs), or — when neither path produced data — `(no data)` with a stderr warning that historical cost is unavailable.
+The cost section in `muse.md` reflects whatever ended up in `cost-log.jsonl` after the backfill attempt: forward-recorded entries (from the SubagentStop hook), backfilled entries (from session logs), or — when neither path produced data — `(no data)` with a stderr warning that historical cost is unavailable.
 
-## Output structure (what generate-reflect.sh writes)
+## Output structure (what generate-muse.sh writes)
 
 ```markdown
 # <feature> retrospective
@@ -99,6 +99,6 @@ The cost section in `reflect.md` reflects whatever ended up in `cost-log.jsonl` 
 ## Don'ts
 
 - Don't fail when partial data is missing — emit the section with `(no data)` and move on. A feature aborted mid-Phase 1 still benefits from a reflect.
-- Don't auto-commit the reflect.md. Let the user edit lessons / suggestions, then commit themselves.
-- Don't re-trigger /mumei:retire from here. reflect is read-only with respect to the feature lifecycle.
-- Don't overwrite an existing reflect.md without confirmation. If `feature_dir/reflect.md` exists, suggest a timestamped sibling instead.
+- Don't auto-commit the muse.md. Let the user edit lessons / suggestions, then commit themselves.
+- Don't re-trigger /mumei:shelve from here. reflect is read-only with respect to the feature lifecycle.
+- Don't overwrite an existing muse.md without confirmation. If `feature_dir/muse.md` exists, suggest a timestamped sibling instead.

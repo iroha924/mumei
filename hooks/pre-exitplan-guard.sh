@@ -15,8 +15,8 @@
 #   Presence of `.mumei/current` is the opt-in marker. If the file is
 #   absent, this hook is a true no-op — it must NOT create `.mumei/`,
 #   state.json, or any other artifact. The marker is established by
-#   `/mumei:arrange` (creates an empty `.mumei/current`) or by
-#   `/mumei:proceed` (writes the resolved slug). Plan mode in projects
+#   `/mumei:kindle` (creates an empty `.mumei/current`) or by
+#   `/mumei:compose` (writes the resolved slug). Plan mode in projects
 #   that never opted in stays untouched.
 #
 # Slug derivation (only reached when `.mumei/current` exists):

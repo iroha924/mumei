@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared helpers for the mumei review pipeline. Used by both the
-# spec-vehicle Phase 5 in skills/proceed/SKILL.md and the plan-vehicle
-# /mumei:examine skill (skills/examine/SKILL.md).
+# spec-vehicle Phase 5 in skills/compose/SKILL.md and the plan-vehicle
+# /mumei:peruse skill (skills/peruse/SKILL.md).
 #
 # Functions are vehicle-agnostic: callers pass the review directory
 # explicitly (.mumei/specs/<feature>/reviews/ or
@@ -22,7 +22,7 @@ fi
 # Detector ext list — files matching this regex are considered relevant
 # for re-running semgrep/osv-scanner. iter 2+ skips the detector when
 # the diff against the previous iter's HEAD touched no matching file.
-# Kept in sync with skills/proceed/SKILL.md Phase 5 Stage 0 ext_re literal.
+# Kept in sync with skills/compose/SKILL.md Phase 5 Stage 0 ext_re literal.
 mumei_review_detector_ext_re() {
   printf '%s' '\.(sh|bash|py|js|ts|jsx|tsx|cjs|mjs|cts|mts|rb|go|rs|java|yml|yaml|json|lock|toml)$|(^|/)(Dockerfile|Makefile|Gemfile|Pipfile|Cargo\.lock)(\.[^/]+)?$'
 }

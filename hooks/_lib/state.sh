@@ -221,7 +221,7 @@ mumei_state_set_observed_head() {
 #     state machine just lost the resulting transition.
 #
 # Future inconsistencies should be added here rather than scattered
-# across hook handlers, so the orchestrator (/mumei:proceed) can call
+# across hook handlers, so the orchestrator (/mumei:compose) can call
 # this at startup as a single self-heal pass.
 mumei_state_reconcile() {
   local feature="$1"
@@ -276,7 +276,7 @@ mumei_state_init() {
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   # scratch_source records the exact scratch file this feature was created
-  # from, so /mumei:retire can co-move it even when the feature slug diverges
+  # from, so /mumei:shelve can co-move it even when the feature slug diverges
   # from the scratch basename (collision -N suffix, rename). Omitted when no
   # scratch was attached.
   jq -n \
@@ -298,7 +298,7 @@ mumei_state_init() {
 
 # Echo the recorded scratch_source path for a feature (either vehicle), or
 # empty when none was recorded (legacy features predating the field). Used
-# by /mumei:retire to co-move the originating scratch reliably.
+# by /mumei:shelve to co-move the originating scratch reliably.
 mumei_state_scratch_source() {
   local feature="$1"
   mumei_state_read_any "$feature" '.scratch_source' 2>/dev/null || true

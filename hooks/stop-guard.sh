@@ -2,13 +2,13 @@
 # Stop hook.
 # Rules covered:
 #   R1: session ending with every spec-vehicle task complete but no review run -> block
-#   R3: spec-vehicle phase=done while .mumei/current still active -> block to prompt /mumei:retire
+#   R3: spec-vehicle phase=done while .mumei/current still active -> block to prompt /mumei:shelve
 #   L-R1 (plan vehicle): pending_review=true with no PASS review JSON or no detector_report -> block
 #
 # Design principles:
 #   - Loop prevention: if stop_hook_active=true, exit 0 immediately.
-#   - On block: emit decision: block + reason, so Claude runs /mumei:proceed or
-#     /mumei:examine on the next turn.
+#   - On block: emit decision: block + reason, so Claude runs /mumei:compose or
+#     /mumei:peruse on the next turn.
 #   - escape: MUMEI_BYPASS=1 -> exit 0 immediately
 
 set -u
@@ -44,9 +44,9 @@ ACTIVE_VEHICLE="$(mumei_state_active_vehicle "$KEY")"
 # Trigger when the active vehicle is plan. The plan vehicle has no
 # Wave/task structure inside tasks.md; instead, all-tasks-completed is
 # signaled by pending_review=true (set by hooks/post-task-event.sh on
-# the Nth TaskCompleted that matches task_created_count). The /mumei:retire
+# the Nth TaskCompleted that matches task_created_count). The /mumei:shelve
 # prompt for phase=done plan-vehicle features is owned by the
-# /mumei:examine skill; the Stop hook only gates
+# /mumei:peruse skill; the Stop hook only gates
 # pending review, never phase=done.
 if [[ "$ACTIVE_VEHICLE" == "plan" ]]; then
   PLAN_PENDING="$(mumei_state_read_any "$KEY" '.pending_review')"
@@ -71,8 +71,8 @@ if [[ "$ACTIVE_VEHICLE" == "plan" ]]; then
     fi
 
     if [[ "$NEEDS_REVIEW" == "1" ]]; then
-      REASON="All planned tasks are complete for plan-vehicle feature ${KEY}, but no passing review exists. Run /mumei:examine before ending the session."
-      CONTEXT="pending_review=true but .mumei/plans/${KEY}/reviews/ has no review JSON with verdict=PASS. /mumei:examine runs Stage 0 detector + security-reviewer + adversarial-reviewer + per-issue validator on the current diff."
+      REASON="All planned tasks are complete for plan-vehicle feature ${KEY}, but no passing review exists. Run /mumei:peruse before ending the session."
+      CONTEXT="pending_review=true but .mumei/plans/${KEY}/reviews/ has no review JSON with verdict=PASS. /mumei:peruse runs Stage 0 detector + security-reviewer + adversarial-reviewer + per-issue validator on the current diff."
       jq -n --arg r "$REASON" --arg c "$CONTEXT" '{decision: "block", reason: $r, systemMessage: $c}'
       exit 0
     fi
@@ -82,14 +82,14 @@ if [[ "$ACTIVE_VEHICLE" == "plan" ]]; then
     # Same gate the spec-vehicle branch enforces below.
     REVIEW_NAME="$(basename "$LATEST_REVIEW")"
     if [[ ! -s "$LATEST_REVIEW" ]] || ! jq -e 'type' <"$LATEST_REVIEW" >/dev/null 2>&1; then
-      REASON="Plan-vehicle review ${REVIEW_NAME} is empty or not valid JSON. Delete or restore the file and re-run /mumei:examine."
-      CONTEXT="${LATEST_REVIEW} cannot be parsed by jq. Restore from git or delete and let /mumei:examine write a fresh review."
+      REASON="Plan-vehicle review ${REVIEW_NAME} is empty or not valid JSON. Delete or restore the file and re-run /mumei:peruse."
+      CONTEXT="${LATEST_REVIEW} cannot be parsed by jq. Restore from git or delete and let /mumei:peruse write a fresh review."
       jq -n --arg r "$REASON" --arg c "$CONTEXT" '{decision: "block", reason: $r, systemMessage: $c}'
       exit 0
     fi
     PLAN_DETECTOR_FILE="$(jq -r '.detector_report // empty' "$LATEST_REVIEW" 2>/dev/null || true)"
     if [[ -z "$PLAN_DETECTOR_FILE" || ! -f "$PLAN_DETECTOR_FILE" ]]; then
-      REASON="Plan-vehicle review ${REVIEW_NAME} has no resolvable detector_report — Stage 0 (deterministic detector run) was skipped. Re-run /mumei:examine."
+      REASON="Plan-vehicle review ${REVIEW_NAME} has no resolvable detector_report — Stage 0 (deterministic detector run) was skipped. Re-run /mumei:peruse."
       CONTEXT="The review JSON must include a top-level \"detector_report\" field whose value is a readable path to a detectors.json from hooks/pre-review-detector.sh. Either the field is missing, empty, or points to a file that no longer exists."
       jq -n --arg r "$REASON" --arg c "$CONTEXT" '{decision: "block", reason: $r, systemMessage: $c}'
       exit 0
@@ -109,15 +109,15 @@ fi
 PHASE="$(mumei_state_phase "$FEATURE")"
 
 # --- R3: phase=done while .mumei/current still points at the feature -> block and prompt archive ---
-# After the orchestrator (/mumei:proceed) advances phase=done with verdict=PASS,
+# After the orchestrator (/mumei:compose) advances phase=done with verdict=PASS,
 # this prevents the session from ending without telling the user to run
-# /mumei:retire. The retire skill is disable-model-invocation: true so Claude
+# /mumei:shelve. The retire skill is disable-model-invocation: true so Claude
 # cannot run it itself; we enforce it via this Hook.
 if [[ "$PHASE" == "done" ]]; then
   CURRENT="$(mumei_current_feature 2>/dev/null || true)"
   if [[ "$CURRENT" == "$FEATURE" ]]; then
-    REASON="Feature ${FEATURE} reached phase=done but is still active in .mumei/current. Run /mumei:retire ${FEATURE} to move the spec, or clear .mumei/current."
-    CONTEXT="The retire skill (/mumei:retire) is user-invocable only; the orchestrator cannot run it. Either invoke /mumei:retire to move the spec to .mumei/archive/<YYYY-MM>/, or clear .mumei/current to dismiss this gate."
+    REASON="Feature ${FEATURE} reached phase=done but is still active in .mumei/current. Run /mumei:shelve ${FEATURE} to move the spec, or clear .mumei/current."
+    CONTEXT="The retire skill (/mumei:shelve) is user-invocable only; the orchestrator cannot run it. Either invoke /mumei:shelve to move the spec to .mumei/archive/<YYYY-MM>/, or clear .mumei/current to dismiss this gate."
     jq -n --arg r "$REASON" --arg c "$CONTEXT" '{
       decision: "block",
       reason: $r,
@@ -187,7 +187,7 @@ else
 fi
 
 if [[ "$NEEDS_REVIEW" == "1" ]]; then
-  REASON="All tasks complete but review pending. Run /mumei:proceed to invoke the 4-stage review and per-issue validator before finishing."
+  REASON="All tasks complete but review pending. Run /mumei:compose to invoke the 4-stage review and per-issue validator before finishing."
   CONTEXT="Feature ${FEATURE} has all tasks marked [x] but no current review result exists in .mumei/specs/${FEATURE}/reviews/. The review phase is required before phase=done."
   jq -n --arg r "$REASON" --arg c "$CONTEXT" '{
     decision: "block",
@@ -217,8 +217,8 @@ fi
 # least one parseable JSON value, rejecting whitespace-only files).
 REVIEW_NAME="$(basename "$LATEST_REVIEW")"
 if [[ ! -s "$LATEST_REVIEW" ]] || ! jq -e 'type' <"$LATEST_REVIEW" >/dev/null 2>&1; then
-  REASON="Review ${REVIEW_NAME} is empty or not valid JSON. Delete or restore the file and re-run /mumei:proceed."
-  CONTEXT="${LATEST_REVIEW} cannot be parsed by jq. Likely causes: 0-byte truncated write (disk full, killed editor, network mount disconnected), manual edit with syntax error, or filesystem corruption. Either restore from git history (.mumei/specs/<feature>/reviews/ is tracked) or delete the file and let /mumei:proceed write a fresh review."
+  REASON="Review ${REVIEW_NAME} is empty or not valid JSON. Delete or restore the file and re-run /mumei:compose."
+  CONTEXT="${LATEST_REVIEW} cannot be parsed by jq. Likely causes: 0-byte truncated write (disk full, killed editor, network mount disconnected), manual edit with syntax error, or filesystem corruption. Either restore from git history (.mumei/specs/<feature>/reviews/ is tracked) or delete the file and let /mumei:compose write a fresh review."
   jq -n --arg r "$REASON" --arg c "$CONTEXT" '{
     decision: "block",
     reason: $r,
@@ -229,7 +229,7 @@ fi
 
 DETECTORS_FILE="$(jq -r '.detector_report // empty' "$LATEST_REVIEW" 2>/dev/null || true)"
 if [[ -z "$DETECTORS_FILE" || ! -f "$DETECTORS_FILE" ]]; then
-  REASON="Review ${REVIEW_NAME} has no resolvable detector_report — Stage 0 (deterministic detector run) was skipped. Re-run /mumei:proceed."
+  REASON="Review ${REVIEW_NAME} has no resolvable detector_report — Stage 0 (deterministic detector run) was skipped. Re-run /mumei:compose."
   CONTEXT="The review JSON must include a top-level \"detector_report\" field whose value is a readable path to a detectors.json from hooks/pre-review-detector.sh. Either the field is missing, empty, or points to a file that no longer exists. Detectors (semgrep, osv-scanner) provide ground-truth findings that LLM reviewers cannot replace."
   jq -n --arg r "$REASON" --arg c "$CONTEXT" '{
     decision: "block",

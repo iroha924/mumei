@@ -181,9 +181,9 @@ tasks:
   # Reflect — generate retrospective from archived features.
   # ---------------------------------------------------------------
   reflect:
-    desc: "Generate reflect.md from .mumei/archive/<YYYY-MM>/"
+    desc: "Generate muse.md from .mumei/archive/<YYYY-MM>/"
     cmds:
-      - bash scripts/generate-reflect.sh {{.CLI_ARGS}}
+      - bash scripts/generate-muse.sh {{.CLI_ARGS}}
 
   # ---------------------------------------------------------------
   # Doctor — verify required tools are installed. Fast smoke test for
@@ -244,8 +244,8 @@ tasks:
         echo "all required tools present"
 
   # ---------------------------------------------------------------
-  # Branch helper — guard against running /mumei:proceed on default branch.
-  # CLAUDE.md rule: must branch before invoking /mumei:proceed.
+  # Branch helper — guard against running /mumei:compose on default branch.
+  # CLAUDE.md rule: must branch before invoking /mumei:compose.
   # ---------------------------------------------------------------
   branch:guard:
     desc: "Refuse if currently on default branch (use before starting feature work)"

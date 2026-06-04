@@ -27,7 +27,7 @@ if [[ -d ".mumei/specs/${FEATURE}" ]]; then
 elif [[ -d ".mumei/plans/${FEATURE}" ]]; then
   STATE_PATH=".mumei/plans/${FEATURE}/state.json"
 else
-  printf '[mumei] post-compact warning: .mumei/current references "%s" but neither .mumei/specs/%s/ nor .mumei/plans/%s/ exists. Consider clearing .mumei/current or running /mumei:retire.\n' \
+  printf '[mumei] post-compact warning: .mumei/current references "%s" but neither .mumei/specs/%s/ nor .mumei/plans/%s/ exists. Consider clearing .mumei/current or running /mumei:shelve.\n' \
     "$FEATURE" "$FEATURE" "$FEATURE" >&2
   exit 0
 fi

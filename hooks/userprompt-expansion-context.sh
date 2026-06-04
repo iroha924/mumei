@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # UserPromptExpansion: inject retire-target feature summary
-# into `additionalContext` when /mumei:retire is invoked.
+# into `additionalContext` when /mumei:shelve is invoked.
 #
 # Reads the latest review JSON for the target feature and surfaces
 # verdict / Wave count / commit count so Claude can present an informative

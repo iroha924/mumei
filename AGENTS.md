@@ -378,4 +378,4 @@ validator time by the same rule applied in `agents/issue-validator.md`.
   Breaking change).
 - No `--no-verify`, `--force` push to `main`, or unsigned tags.
 - Branch first (`git switch -c <slug>`) before invoking
-  `/mumei:proceed <feature>` (mumei convention).
+  `/mumei:compose <feature>` (mumei convention).

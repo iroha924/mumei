@@ -8,7 +8,7 @@
 # HIGH/CRITICAL finding is always surfaced regardless of prior FP marks.
 #
 # Single-writer by design: the orchestrator appends from Phase 5 Stage 6 /
-# /mumei:examine (sequentially, after validation). The issue-validator is
+# /mumei:peruse (sequentially, after validation). The issue-validator is
 # read-only and never touches this file. The mkdir mutex (mirroring
 # memory.sh) only guards two concurrent mumei sessions reviewing different
 # features into the same project ledger.

@@ -2,7 +2,7 @@
 # Tests for hooks/stop-guard.sh.
 # Rule under test:
 #   R1 — all tasks marked [x] but no current review result → block, force the
-#        agent to run /mumei:proceed's review pipeline before phase=done.
+#        agent to run /mumei:compose's review pipeline before phase=done.
 
 bats_require_minimum_version 1.5.0
 
@@ -251,7 +251,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.decision')"
   [ "$decision" = "block" ]
   reason="$(printf '%s' "$output" | jq -r '.reason')"
-  [[ "$reason" == *"/mumei:retire"* ]]
+  [[ "$reason" == *"/mumei:shelve"* ]]
   [[ "$reason" == *"REQ-1-foo"* ]]
 }
 

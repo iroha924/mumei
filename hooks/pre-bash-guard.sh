@@ -553,7 +553,7 @@ fi
 #       (spec: phase=review; plan: pending_review=true). Pushing in
 #       this state would ship code that the harness has not vetted.
 #   (b) latest review verdict is MAJOR_ISSUES. Pre-existing rule;
-#       address findings via /mumei:proceed (spec) or /mumei:examine (plan)
+#       address findings via /mumei:compose (spec) or /mumei:peruse (plan)
 #       before retrying.
 #   (c) verdict clears the gate (not MAJOR_ISSUES) but is NOT backed by a
 #       reviewer-execution trace anchored to the pushed diff — i.e. a PASS
@@ -590,12 +590,12 @@ if mumei_is_git_push "$COMMAND"; then
   if [[ "$REQUIRES_REVIEW" == "1" ]] && [[ -z "$LATEST_REVIEW" ]]; then
     if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
       mumei_deny \
-        "Review pipeline has not run. Run /mumei:examine before pushing." \
+        "Review pipeline has not run. Run /mumei:peruse before pushing." \
         "Active feature: ${KEY}\nReview dir: ${REVIEW_DIR} (no <ts>.json found)" \
         "L-R2"
     else
       mumei_deny \
-        "Review pipeline has not run. Run /mumei:proceed to drive Phase 5 review before pushing." \
+        "Review pipeline has not run. Run /mumei:compose to drive Phase 5 review before pushing." \
         "Active feature: ${FEATURE} (phase=review)\nReview dir: ${REVIEW_DIR} (no <ts>.json found)" \
         "R2"
     fi
@@ -609,12 +609,12 @@ if mumei_is_git_push "$COMMAND"; then
       if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
         mumei_deny \
           "Review verdict: MAJOR_ISSUES. Address findings before pushing." \
-          "Latest review: ${LATEST_REVIEW}\nRun /mumei:examine to re-evaluate after fixing." \
+          "Latest review: ${LATEST_REVIEW}\nRun /mumei:peruse to re-evaluate after fixing." \
           "L-R2"
       else
         mumei_deny \
           "Review verdict: MAJOR_ISSUES. Address findings before pushing." \
-          "Latest review: ${LATEST_REVIEW}\nRun /mumei:proceed to address findings and re-review." \
+          "Latest review: ${LATEST_REVIEW}\nRun /mumei:compose to address findings and re-review." \
           "R2"
       fi
     else
@@ -628,12 +628,12 @@ if mumei_is_git_push "$COMMAND"; then
       if ! TRACE_REASON="$(mumei_review_trace_ok "$FEATURE_DIR")"; then
         if [[ "$IS_PLAN_VEHICLE" == "1" ]]; then
           mumei_deny \
-            "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:examine so the reviewers actually run against the current diff." \
+            "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:peruse so the reviewers actually run against the current diff." \
             "Latest review: ${LATEST_REVIEW}\nThe push-guard cross-checks cost-log.jsonl (written by the SubagentStop hook) for the always-on reviewer(s); a verdict written without launching them is rejected." \
             "L-R2"
         else
           mumei_deny \
-            "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:proceed Phase 5 so the reviewers actually run against the current diff." \
+            "Review verdict (${VERDICT}) is not backed by a reviewer-execution trace: ${TRACE_REASON}. Re-run /mumei:compose Phase 5 so the reviewers actually run against the current diff." \
             "Latest review: ${LATEST_REVIEW}\nThe push-guard cross-checks cost-log.jsonl (written by the SubagentStop hook) for the always-on reviewer(s); a verdict written without launching them is rejected." \
             "R2"
         fi

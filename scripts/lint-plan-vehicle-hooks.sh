@@ -4,8 +4,8 @@
 # Three Hook events MUST be present in hooks/hooks.json — without them
 # the plan vehicle silently breaks (no plan capture, no task counters,
 # no review-trigger gate). Each underlying script must also exist and
-# be executable. Finally, skills/examine/SKILL.md must exist with a
-# frontmatter delimiter so /mumei:examine is invocable.
+# be executable. Finally, skills/peruse/SKILL.md must exist with a
+# frontmatter delimiter so /mumei:peruse is invocable.
 #
 # Source-of-truth for pre-push and CI; both call this script.
 
@@ -30,14 +30,14 @@ for f in hooks/pre-exitplan-guard.sh hooks/post-task-event.sh; do
   }
 done
 
-[[ -f skills/examine/SKILL.md ]] ||
+[[ -f skills/peruse/SKILL.md ]] ||
   {
-    printf 'skills/examine/SKILL.md missing\n' >&2
+    printf 'skills/peruse/SKILL.md missing\n' >&2
     exit 1
   }
-[[ "$(head -1 skills/examine/SKILL.md)" == "---" ]] ||
+[[ "$(head -1 skills/peruse/SKILL.md)" == "---" ]] ||
   {
-    printf 'skills/examine/SKILL.md missing frontmatter\n' >&2
+    printf 'skills/peruse/SKILL.md missing frontmatter\n' >&2
     exit 1
   }
 

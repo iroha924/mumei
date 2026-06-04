@@ -23,7 +23,7 @@
 #
 # Per-feature cost-log.jsonl is intentionally NOT a target of
 # log-rotate.sh: the file moves with the feature into .mumei/archive/
-# via /mumei:retire, so its lifecycle is bounded by the feature itself.
+# via /mumei:shelve, so its lifecycle is bounded by the feature itself.
 
 set -u
 

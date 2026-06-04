@@ -29,15 +29,15 @@ mumei/
 │   ├── memory-curator.md
 │   └── property-author.md
 ├── skills/                 # user-invocable orchestration (9 skills)
-│   ├── proceed/            # /mumei:proceed — the orchestrator
-│   ├── gather/             # /mumei:gather — pre-spec Q&A
-│   ├── arrange/            # /mumei:arrange — one-time per-project setup
-│   ├── examine/            # /mumei:examine — plan-vehicle review pipeline
-│   ├── review/            # /mumei:review — standalone diff review (no .mumei side effects)
-│   ├── retire/             # /mumei:retire — move done features to archive/
-│   ├── reflect/            # /mumei:reflect — feature retrospective
-│   ├── assure/            # /mumei:assure — reliability audit (pass^k over the verify-log)
-│   └── present/            # /mumei:present — one-line reliability status for the active feature
+│   ├── compose/   # /mumei:compose — the orchestrator
+│   ├── glean/     # /mumei:glean — pre-spec Q&A
+│   ├── kindle/    # /mumei:kindle — one-time per-project setup
+│   ├── peruse/    # /mumei:peruse — plan-vehicle review pipeline
+│   ├── review/    # /mumei:review — standalone diff review (no .mumei side effects)
+│   ├── shelve/    # /mumei:shelve — move done features to archive/
+│   ├── muse/      # /mumei:muse — feature retrospective
+│   ├── attest/    # /mumei:attest — reliability audit (pass^k over the verify-log)
+│   └── glance/    # /mumei:glance — one-line reliability status for the active feature
 ├── hooks/                  # Hook handlers + shared bash library
 │   ├── hooks.json          # event registration: PreToolUse / PostToolUse / Stop / TaskCreated / TaskCompleted / UserPromptSubmit + PreCompact / PostCompact / SessionStart / SessionEnd / FileChanged / CwdChanged / InstructionsLoaded / UserPromptExpansion / ConfigChange / PostToolUseFailure / SubagentStart / SubagentStop
 │   ├── _lib/               # shared bash modules
@@ -47,7 +47,7 @@ mumei/
 │   │   ├── safe-grep.sh    # null-safe grep + git check-ignore helper
 │   │   ├── detectors.sh    # detector registry core + builtin semgrep / osv-scanner + severity normalizer
 │   │   ├── detectors-ext.sh # Tier1 (secret-scan / type-check / test-check) + Tier2 opt-in (opengrep / gosec / brakeman / codeql / bandit)
-│   │   ├── review.sh       # shared Phase 5 / /mumei:examine pipeline helpers
+│   │   ├── review.sh       # shared Phase 5 / /mumei:peruse pipeline helpers
 │   │   ├── ledger.sh       # cross-feature finding ledger (pillar C: move-resistant fingerprint + FP annotation, annotate-only)
 │   │   ├── residual.sh     # residual exposition (pillar D: deterministic aggregation of advisory/unsure/needs_*/valid_by_assertion + always-on ai-blindspot-ceiling)
 │   │   ├── memory.sh       # memory-curator atomic helpers (score → operation, validate, apply)
@@ -71,7 +71,7 @@ mumei/
 │   ├── post-edit-guard.sh  # I4 (phantom completion)
 │   ├── post-bash-guard.sh  # X1 (advisory: out-of-scope Bash writes) + X3 (Wave auto-advance on git commit + spec-vehicle reliability append, internal) + X5 (agent-run verify-log)
 │   ├── stop-guard.sh       # R1 / R3 + detector defense line
-│   ├── pre-review-detector.sh  # Stage 0 of /mumei:proceed review pipeline
+│   ├── pre-review-detector.sh  # Stage 0 of /mumei:compose review pipeline
 │   ├── userprompt-context-hint.sh  # UserPromptSubmit context hint
 │   ├── post-task-event.sh  # TaskCreated / TaskCompleted handler (plan-vehicle counters + plan-vehicle reliability append on TaskCompleted via shared helper)
 │   ├── pre-exitplan-guard.sh  # ExitPlanMode plan-vehicle init (L-P1)
@@ -81,7 +81,7 @@ mumei/
 │   ├── file-changed-validate.sh  # FileChanged: lint watched files on external edit
 │   ├── cwd-changed-detect.sh  # CwdChanged: notify when entering mumei project
 │   ├── instructions-loaded-audit.sh  # InstructionsLoaded: audit log of CLAUDE.md/rules loads
-│   ├── userprompt-expansion-context.sh  # UserPromptExpansion: enrich /mumei:retire with feature summary
+│   ├── userprompt-expansion-context.sh  # UserPromptExpansion: enrich /mumei:shelve with feature summary
 │   ├── config-change-audit.sh  # ConfigChange: audit + invalid JSON exit 2
 │   ├── session-end-audit.sh  # SessionEnd: session metadata audit log
 │   ├── post-tool-failure-audit.sh  # PostToolUseFailure: tool failure audit log
@@ -91,7 +91,7 @@ mumei/
 │   └── stop-cost-backfill.sh  # Stop (async): safety-net cost-backfill for SubagentStop hooks that lost the jsonl-flush race
 ├── scripts/
 │   ├── lint-tasks.sh       # X2 (advisory: tasks.md format)
-│   └── cost-backfill.sh    # /mumei:reflect: rebuild cost-log.jsonl from session logs
+│   └── cost-backfill.sh    # /mumei:muse: rebuild cost-log.jsonl from session logs
 ├── tests/                  # bats suite (CI on macOS + Ubuntu)
 ├── schemas/                # shared JSON Schemas (state / review / cost-log / config / plugin / reliability-log) — NOT shipped in plugin tarball
 └── README.md / README.ja.md / LICENSE / SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md / PRIVACY.md
@@ -104,12 +104,12 @@ mumei tracks each feature through four phases. State is persisted in
 
 ```mermaid
 stateDiagram-v2
-  [*] --> plan: /mumei:proceed <feature>
+  [*] --> plan: /mumei:compose <feature>
   plan --> implement: 3 reviewer PASS + user approval
   implement --> review: all tasks marked [x]
   review --> done: verdict = PASS
   review --> implement: verdict = MAJOR_ISSUES (fix + re-review)
-  done --> [*]: /mumei:retire
+  done --> [*]: /mumei:shelve
 ```
 
 Hooks gate every transition. The state machine is enforced at the OS boundary,
@@ -155,7 +155,7 @@ spec-vehicle rules.
 | L-P1 | plan-vehicle | PreToolUse(ExitPlanMode) | Opt-in gated on `.mumei/current` presence (nameless-butler stance). When opted in, capture the plan markdown into `.mumei/plans/<slug>/plan.md` and initialize plan-vehicle `state.json` (state mutation, not blocking)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `hooks/pre-exitplan-guard.sh` |
 | L-T1 | plan-vehicle | TaskCreated              | Increment `task_created_count` in plan-vehicle `state.json` (state mutation, not blocking)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `hooks/post-task-event.sh`    |
 | L-T2 | plan-vehicle | TaskCompleted            | Increment `task_completed_count`; when it reaches `task_created_count`, set `pending_review=true` (state mutation, not blocking)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `hooks/post-task-event.sh`    |
-| L-R1 | plan-vehicle | Stop                     | `pending_review=true` with no PASS review JSON or no `detector_report` — block until `/mumei:examine` produces a PASS verdict                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `hooks/stop-guard.sh`         |
+| L-R1 | plan-vehicle | Stop                     | `pending_review=true` with no PASS review JSON or no `detector_report` — block until `/mumei:peruse` produces a PASS verdict                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `hooks/stop-guard.sh`         |
 | L-R2 | plan-vehicle | PreToolUse(Bash)         | `git push` while latest plan-vehicle review verdict is `MAJOR_ISSUES`, OR a clearing verdict lacks a diff-anchored reviewer-execution trace in `cost-log.jsonl` (hollow or stale review — a baseline reviewer's `diff_hash` mismatches the gating review's, or a re-edit since the verdict) — deny; a clearing push also emits the same non-blocking curator advisory as R2                                                                                                                                                                                                                                                                                                                                                                                                                 | `hooks/pre-bash-guard.sh`     |
 
 The single escape hatch is `MUMEI_BYPASS=1` (env var). It short-circuits every
@@ -164,7 +164,7 @@ hook on entry. There is no per-rule bypass; this is intentional (see
 
 ## Reviewer pipeline (Phase 5)
 
-When `/mumei:proceed` enters phase=review, the orchestrator drives a 7-stage
+When `/mumei:compose` enters phase=review, the orchestrator drives a 7-stage
 pipeline. Stages 1, 4 are parallel; the rest are sequential.
 
 ```mermaid
@@ -218,7 +218,7 @@ Key constraints:
   in MEMORY.md atomically (`hooks/_lib/memory.sh`). Direct LLM
   Edit/Write to `.claude/agent-memory/<r>/MEMORY.md` is denied by the M1
   hook rule (above). The plan-vehicle equivalent runs as **Step 8.5** in
-  `/mumei:examine`.
+  `/mumei:peruse`.
 - **Grounding (advisory downgrade).** Reviewers must attach a falsifiable
   `trace` (input → bad-output / source → sink) to every HIGH/CRITICAL
   finding. The `issue-validator` evaluates it on a 4th `REPRODUCIBLE` axis;
@@ -273,10 +273,10 @@ mumei stores zero state outside the project tree. Everything lives under
 │   ├── design.md                 # Architecture + Wave Plan
 │   ├── tasks.md                  # Wave > Task hierarchy with _Files: _Depends: _Requirements:
 │   ├── state.json                # phase / current_wave / created_at / updated_at / scratch_source (gitignored)
-│   ├── spec-reviews/             # per-iteration JSON from spec-reviewers (created lazily by /mumei:proceed; absent on fresh features)
+│   ├── spec-reviews/             # per-iteration JSON from spec-reviewers (created lazily by /mumei:compose; absent on fresh features)
 │   └── reviews/                  # Phase 5 review results + detector reports
-├── archive/<YYYY-MM>/<feature>/  # completed features moved here by /mumei:retire
-└── scratch/<feature>.md          # /mumei:gather output (tracked, team-shared); co-moved into archive/<feature>/scratch.md by /mumei:retire via the recorded state.json scratch_source
+├── archive/<YYYY-MM>/<feature>/  # completed features moved here by /mumei:shelve
+└── scratch/<feature>.md          # /mumei:glean output (tracked, team-shared); co-moved into archive/<feature>/scratch.md by /mumei:shelve via the recorded state.json scratch_source
 ```
 
 The split `gitignored vs tracked` is precise:

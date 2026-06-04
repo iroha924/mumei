@@ -105,7 +105,7 @@ fi
 fs_skills_sorted=""
 if [[ -d "${ROOT}/skills" ]]; then
   # NF-1 of the matched path yields the skill directory name (e.g. plan from
-  # skills/proceed/SKILL.md). Avoids the find | xargs handoff (SC2038).
+  # skills/compose/SKILL.md). Avoids the find | xargs handoff (SC2038).
   fs_skills_sorted="$(find "${ROOT}/skills" -mindepth 2 -maxdepth 2 -name 'SKILL.md' 2>/dev/null |
     awk -F/ '{print $(NF-1)}' | sort -u)"
 fi

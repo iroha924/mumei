@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Reviews a Wave's diff for OWASP Top 10 vulnerabilities introduced in this change. Triggered automatically by /mumei:proceed after a Wave is implemented. Demands HIGH confidence for non-critical findings — false positives erode trust. Does NOT cover code quality, spec, or correctness.
+description: Reviews a Wave's diff for OWASP Top 10 vulnerabilities introduced in this change. Triggered automatically by /mumei:compose after a Wave is implemented. Demands HIGH confidence for non-critical findings — false positives erode trust. Does NOT cover code quality, spec, or correctness.
 tools: Read, Grep, Glob, Bash
 model: opus
 color: red

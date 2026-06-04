@@ -1,6 +1,6 @@
 ---
 name: property-author
-description: Writes a property-based test from an _Invariant declaration WITHOUT seeing the production implementation. Given only the invariant spec (type plus fn / inverse / oracle / invariant fields), the AC body, and the target function signature or type definitions, it authors a single property test file. Triggered by /mumei:proceed during implement phase for each AC that carries an _Invariant line. The generated test is frozen as a golden file so the implement actor cannot later edit it to match a flawed implementation.
+description: Writes a property-based test from an _Invariant declaration WITHOUT seeing the production implementation. Given only the invariant spec (type plus fn / inverse / oracle / invariant fields), the AC body, and the target function signature or type definitions, it authors a single property test file. Triggered by /mumei:compose during implement phase for each AC that carries an _Invariant line. The generated test is frozen as a golden file so the implement actor cannot later edit it to match a flawed implementation.
 tools: Read, Grep, Glob, Write
 model: sonnet
 color: purple

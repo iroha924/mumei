@@ -186,7 +186,7 @@
     ],
     "UserPromptExpansion": [
       {
-        "matcher": "^mumei:retire$",
+        "matcher": "^mumei:shelve$",
         "hooks": [
           {
             "type": "command",

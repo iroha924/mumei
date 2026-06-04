@@ -1,6 +1,6 @@
 ---
-name: proceed
-description: 'The mumei orchestrator. For new features, presents a vehicle picker — `spec` (full SDD workflow: clarification → requirements → design → tasks each auto-reviewed up to 3 iterations → single user approval → Wave-by-Wave implementation → 4-stage review) or `plan` (Claude Code plan-mode wrapper: hand off to plan mode, capture via hook, run /mumei:examine at the end). Resumes existing features automatically by detecting which vehicle''s state.json exists. Triggers when the user invokes /mumei:proceed <feature> or naturally asks to "plan", "spec", "design", or "implement" a feature with mumei. Always renders body content (User Story prose, AC bodies after EARS keywords, Assumptions, Open Questions, design narratives, task descriptions, Wave goals/verifies) in the user''s conversation language; English section headings, EARS keywords, REQ trace IDs, and [CONFIRMED]/[ASSUMPTION] annotations remain literal.'
+name: compose
+description: 'The mumei orchestrator. For new features, presents a vehicle picker — `spec` (full SDD workflow: clarification → requirements → design → tasks each auto-reviewed up to 3 iterations → single user approval → Wave-by-Wave implementation → 4-stage review) or `plan` (Claude Code plan-mode wrapper: hand off to plan mode, capture via hook, run /mumei:peruse at the end). Resumes existing features automatically by detecting which vehicle''s state.json exists. Triggers when the user invokes /mumei:compose <feature> or naturally asks to "plan", "spec", "design", or "implement" a feature with mumei. Always renders body content (User Story prose, AC bodies after EARS keywords, Assumptions, Open Questions, design narratives, task descriptions, Wave goals/verifies) in the user''s conversation language; English section headings, EARS keywords, REQ trace IDs, and [CONFIRMED]/[ASSUMPTION] annotations remain literal.'
 allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion]
 argument-hint: "<feature-slug>"
 ---
@@ -56,11 +56,11 @@ The same policy applies to `design.md` (architecture narratives, component descr
 ## Inputs
 
 - `<feature-slug>`: a kebab-case slug like `user-auth`. The internal ID becomes `REQ-N` where N is auto-assigned (next available integer).
-- Optional: `.mumei/scratch/<topic>.md` produced by `/mumei:gather` — used as starting context.
+- Optional: `.mumei/scratch/<topic>.md` produced by `/mumei:glean` — used as starting context.
 
 ## Phase awareness
 
-Before doing anything, detect whether this is a new feature, a resumed spec-vehicle feature, or a resumed plan-vehicle feature. mumei has two vehicles in parallel: **spec** (the full SDD workflow described below) and **plan** (a thin wrapper around Claude Code's plan mode + TaskCreate, governed by `/mumei:examine`). The orchestrator handles spec vehicle here; plan vehicle is initialized by the `pre-exitplan-guard.sh` hook and reviewed via the separate `/mumei:examine` skill.
+Before doing anything, detect whether this is a new feature, a resumed spec-vehicle feature, or a resumed plan-vehicle feature. mumei has two vehicles in parallel: **spec** (the full SDD workflow described below) and **plan** (a thin wrapper around Claude Code's plan mode + TaskCreate, governed by `/mumei:peruse`). The orchestrator handles spec vehicle here; plan vehicle is initialized by the `pre-exitplan-guard.sh` hook and reviewed via the separate `/mumei:peruse` skill.
 
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/hooks/_lib/state.sh"
@@ -75,7 +75,7 @@ key="$(mumei_current_feature 2>/dev/null || true)"
 if [[ -n "$key" ]] && mumei_state_is_plan_vehicle "$key"; then
   # Plan vehicle is active: this skill does not drive its lifecycle.
   # Tell the user to either continue normal plan-mode work, or run
-  # /mumei:examine when all TaskCompleted events have set pending_review=true.
+  # /mumei:peruse when all TaskCompleted events have set pending_review=true.
   vehicle="plan"
   plan_phase="$(mumei_state_read_any "$key" '.phase')"
   pending="$(mumei_state_read_any "$key" '.pending_review')"
@@ -94,14 +94,14 @@ Branching after detection:
 
 - `vehicle="new"`: enter **Phase 0** (vehicle / scratch / slug resolution) below.
 - `vehicle="plan"`: surface plan-vehicle status and stop.
-  - if `pending_review=true` and no PASS review JSON exists: tell the user to run `/mumei:examine`.
-  - if `phase=done`: tell the user to run `/mumei:retire <slug>`.
+  - if `pending_review=true` and no PASS review JSON exists: tell the user to run `/mumei:peruse`.
+  - if `phase=done`: tell the user to run `/mumei:shelve <slug>`.
   - otherwise: tell the user the plan-vehicle feature is in progress and point at the existing tasks in their plan-mode TaskList.
 - `vehicle="spec"`: existing spec-vehicle resume table:
   - `phase=plan`: continue from where the user left off (resume in the appropriate sub-phase by inspecting which spec docs and `spec-reviews/` files exist).
   - `phase=implement`: jump to Wave management.
   - `phase=review`: jump to review pipeline.
-  - `phase=done`: tell the user "feature is done, run `/mumei:retire` to clean up".
+  - `phase=done`: tell the user "feature is done, run `/mumei:shelve` to clean up".
 
 If `mumei_state_reconcile` reports an action to stderr (look for the `[mumei]` prefix), surface it to the user before proceeding so they understand why phase advanced without their visible action this turn.
 
@@ -175,7 +175,7 @@ or unparsable), present the standard picker:
 
 - `[1] spec — full SDD workflow (推奨: > 3 files OR > 100 lines / 複数 AC / cross-cutting)` — runs Phase 1.0–5 in this skill (requirements → design → tasks → implementation → review).
   - Best for: new features with significant scope.
-- `[2] plan — Claude plan mode wrapper (推奨: ≤ 3 files AND ≤ 100 lines / 単純な bug fix)` — uses Claude Code's native plan mode plus TaskCreate; mumei's review pipeline runs at the end via `/mumei:examine`.
+- `[2] plan — Claude plan mode wrapper (推奨: ≤ 3 files AND ≤ 100 lines / 単純な bug fix)` — uses Claude Code's native plan mode plus TaskCreate; mumei's review pipeline runs at the end via `/mumei:peruse`.
   - Best for: bug fixes, small features, or projects where the SDD workflow feels heavy.
 
 Record the chosen vehicle in a local variable. The quantitative bounds
@@ -229,7 +229,7 @@ State that gets carried into the hook:
 
 - if a scratch was attached, leave it in place (do not move or delete). The user may reference it during plan-mode drafting.
 
-After Phase 0.5, exit the skill. Subsequent task tracking, session-end blocks, and review trigger are owned by the plan-vehicle hooks (`post-task-event.sh`, `stop-guard.sh` L-R1) and the `/mumei:examine` skill.
+After Phase 0.5, exit the skill. Subsequent task tracking, session-end blocks, and review trigger are owned by the plan-vehicle hooks (`post-task-event.sh`, `stop-guard.sh` L-R1) and the `/mumei:peruse` skill.
 
 ## Approval model
 
@@ -262,7 +262,7 @@ feature_dir_key="${id}-${slug}"
 mkdir -p ".mumei/specs/${feature_dir_key}"
 mkdir -p ".mumei/specs/${feature_dir_key}/spec-reviews"
 # Pass the attached scratch path (Phase 0.1 `scratch_path`, empty when none)
-# as the 4th arg so it is recorded in state.json and /mumei:retire co-moves
+# as the 4th arg so it is recorded in state.json and /mumei:shelve co-moves
 # the exact scratch even if the slug later diverges from its basename.
 mumei_state_init "${feature_dir_key}" "${slug}" "${id}" "${scratch_path:-}"
 echo "${feature_dir_key}" > .mumei/current
@@ -278,7 +278,7 @@ Goal: drive the orchestrator's understanding to a level where it can write `requ
 
 Approach:
 
-1. **If `.mumei/scratch/<feature>.md` exists** (the user ran `/mumei:gather` first), read it and treat its `[CONFIRMED]` items as settled. Ask **only about residual gaps** — things that are `[ASSUMPTION]` / `[NEEDS CLARIFICATION]` / missing dimensions, plus anything the orchestrator notices is underspecified.
+1. **If `.mumei/scratch/<feature>.md` exists** (the user ran `/mumei:glean` first), read it and treat its `[CONFIRMED]` items as settled. Ask **only about residual gaps** — things that are `[ASSUMPTION]` / `[NEEDS CLARIFICATION]` / missing dimensions, plus anything the orchestrator notices is underspecified.
 
 2. **If no scratch exists**, drive clarification from zero. Cover the same axes gather covers (Goal / Scope / Constraints / Edges / Done).
 
@@ -358,7 +358,7 @@ For each AC, emit an inline `Examples:` block of zero, one, or two natural-langu
 - **Do NOT prompt the user via `AskUserQuestion` for each Example**. Draft examples directly from the AC's intent in a single pass; the user edits the markdown if corrections are needed.
 - **Keep actor and trigger consistent**: the actor named in each example MUST agree with the User Story actor; the trigger described MUST agree with the AC's `WHEN` / `WHILE` / `IF` / `WHERE` clause. `requirements-reviewer` flags `examples_coverage` HIGH findings on disagreement.
 
-This applies whether the user came via `/mumei:gather` (scratch attached, ACs imported with their existing Examples) or invoked `/mumei:proceed` directly (ACs drafted here for the first time). Both paths produce the same AC + Examples shape.
+This applies whether the user came via `/mumei:glean` (scratch attached, ACs imported with their existing Examples) or invoked `/mumei:compose` directly (ACs drafted here for the first time). Both paths produce the same AC + Examples shape.
 
 #### Scratch → Phase 1.2 Examples handoff rule
 
@@ -530,7 +530,7 @@ Generate `.mumei/specs/<feature>/tasks.md` from the design's Wave Plan:
 
 Each task MUST have `_Files:_`, `_Depends:_`, `_Requirements:_`. Each Wave MUST have `**Goal**:` and `**Verify**:`. The `tasks-reviewer` agent will block on missing meta.
 
-`**Depends-Feature**:` is optional. Add it only when the Wave's implementation references symbols, files, or interfaces from another feature (typically still in `.mumei/specs/<other>/` or already archived). When present, `/mumei:retire` refuses to move the depended-upon feature out of the active workspace until either this Wave's feature is also retired or the directive is removed. Use the bare `REQ-N` form to depend on whatever slug the dependency currently uses; use the compound `REQ-N-slug` form to pin to an exact dir.
+`**Depends-Feature**:` is optional. Add it only when the Wave's implementation references symbols, files, or interfaces from another feature (typically still in `.mumei/specs/<other>/` or already archived). When present, `/mumei:shelve` refuses to move the depended-upon feature out of the active workspace until either this Wave's feature is also retired or the directive is removed. Use the bare `REQ-N` form to depend on whatever slug the dependency currently uses; use the compound `REQ-N-slug` form to pin to an exact dir.
 
 #### Format invariants (enforced by the parser, not just the reviewer)
 
@@ -620,7 +620,7 @@ After all 3 spec-reviewers have returned `PASS`, present the package to the user
    ```
 
 5. On `Edit a section`: ask which section, edit it, re-run that section's reviewer, then re-present.
-6. On `Reject`: leave state as-is (`phase=plan`); the user can resume later by re-invoking `/mumei:proceed <feature>`.
+6. On `Reject`: leave state as-is (`phase=plan`); the user can resume later by re-invoking `/mumei:compose <feature>`.
 
 This is the single user approval gate. There is no per-spec approval before this point.
 
@@ -691,7 +691,7 @@ When `phase=review`, run the 7-stage pipeline. Stage 0 produces deterministic
 detector findings that the LLM reviewers treat as ground truth.
 
 This phase relies on shared helpers in `hooks/_lib/review.sh` (extracted in
-this lib so the plan-vehicle `/mumei:examine` skill can reuse them).
+this lib so the plan-vehicle `/mumei:peruse` skill can reuse them).
 Source the libs once at the top of Phase 5. `ledger.sh` MUST be sourced
 here (not lazily in Stage 6.4) because Stage 4 calls
 `mumei_ledger_fingerprint` / `mumei_ledger_prior_fp_count` before Stage 6:
@@ -1432,11 +1432,11 @@ mumei_state_set "$feature" '.phase' '"done"'
 
 After phase=done is set, the orchestrator MUST hand off to retire cleanup. Skipping this leaves stale specs in the active workspace and the user with no clear next step:
 
-1. **Tell the user the feature reached done** and prompt them to run `/mumei:retire <feature>` so the spec moves from `.mumei/specs/<feature>/` to `.mumei/archive/<YYYY-MM>/<feature>/`.
-2. **Do NOT clear `.mumei/current`.** Only `/mumei:retire` is allowed to mutate `.mumei/current` — see retire skill which auto-clears the file when retiring the currently-active feature. Clearing it elsewhere (orchestrator, manual edit) creates a session-handoff inconsistency where the next session sees no active feature even though the spec dir still exists.
-3. **Do NOT invoke `/mumei:retire` directly.** The retire skill is `disable-model-invocation: true` by design — it only runs on explicit user invocation. The orchestrator's job ends at the retire prompt.
+1. **Tell the user the feature reached done** and prompt them to run `/mumei:shelve <feature>` so the spec moves from `.mumei/specs/<feature>/` to `.mumei/archive/<YYYY-MM>/<feature>/`.
+2. **Do NOT clear `.mumei/current`.** Only `/mumei:shelve` is allowed to mutate `.mumei/current` — see retire skill which auto-clears the file when retiring the currently-active feature. Clearing it elsewhere (orchestrator, manual edit) creates a session-handoff inconsistency where the next session sees no active feature even though the spec dir still exists.
+3. **Do NOT invoke `/mumei:shelve` directly.** The retire skill is `disable-model-invocation: true` by design — it only runs on explicit user invocation. The orchestrator's job ends at the retire prompt.
 
-   In particular: do **NOT** call the `Skill` tool with `mumei:retire`, do **NOT** ask the user via `AskUserQuestion` whether to "trigger retire" (the user must type `/mumei:retire <feature>` themselves — there is no path the orchestrator can take to invoke it). The right behaviour is: print one line saying `Run /mumei:retire <feature> when ready`, then stop. Any attempt to wrap it in a tool call produces `Skill mumei:retire cannot be used with Skill tool due to disable-model-invocation` and wastes a turn.
+   In particular: do **NOT** call the `Skill` tool with `mumei:shelve`, do **NOT** ask the user via `AskUserQuestion` whether to "trigger retire" (the user must type `/mumei:shelve <feature>` themselves — there is no path the orchestrator can take to invoke it). The right behaviour is: print one line saying `Run /mumei:shelve <feature> when ready`, then stop. Any attempt to wrap it in a tool call produces `Skill mumei:shelve cannot be used with Skill tool due to disable-model-invocation` and wastes a turn.
 
 If `verdict == MAJOR_ISSUES` or `NEEDS_IMPROVEMENT`:
 
@@ -1447,7 +1447,7 @@ If `verdict == MAJOR_ISSUES` or `NEEDS_IMPROVEMENT`:
 
 ## Resumability
 
-If the user runs `/mumei:proceed <feature>` again at any point, read `state.json` and resume from the appropriate phase / sub-phase:
+If the user runs `/mumei:compose <feature>` again at any point, read `state.json` and resume from the appropriate phase / sub-phase:
 
 - `phase=plan` + `requirements.md` missing → resume Phase 1.1 (clarification).
 - `phase=plan` + `requirements.md` exists + no `spec-reviews/*-requirements.json` → resume Phase 1.3 (run reviewer).
@@ -1475,4 +1475,4 @@ Do NOT redo completed sub-phases unless the user explicitly says to.
 - Don't skip the spec-reviewer iteration loop. Even if a reviewer returns NEEDS_IMPROVEMENT after iteration 3, escalate to the user — do NOT silently continue.
 - Don't write findings directly to `state.json`. Findings live in `spec-reviews/` (Phase 1-3) and `reviews/` (Phase 5).
 - Don't read or write the legacy `coverage-check.json` file. The Coverage Check / extractor / validator pipeline was removed; its responsibility now lives in `requirements-reviewer`.
-- Don't try to invoke `/mumei:retire` via the `Skill` tool, and don't ask the user via `AskUserQuestion` whether to run it for them. The skill is `disable-model-invocation: true`; the only valid handoff is a one-line text instruction telling the user to type `/mumei:retire <feature>` themselves.
+- Don't try to invoke `/mumei:shelve` via the `Skill` tool, and don't ask the user via `AskUserQuestion` whether to run it for them. The skill is `disable-model-invocation: true`; the only valid handoff is a one-line text instruction telling the user to type `/mumei:shelve <feature>` themselves.

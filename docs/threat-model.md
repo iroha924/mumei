@@ -74,7 +74,7 @@ The implemented controls map onto the surfaces above:
   inside the release pipeline before signing.
 - **Static analysis**: CodeQL (`ci.yml` codeql job) and OpenSSF
   Scorecard (`scorecards.yml`) run on schedule; `semgrep` runs as
-  Stage 0 in the `/mumei:proceed` review pipeline.
+  Stage 0 in the `/mumei:compose` review pipeline.
 - **Release-time integrity**: tarballs are signed via Sigstore
   keyless signing, an SBOM (CycloneDX) is generated, and SLSA L3
   provenance is attached to every GitHub Release.

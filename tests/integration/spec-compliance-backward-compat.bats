@@ -8,9 +8,9 @@
 #   3. Existing AC categories (ac_drift / missing_ac / scope_creep /
 #      over_engineering / silent_reinterpretation) are preserved for
 #      spec-vehicle backward compatibility (REQ-17.7)
-#   4. skills/proceed/SKILL.md Phase 5 Stage 1 wires the spec-vehicle
+#   4. skills/compose/SKILL.md Phase 5 Stage 1 wires the spec-vehicle
 #      scope_source (REQ-17.5)
-#   5. skills/examine/SKILL.md Step 6 wires the plan-vehicle scope_source
+#   5. skills/peruse/SKILL.md Step 6 wires the plan-vehicle scope_source
 #      and removes the legacy skip (REQ-17.6)
 #   6. The total agents/*.md count remains at 8 — no new reviewer agent
 #      file was added (REQ-17.16)
@@ -59,31 +59,31 @@ load '../test_helper'
 
 # ─── Spec-vehicle wiring (REQ-17.5) ──────────────────────────
 
-@test "skills/proceed SKILL.md Phase 5 Stage 1 wires spec-vehicle scope_source" {
+@test "skills/compose SKILL.md Phase 5 Stage 1 wires spec-vehicle scope_source" {
   # The skill body discusses scope_source on one line and references
   # requirements.md on a nearby line — verify both tokens exist within
   # the same paragraph (3-line context grep).
-  grep -A2 'scope_source' "$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md" |
+  grep -A2 'scope_source' "$CLAUDE_PLUGIN_ROOT/skills/compose/SKILL.md" |
     grep -q 'requirements\.md'
 }
 
 # ─── Plan-vehicle wiring (REQ-17.6) ──────────────────────────
 
-@test "skills/examine SKILL.md Step 6 wires plan-vehicle scope_source" {
+@test "skills/peruse SKILL.md Step 6 wires plan-vehicle scope_source" {
   grep -qE 'scope_source=\.mumei/plans/.+/plan\.md' \
-    "$CLAUDE_PLUGIN_ROOT/skills/examine/SKILL.md"
+    "$CLAUDE_PLUGIN_ROOT/skills/peruse/SKILL.md"
 }
 
-@test "skills/examine SKILL.md Step 6 launches spec-compliance-reviewer" {
+@test "skills/peruse SKILL.md Step 6 launches spec-compliance-reviewer" {
   # Phrase: 'Task(subagent_type: "spec-compliance-reviewer", ...)'
   grep -qE 'subagent_type:[[:space:]]*"spec-compliance-reviewer"' \
-    "$CLAUDE_PLUGIN_ROOT/skills/examine/SKILL.md"
+    "$CLAUDE_PLUGIN_ROOT/skills/peruse/SKILL.md"
 }
 
-@test "skills/examine SKILL.md Step 8.5 includes spec-compliance in curator loop" {
+@test "skills/peruse SKILL.md Step 8.5 includes spec-compliance in curator loop" {
   # The for-loop should iterate over: spec-compliance security adversarial
   grep -qE 'for reviewer in spec-compliance security adversarial' \
-    "$CLAUDE_PLUGIN_ROOT/skills/examine/SKILL.md"
+    "$CLAUDE_PLUGIN_ROOT/skills/peruse/SKILL.md"
 }
 
 # ─── Agent count invariant (REQ-17.16) ───────────────────────

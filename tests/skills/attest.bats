@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# CLI test for /mumei:assure — scripts/mumei-assure.sh.
+# CLI test for /mumei:attest — scripts/mumei-attest.sh.
 # Verifies REQ-25.1.1 (3-block output format), REQ-25.1.2 (feature not
 # found → stderr + exit 1), REQ-25.1.3 (empty log → N/A stdout + exit 0).
 
@@ -18,13 +18,13 @@ teardown() {
 }
 
 _run_assure() {
-  bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-assure.sh" "$@"
+  bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-attest.sh" "$@"
 }
 
 @test "assure: usage error when no arg given (exit 1)" {
   run _run_assure
   [[ "$status" -eq 1 ]]
-  [[ "$output" == *"usage: /mumei:assure"* ]]
+  [[ "$output" == *"usage: /mumei:attest"* ]]
 }
 
 @test "assure: feature not found → stderr + exit 1 (REQ-25.1.2)" {

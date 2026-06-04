@@ -8,8 +8,8 @@
 # Regression target: issue #104 — without the opt-in gate, the hook
 # created .mumei/plans/<slug>/, .mumei/plans/<slug>/state.json, and
 # wrote a slug to .mumei/current in any project that uses Claude Code
-# plan mode, even when the user never invoked /mumei:arrange or
-# /mumei:proceed. The nameless-butler stance promised in the README was broken.
+# plan mode, even when the user never invoked /mumei:kindle or
+# /mumei:compose. The nameless-butler stance promised in the README was broken.
 
 bats_require_minimum_version 1.5.0
 
@@ -42,7 +42,7 @@ _plan_input() {
 
 @test "no .mumei/current → true no-op (no files created)" {
   # Simulate an arbitrary project that has the mumei plugin enabled but
-  # has never run /mumei:arrange or /mumei:proceed. No .mumei/ exists.
+  # has never run /mumei:kindle or /mumei:compose. No .mumei/ exists.
   local plan_file="${BATS_TEST_TMPDIR}/plan.md"
   printf '# my plan\n' >"$plan_file"
 
@@ -68,7 +68,7 @@ _plan_input() {
 # ─── opt-in present, empty (post-arrange, pre-proceed) ────────────────
 
 @test "opt-in via empty .mumei/current → bootstrap from planFilePath basename" {
-  # Matches the state /mumei:arrange leaves behind: empty .mumei/current.
+  # Matches the state /mumei:kindle leaves behind: empty .mumei/current.
   mkdir -p .mumei
   : >.mumei/current
 
@@ -93,7 +93,7 @@ _plan_input() {
 }
 
 @test "opt-in via .mumei/current with pre-set slug → reuse it (do not overwrite)" {
-  # Matches /mumei:proceed writing the resolved slug ahead of plan mode.
+  # Matches /mumei:compose writing the resolved slug ahead of plan mode.
   mkdir -p .mumei
   printf 'my-fixed-slug\n' >.mumei/current
 

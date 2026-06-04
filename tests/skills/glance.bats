@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# CLI test for /mumei:present — scripts/mumei-present.sh.
+# CLI test for /mumei:glance — scripts/mumei-glance.sh.
 # Verifies REQ-25.2.1 (one-line summary from .mumei/current), REQ-25.2.2
 # (one-line summary with explicit feature arg), REQ-25.2.3 (missing or
 # stale .mumei/current → "no active feature" stdout + exit 0).
@@ -19,7 +19,7 @@ teardown() {
 }
 
 _run_present() {
-  bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-present.sh" "$@"
+  bash "$CLAUDE_PLUGIN_ROOT/scripts/mumei-glance.sh" "$@"
 }
 
 @test "present: no .mumei/current → stdout 'no active feature' + exit 0 (REQ-25.2.3)" {

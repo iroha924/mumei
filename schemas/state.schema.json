@@ -85,11 +85,11 @@
       "type": "string"
     },
     "scratch_source": {
-      "description": "Path to the .mumei/scratch/<topic>.md this feature was created from, recorded at init. /mumei:retire co-moves this exact file into the archive even when the feature slug diverges from the scratch basename. Optional: omitted when no scratch was attached; legacy features predate the field.",
+      "description": "Path to the .mumei/scratch/<topic>.md this feature was created from, recorded at init. /mumei:shelve co-moves this exact file into the archive even when the feature slug diverges from the scratch basename. Optional: omitted when no scratch was attached; legacy features predate the field.",
       "type": "string"
     },
     "pending_review": {
-      "description": "Plan vehicle only. Set true by post-task-event.sh when the last TaskCompleted matches task_created_count; cleared by /mumei:examine on PASS.",
+      "description": "Plan vehicle only. Set true by post-task-event.sh when the last TaskCompleted matches task_created_count; cleared by /mumei:peruse on PASS.",
       "type": "boolean"
     },
     "task_created_count": {
@@ -103,7 +103,7 @@
       "type": "integer"
     },
     "review_runs": {
-      "description": "Plan vehicle only. Append-only history of review iterations driven by /mumei:examine.",
+      "description": "Plan vehicle only. Append-only history of review iterations driven by /mumei:peruse.",
       "type": "array",
       "items": {}
     },

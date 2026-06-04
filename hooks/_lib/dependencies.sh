@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cross-feature dependency queries (Phase D, REQ post-14). Wave-level
 # `**Depends-Feature**:` markers in tasks.md let one feature declare it
-# relies on another. /mumei:retire consults these functions before
+# relies on another. /mumei:shelve consults these functions before
 # moving a feature out of the active workspace so we don't archive a
 # dependency while a dependent is still in flight.
 #

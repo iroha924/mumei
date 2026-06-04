@@ -66,13 +66,13 @@ JSON
 # ─── skill body contract ──────────────────────────────────────
 
 @test "skill proceed body documents Stage 0 with the hook path" {
-  local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
+  local skill="$CLAUDE_PLUGIN_ROOT/skills/compose/SKILL.md"
   grep -q "Stage 0 — Detector run" "$skill"
   grep -q "hooks/pre-review-detector.sh" "$skill"
 }
 
 @test "skill proceed body documents fail-open: security-reviewer always launches" {
-  local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
+  local skill="$CLAUDE_PLUGIN_ROOT/skills/compose/SKILL.md"
   # Under fail-open (REQ-27.9) security-reviewer is NOT skipped on detector HIGH;
   # candidate detector findings flow through the Stage 4 gate instead.
   grep -qE "ALWAYS launches" "$skill"
@@ -80,13 +80,13 @@ JSON
 }
 
 @test "skill proceed body pins MAJOR_ISSUES on ground_truth detector findings (fail-open)" {
-  local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
+  local skill="$CLAUDE_PLUGIN_ROOT/skills/compose/SKILL.md"
   grep -q "Ground_truth detector findings present" "$skill"
   grep -q "MAJOR_ISSUES" "$skill"
 }
 
 @test "skill proceed body documents ground_truth inject block syntax" {
-  local skill="$CLAUDE_PLUGIN_ROOT/skills/proceed/SKILL.md"
+  local skill="$CLAUDE_PLUGIN_ROOT/skills/compose/SKILL.md"
   grep -q 'detector_findings ground_truth="true"' "$skill"
   # And the token-economy rule: do NOT inject when high_count == 0.
   grep -qE 'NOT.*inject|skip.*inject|absent' "$skill"

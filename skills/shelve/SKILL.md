@@ -1,6 +1,6 @@
 ---
-name: retire
-description: Moves a completed feature directory to .mumei/archive/<YYYY-MM>/<feature>/ once the feature reaches phase=done. Auto-detects the active vehicle by checking .mumei/specs/<feature>/ first, then .mumei/plans/<feature>/. Triggers when the user explicitly retires a feature or when /mumei:proceed or /mumei:examine finishes with verdict=PASS and the user confirms.
+name: shelve
+description: Moves a completed feature directory to .mumei/archive/<YYYY-MM>/<feature>/ once the feature reaches phase=done. Auto-detects the active vehicle by checking .mumei/specs/<feature>/ first, then .mumei/plans/<feature>/. Triggers when the user explicitly retires a feature or when /mumei:compose or /mumei:peruse finishes with verdict=PASS and the user confirms.
 disable-model-invocation: true
 allowed-tools: [Read, Write, Bash, Glob]
 argument-hint: <feature>
@@ -20,7 +20,7 @@ Move a completed feature out of the active workspace into the archive directory.
 
 ## When to use
 
-- The user explicitly invokes `/mumei:retire <feature>`.
+- The user explicitly invokes `/mumei:shelve <feature>`.
 - A feature has `phase: done` and the user is ready to clean up the active workspace.
 
 ## Pre-flight checks
@@ -30,7 +30,7 @@ Refuse with a clear error if any of these fail:
 1. `<feature>` slug must exist as a directory under either `.mumei/specs/` (spec vehicle) or `.mumei/plans/` (plan vehicle). Try specs/ first, then plans/. Refuse if neither has the slug.
 2. `state.json` must have `phase: "done"` (or `phase: "review"` with the latest review verdict `PASS`, with explicit confirmation).
 3. Working tree must be clean for files within the feature's `_Files:_` scope (spec vehicle only — plan vehicle has no `_Files:_` meta and skips this check).
-4. **`.mumei/current` is exclusively owned by this skill.** No other skill or hook may clear it. If `<feature>` is the active feature in `.mumei/current`, this skill auto-clears the file as part of the retire operation (see Method below). The "owned exclusively" rule prevents session-handoff inconsistency where a prior turn cleared `.mumei/current` while leaving the spec / plan dir behind, causing the next session to lose track of in-progress work.
+4. **`.mumei/current` is exclusively owned by this skill.** No other skill or hook may clear it. If `<feature>` is the active feature in `.mumei/current`, this skill auto-clears the file as part of the shelve operation (see Method below). The "owned exclusively" rule prevents session-handoff inconsistency where a prior turn cleared `.mumei/current` while leaving the spec / plan dir behind, causing the next session to lose track of in-progress work.
 
 ## Method
 
@@ -41,7 +41,7 @@ feature="$1"
 
 # auto-detect vehicle by directory existence. spec vehicle
 # (.mumei/specs/) takes precedence when both happen to exist; the slug
-# collision picker in /mumei:proceed is supposed to prevent that situation
+# collision picker in /mumei:compose is supposed to prevent that situation
 # in the first place.
 source_dir=""
 state_path=""
@@ -93,7 +93,7 @@ if [[ -e "${target_dir}/${feature}" ]]; then
   exit 1
 fi
 
-# Capture the gather scratch path BEFORE moving the source dir
+# Capture the glean scratch path BEFORE moving the source dir
 # (mumei_state_read_any no-ops once the dir is moved). Prefer the recorded
 # scratch_source — it survives a feature slug that diverged from the scratch
 # basename (collision -N suffix, rename), so the originating scratch is
@@ -113,7 +113,7 @@ git mv "$source_dir" "${target_dir}/${feature}" 2>/dev/null \
   || mv "$source_dir" "${target_dir}/${feature}" \
   || { echo "source dir move failed: ${source_dir}" >&2; exit 1; }
 
-# Move the gather scratch file alongside the spec / plan, if
+# Move the glean scratch file alongside the spec / plan, if
 # present. Vehicle-independent: plan vehicle uses the same scratch
 # co-move behaviour as spec vehicle.
 if [[ -n "$scratch_src" && -f "$scratch_src" ]]; then
