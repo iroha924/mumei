@@ -194,15 +194,25 @@ while IFS= read -r -d '' meta_path; do
 
   # Diff-anchor (REQ-30.2): recover the launch-time diff_hash from the
   # in-flight sidecar keyed by this subagent's agent_id (the meta filename is
-  # agent-<id>.meta.json). Line 2 of the sidecar is the launch hash; empty or
-  # absent → record stays unanchored (no stop-time recompute — Codex P1).
+  # agent-<id>.meta.json). Line 1 is the launch feature, line 2 the launch
+  # hash. Only use (and consume) a sidecar whose launch feature matches the
+  # feature being backfilled: a subagent for ANOTHER feature can fall inside
+  # this feature's mtime window, and trusting its hash would let feature B's
+  # reviewer run masquerade as feature A's execution trace if the diffs hash
+  # equal. Empty / absent / cross-feature → record stays unanchored (no
+  # stop-time recompute).
   agent_id="$(basename "$meta_path")"
   agent_id="${agent_id#agent-}"
   agent_id="${agent_id%.meta.json}"
   sidecar="${inflight_dir}/${agent_id}"
   launch_dh=""
+  sidecar_mine=0
   if [[ -f "$sidecar" ]]; then
-    launch_dh="$(sed -n 2p "$sidecar" 2>/dev/null | tr -d '[:space:]' || true)"
+    sc_feature="$(sed -n 1p "$sidecar" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ "$sc_feature" == "$feature_basename" ]]; then
+      sidecar_mine=1
+      launch_dh="$(sed -n 2p "$sidecar" 2>/dev/null | tr -d '[:space:]' || true)"
+    fi
   fi
 
   usage_json="$(
@@ -256,8 +266,9 @@ while IFS= read -r -d '' meta_path; do
   [[ -d "$(dirname "$cost_log")" ]] || continue
   printf '%s\n' "$record" >>"$cost_log" 2>/dev/null || continue
   appended=$((appended + 1))
-  # Consume the sidecar now that its launch diff_hash (if any) is recorded.
-  if [[ -f "$sidecar" ]]; then rm -f "$sidecar" 2>/dev/null || true; fi
+  # Consume the sidecar now that its launch diff_hash (if any) is recorded —
+  # only ours; a cross-feature sidecar is left for its own feature's backfill.
+  if [[ "$sidecar_mine" -eq 1 ]]; then rm -f "$sidecar" 2>/dev/null || true; fi
 done < <(find "$project_root" -type f -name '*.meta.json' -path '*/subagents/*' -print0 2>/dev/null)
 
 if [[ "$appended" -eq 0 ]]; then
