@@ -155,6 +155,10 @@ mtime_max=0
 # crashed session are tiny (<100B) gitignored files left in place — no
 # time-based sweep (it cannot tell a stale orphan from a live anchor in a
 # multi-day session, and orphan accumulation is negligible).
+# For an ARCHIVED feature_dir (/mumei:muse) this resolves to the wrong dir, but
+# anchoring is moot post-archive: the push gate (mumei_review_trace_ok) only
+# runs on the active feature and muse never reads diff_hash, so the missing
+# anchor and the unconsumed orphan there have no effect.
 inflight_dir="$(dirname "$(dirname "$feature_dir")")/in-flight-agents"
 
 # `find -print0 / read -d ''` keeps the loop safe on paths with spaces.
