@@ -19,6 +19,14 @@ _The butler with no name: it serves quietly, takes no credit, and holds the line
 
 [日本語版 README](./README.ja.md)
 
+## Why now
+
+As coding agents take over more of the writing, the bottleneck moves with it —
+from producing code to reviewing it, verifying it, and judging what "done"
+means. mumei is built for that shift: it pins those checks to the OS boundary,
+so they hold even when code arrives faster than anyone can read it. ([When AI
+Builds Itself](https://www.anthropic.com/institute/recursive-self-improvement))
+
 ## Why mumei
 
 A `CLAUDE.md` rule, a system prompt, a "please run the tests first" — these are
