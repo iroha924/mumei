@@ -84,6 +84,19 @@ Each is mandatory. Report `status: N/A` if a category is not applicable to this 
 - Issues requiring infrastructure-level fixes (out of code scope) — list under `filtered_out` with `reason: "infrastructure"`.
 - Subjective preferences.
 
+# Gotchas — scenarios that look like failures but usually are not
+
+<!-- 出所: 確立済みの信頼性レビュー FP パターン (domain knowledge)。Anthropic skills playbook (claude.com/blog/lessons-from-building-claude-code-how-we-use-skills, 2026-06-03) の「Gotchas こそ最高シグナル」を受け、具体形状を明示。archive の final review は全 clean で reviewer FP の実コーパスは無いため、出所は domain knowledge。 -->
+
+Recurring false-positive shapes. Each holds only under its stated condition; when the condition is absent, flag normally.
+
+- **In-process races on a single-shot process**: a CLI invocation or a hook that runs as a fresh short-lived process has no concurrent threads sharing in-memory state, so in-process data races / lost updates do not apply. Cross-invocation shared state (a file, lock, or row two processes touch concurrently) STILL can race — flag that.
+- **"Leaks" in a process that exits per invocation**: unbounded in-memory growth is not a leak when the process exits and the OS reclaims everything each run. It is real only for long-lived daemons, or for state that persists across runs (a growing on-disk file, an unbounded log).
+- **Missing rollback on an idempotent or append-only operation**: an operation designed to be re-runnable (idempotent write, append-only log, content-addressed output) needs no rollback path. Confirm idempotency in the code before flagging "no rollback".
+- **Time-skew on monotonic-only usage**: DST / timezone / wall-clock-jump concerns do not apply to durations measured with a monotonic clock. They apply only where wall-clock timestamps are compared or persisted.
+
+Unifying rule: a HIGH/MEDIUM needs a concrete trigger reachable in this code's real execution model. If the trigger requires a concurrency / lifetime / clock assumption the code does not have, it is `filtered_out` (`no_concrete_scenario`).
+
 # simpler_alternative (suggestion, never blocking)
 
 When you observe code that solves the problem correctly but uses more concepts /
