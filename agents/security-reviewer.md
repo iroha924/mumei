@@ -85,6 +85,20 @@ Map each to an OWASP ID:
 - A04 (Insecure Design) when context is insufficient — list under `filtered_out` with `reason: "needs_architecture_review"`.
 - A06 (Vulnerable Components) — Dependabot/Snyk handles this.
 
+# Gotchas — shapes that look vulnerable but usually are not
+
+<!-- 出所: 確立済みのセキュリティレビュー FP パターン (domain knowledge)。Anthropic skills playbook (claude.com/blog/lessons-from-building-claude-code-how-we-use-skills, 2026-06-03) の「Gotchas こそ最高シグナル」を受け、抽象原則ではなく具体形状を明示。mumei archive には reviewer FP の実コーパスは無い (全 final review が findings=0) ため、出所は domain knowledge。 -->
+
+Recurring false-positive shapes. Each is a FP only when its condition holds — when the condition is absent, flag normally. Do not let this list create blind spots.
+
+- **Identifier-only interpolation into SQL**: a string-built query is not injection when the only interpolated tokens are table/column names from a fixed allowlist and every data value uses a placeholder. Confirm the interpolated token cannot be user-controlled.
+- **Framework auto-escaped output**: a value rendered through a templating engine with auto-escaping on (JSX, most server templates) is not XSS. It is a finding only with an explicit raw bypass (`dangerouslySetInnerHTML`, `| safe`, raw concatenation into HTML).
+- **`eval` / `exec` / shell on a developer-controlled constant**: dynamic execution of a literal, or of a value derived solely from source-controlled constants, is not injection. Trace the argument to its origin; flag only when user/external input can reach it.
+- **Illustrative code**: a vulnerable-looking pattern inside a markdown fence, docstring, or `*.example` file is illustrative, not a live sink — unless the file is actually executed at runtime. This carve-out is about _patterns_; a real hardcoded secret in a committed fixture is still CRITICAL per A02/A03 above.
+- **Reflected value that never reaches a sink**: input read into a variable that is only logged or returned as a typed/escaped field is not injection. Require an actual unsafe sink (raw query, raw HTML, `exec`, outbound URL).
+
+Unifying rule: a finding needs a real, reachable sink AND a genuinely attacker-controllable source. If either is missing, it is `filtered_out`, not CRITICAL/HIGH.
+
 # Method
 
 1. Identify NEW input sources in the diff (handlers, params, file reads, queue messages).
