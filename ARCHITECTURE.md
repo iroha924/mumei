@@ -203,7 +203,7 @@ Key constraints:
   scope_creep, over_engineering, silent_reinterpretation); `plan.md` →
   plan-vehicle natural-language plan comparison (scope_creep and
   silent_reinterpretation only — no formal ACs). One agent file serves both
-  vehicles; the total deployed agent count remains at 8.
+  vehicles, so no separate plan-compliance-reviewer is added.
 - **Reviewers run on fresh contexts.** No reviewer sees its own prior runs;
   cross-context bleed is prevented structurally.
 - **`issue-validator` memory is `local` (read-only).** Parallel writes would

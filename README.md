@@ -54,7 +54,15 @@ _enforces_ rather than asks for:
 
 ## Installation
 
-mumei ships its own self-hosted marketplace. Inside Claude Code, run:
+Install from the community marketplace:
+
+```text
+/plugin marketplace add anthropics/claude-plugins-community
+/plugin install mumei@claude-community
+/reload-plugins
+```
+
+Or track the latest (main) from the self-hosted marketplace:
 
 ```text
 /plugin marketplace add hir4ta/mumei
@@ -68,7 +76,7 @@ After install, run the one-time per-project setup:
 /mumei:kindle
 ```
 
-Uninstall: `/plugin uninstall mumei@mumei` (the `.mumei/` directory in your project is left intact).
+Uninstall: `/plugin uninstall mumei@claude-community` (use `mumei@mumei` if you installed from the self-hosted marketplace; the `.mumei/` directory in your project is left intact).
 
 Prerequisites: `semgrep` + `osv-scanner` for the review-phase detectors. See [docs/getting-started.md → Prerequisites](./docs/getting-started.md#prerequisites) for install commands.
 

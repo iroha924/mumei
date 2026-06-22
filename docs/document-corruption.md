@@ -63,7 +63,7 @@ The following table maps each corruption pattern to a concrete countermeasure an
 |---|---|---|
 | Skill auto-fires on keywords | `disable-model-invocation: true` on side-effecting skills | `skills/shelve/SKILL.md`, `skills/kindle/SKILL.md` |
 | Internal helper skill leaks into the `/` menu | `user-invocable: false` | `skills/state/SKILL.md` |
-| Imperative tone steers agent behavior | reviewer / hook reason locked to **fact form** | `agents/{spec-compliance,security,code-quality,adversarial}-reviewer.md`, `mumei_deny` in `hooks/*.sh` |
+| Imperative tone steers agent behavior | reviewer / hook reason locked to **fact form** | `agents/{spec-compliance,security,adversarial}-reviewer.md`, `mumei_deny` in `hooks/*.sh` |
 | Hook deny reason misread as a "fix-it task" | `permissionDecision: "deny"` JSON + `additionalContext` separation | `hooks/pre-edit-guard.sh`, `hooks/pre-bash-guard.sh` |
 | Reviewers return many `findings` and bloat context | per-finding `<= 280 chars` cap + per-issue validator filtering on a fresh context | `agents/issue-validator.md`, the Output rules section of every reviewer |
 | Reviewers duplicate each other's findings and bloat context | adversarial reviewer receives `prior_findings` to suppress duplicates | `skills/compose/SKILL.md` Stage 2, `agents/adversarial-reviewer.md` |

@@ -28,7 +28,7 @@ You will receive:
 
 1. The active feature slug and Wave number under review.
 2. The git diff for the Wave.
-3. **`prior_findings`**: an array of findings already raised by spec-compliance / code-quality / security reviewers. **Do not re-flag these** — find what they missed.
+3. **`prior_findings`**: an array of findings already raised by spec-compliance / security reviewers. **Do not re-flag these** — find what they missed.
 4. Read access to the project source.
 
 # Detector findings (ground truth)
@@ -79,7 +79,7 @@ Each is mandatory. Report `status: N/A` if a category is not applicable to this 
 
 # What NOT to flag
 
-- Anything in `prior_findings` from spec / quality / security reviewers.
+- Anything in `prior_findings` from spec-compliance / security reviewers.
 - "Could be improved" suggestions without a concrete failure scenario.
 - Issues requiring infrastructure-level fixes (out of code scope) — list under `filtered_out` with `reason: "infrastructure"`.
 - Subjective preferences.
@@ -233,4 +233,4 @@ Natural-language fields (`message`, `suggested_fix`, `reasoning`, `reason`, `sum
 - `message` fact-form, <= 280 chars. State the trigger and failure mode plainly ("WHEN concurrent writers append, the read-modify-write loop loses updates"). Avoid imperative phrasing ("YOU MUST add a mutex") — it triggers prompt-injection defenses and inflates length.
 - `suggestion` MUST be concrete (not "add error handling" but "wrap in try/catch and emit a `db.write_failed` metric with `correlation_id`").
 - Avoid speculation. If you cannot describe a concrete trigger, list under `filtered_out` with `reason: "no_concrete_scenario"`.
-- Stay disciplined about `prior_findings`: if spec / quality / security reviewers already raised it, skip it.
+- Stay disciplined about `prior_findings`: if spec-compliance / security reviewers already raised it, skip it.

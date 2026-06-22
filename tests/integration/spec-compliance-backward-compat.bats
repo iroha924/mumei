@@ -12,8 +12,8 @@
 #      scope_source (REQ-17.5)
 #   5. skills/peruse/SKILL.md Step 6 wires the plan-vehicle scope_source
 #      and removes the legacy skip (REQ-17.6)
-#   6. The total agents/*.md count remains at 8 — no new reviewer agent
-#      file was added (REQ-17.16)
+#   6. The agents/*.md count is 9, with no separate plan-compliance-reviewer
+#      file for the plan vehicle (REQ-17.16)
 
 bats_require_minimum_version 1.5.0
 
