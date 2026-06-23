@@ -28,9 +28,10 @@ on the next tool invocation (Hook reload may need `/reload-plugins` in some
 versions of Claude Code).
 
 The repository is split into **distributable artifacts** (English-only, shipped to
-plugin users) and **dev-only files** (Japanese, gitignored). The boundary rules
-and language conventions live in the project-local `CLAUDE.md` (also gitignored)
-that the maintainer keeps in sync with this guide.
+plugin users) and **dev-only files** (Japanese, gitignored). The full boundary
+rules, language conventions, bash/jq conventions, and review rubric are documented
+in [AGENTS.md](./AGENTS.md) — tracked and English, it is the canonical conventions
+reference for both human and AI contributors. Read it before your first PR.
 
 ## Required tooling
 
@@ -176,12 +177,12 @@ are generated from the subject line alone, and bot-style attribution adds noise.
 
 ## Pull request workflow
 
-`main` has no server-side branch protection, but the project's
-development rule **requires every change to go through a pull request**
-so the CI checks below run on the diff before merge. Direct pushes to
-`main` are not allowed by convention, even though they are not
-technically blocked. External contributors fork; the maintainer
-creates a topic branch in this repo.
+`main` is protected (required status checks, required conversation
+resolution, and `enforce_admins: true`), so **every change must go
+through a pull request** — direct pushes are blocked for everyone,
+including the maintainer. The CI checks below run on the diff before
+merge. External contributors fork; the maintainer creates a topic
+branch in this repo.
 
 1. **Branch first, then plan.** Fork or branch from `main`
    (`git checkout -b feat/your-feature`; the branch-name prefix should
