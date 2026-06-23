@@ -12,4 +12,4 @@
 #     --generate-hashes --strip-extras --allow-unsafe \
 #     --output-file=.github/requirements/semgrep-release/requirements.txt \
 #     .github/requirements/semgrep-release/requirements.in
-semgrep==1.163.0
+semgrep==1.167.0
