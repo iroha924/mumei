@@ -212,3 +212,41 @@ EOF
   run mumei_tasks_wave_complete "REQ-missing" "1"
   [ "$status" -ne 0 ]
 }
+
+# ─── deletion marker (_Files: -path) ──────────────────────────
+
+@test "mumei_tasks_file_is_deletion recognizes a -path marker" {
+  run mumei_tasks_file_is_deletion "-dashboard/"
+  [ "$status" -eq 0 ]
+}
+
+@test "mumei_tasks_file_is_deletion rejects a bare - placeholder" {
+  run mumei_tasks_file_is_deletion "-"
+  [ "$status" -ne 0 ]
+}
+
+@test "mumei_tasks_file_is_deletion rejects a normal path" {
+  run mumei_tasks_file_is_deletion "src/a.ts"
+  [ "$status" -ne 0 ]
+}
+
+@test "mumei_tasks_owners_of_file strips the deletion marker when matching" {
+  # A "-path" deletion target still owns the bare path: deleting it is
+  # in-scope work, so the scope Hooks must resolve the owning task.
+  mkdir -p ".mumei/specs/REQ-2-del"
+  cat >".mumei/specs/REQ-2-del/tasks.md" <<'EOF'
+# del Implementation Plan
+
+## Wave 1: remove
+**Goal**: drop dashboard
+**Verify**: gone
+
+- [x] 1.1 remove dashboard
+  - _Files: -dashboard/, src/keep.ts_
+  - _Depends: -_
+  - _Requirements: REQ-2.1_
+EOF
+  run mumei_tasks_owners_of_file "REQ-2-del" "dashboard/"
+  [ "$status" -eq 0 ]
+  [ "$output" = "1.1" ]
+}

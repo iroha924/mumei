@@ -107,6 +107,16 @@ mumei_tasks_files() {
   _mumei_tasks_extract_meta "$task_id" "Files" "$tf"
 }
 
+# Classify a single (already whitespace-trimmed) `_Files:_` entry. An
+# entry prefixed with "-" (e.g. "-dashboard/") marks a DELETION target:
+# the path is expected to be GONE once the owning task is [x], inverting
+# the normal "must exist" semantics. A bare "-" is the no-files
+# placeholder (like `_Depends: -`), NOT a deletion marker. Strip the
+# marker with bash parameter expansion: "${entry#-}".
+mumei_tasks_file_is_deletion() {
+  [[ "$1" == -?* ]]
+}
+
 # Get the given task ID's `_Depends:_` meta (comma-separated task IDs, "-" means none).
 mumei_tasks_depends() {
   local feature="$1"
@@ -180,6 +190,10 @@ mumei_tasks_owners_of_file() {
       for f in "${arr[@]}"; do
         local trimmed
         trimmed="$(echo "$f" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+        # A deletion-target entry ("-path") still owns the bare path for
+        # scope purposes: deleting it is in-scope work, so strip the
+        # marker before matching.
+        mumei_tasks_file_is_deletion "$trimmed" && trimmed="${trimmed#-}"
         if [[ "$trimmed" == "$file_path" ]]; then
           owners+="${task_id} "
         fi

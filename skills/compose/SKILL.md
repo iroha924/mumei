@@ -540,6 +540,7 @@ Each task MUST have `_Files:_`, `_Depends:_`, `_Requirements:_`. Each Wave MUST 
 - Each meta line begins with `  - _<Key>:` (two leading spaces, then a hyphen-space, then a literal underscore, the key, a colon). **Do NOT omit the `- ` bullet prefix** (`  _Files:_ ...` does not parse).
 - The meta line ends with a single trailing underscore right before the newline. The Markdown emphasis spans the whole `_<Key>: <value>_` chunk.
 - `_Files:_` values are comma-separated **bare paths**, no backticks, no annotations: `- _Files: src/foo.ts, src/bar.ts_` not ``- _Files: `src/foo.ts`, `src/bar.ts` (legacy)_``.
+- For a task that **removes** a file or directory, prefix that path with `-` to mark it a deletion target: `- _Files: -src/old.ts, src/new.ts_`. Once the task is `[x]` the lint then requires the bare path to be ABSENT (a lingering deletion target is the violation), the inverse of a normal entry. Scope and phantom-completion Hooks strip the marker and treat the bare path as in-scope work. Use this for any deletion Wave so the lint does not nag that the gone file "does not exist".
 - `_Depends:_` values are comma-separated **bare task IDs** with no `T` prefix (`- _Depends: 1.1, 1.2_`), or a single literal `-` for "no dependencies" (`- _Depends: -_`). Em dashes (`—`) do not match.
 - `_Requirements:_` values are comma-separated `REQ-N.M` or `REQ-N.M.K` tokens (`- _Requirements: REQ-1.2_`).
 
