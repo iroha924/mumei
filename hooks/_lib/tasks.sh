@@ -194,7 +194,13 @@ mumei_tasks_owners_of_file() {
         # scope purposes: deleting it is in-scope work, so strip the
         # marker before matching.
         mumei_tasks_file_is_deletion "$trimmed" && trimmed="${trimmed#-}"
-        if [[ "$trimmed" == "$file_path" ]]; then
+        # A directory entry (trailing "/") owns its whole subtree: git
+        # tracks files, never the directory, so a deletion/edit surfaces
+        # as "dir/file". The quoted "$trimmed" is a literal prefix; the
+        # trailing slash holds the boundary (dash/ != dashboard/).
+        if [[ "$trimmed" == */ ]]; then
+          [[ "$file_path" == "$trimmed"* ]] && owners+="${task_id} "
+        elif [[ "$trimmed" == "$file_path" ]]; then
           owners+="${task_id} "
         fi
       done

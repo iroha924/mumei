@@ -101,6 +101,18 @@ while IFS= read -r task_id; do
       has_implementation=1
       break
     fi
+    # A directory entry (trailing "/") is satisfied by any changed or
+    # newly untracked file under its subtree — git lists files, never
+    # the directory itself, so a deletion shows up as "dir/file". Use a
+    # git pathspec so regex/glob metachars in the path stay literal.
+    if [[ "$f" == */ ]]; then
+      if [[ -n "$(git diff --name-only HEAD -- "$f" 2>/dev/null)" ]] ||
+        [[ -n "$(git ls-files --others --exclude-standard -- "$f" 2>/dev/null)" ]]; then
+        has_implementation=1
+        break
+      fi
+      continue
+    fi
     # Was this file changed (HEAD vs worktree, staged included)?
     if git diff --name-only HEAD 2>/dev/null | grep -qFx "$f"; then
       has_implementation=1

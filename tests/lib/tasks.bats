@@ -250,3 +250,45 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "1.1" ]
 }
+
+@test "mumei_tasks_owners_of_file matches a file inside a directory deletion target" {
+  # post-bash-guard queries individual files (git lists "dir/file", not
+  # the bare dir), so a directory entry must own its whole subtree.
+  mkdir -p ".mumei/specs/REQ-2-del"
+  cat >".mumei/specs/REQ-2-del/tasks.md" <<'EOF'
+# del Implementation Plan
+
+## Wave 1: remove
+**Goal**: drop dashboard
+**Verify**: gone
+
+- [x] 1.1 remove dashboard
+  - _Files: -dashboard/_
+  - _Depends: -_
+  - _Requirements: REQ-2.1_
+EOF
+  run mumei_tasks_owners_of_file "REQ-2-del" "dashboard/index.ts"
+  [ "$status" -eq 0 ]
+  [ "$output" = "1.1" ]
+}
+
+@test "mumei_tasks_owners_of_file directory entry honors the slash boundary" {
+  # A "dash/" entry must NOT own "dashboard/x" — the trailing slash
+  # holds the prefix boundary so similar names do not collide.
+  mkdir -p ".mumei/specs/REQ-3-dir"
+  cat >".mumei/specs/REQ-3-dir/tasks.md" <<'EOF'
+# dir Implementation Plan
+
+## Wave 1: work
+**Goal**: edit dash
+**Verify**: ok
+
+- [ ] 1.1 work in dash
+  - _Files: dash/_
+  - _Depends: -_
+  - _Requirements: REQ-3.1_
+EOF
+  run mumei_tasks_owners_of_file "REQ-3-dir" "dashboard/x.ts"
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+}
