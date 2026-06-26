@@ -14,6 +14,8 @@
 #   4. Every _Files:_ path either exists on disk OR is gitignored
 #      (gitignored paths are intentionally untracked targets, e.g.
 #      .mumei/scratch/* — see hooks/post-edit-guard.sh T1-2 logic).
+#      A "-path" deletion-target entry inverts this: once the owning
+#      task is [x] the bare path must be ABSENT.
 #
 # Output:
 #   - Violations → advisory PostToolUse JSON with hookSpecificOutput.
@@ -118,6 +120,10 @@ while IFS= read -r task_id; do
   # own implementation. Without this gating the lint shouts about every
   # not-yet-created file in every Wave 2-N task, which trains
   # contributors to ignore the advisory entirely.
+  #
+  # A "-path" deletion-target entry inverts the check: once the task is
+  # [x] the bare path must be GONE, so absence is success and lingering
+  # presence is the violation.
   task_status="$(mumei_tasks_status "$FEATURE" "$task_id" 2>/dev/null || echo unknown)"
   if [[ -n "$files" ]] && [[ "$task_status" == "complete" ]]; then
     IFS=',' read -ra file_arr <<<"$files"
@@ -125,6 +131,14 @@ while IFS= read -r task_id; do
       f="$(echo "$f" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
       [[ -n "$f" ]] || continue
       [[ "$f" == "-" ]] && continue
+      if mumei_tasks_file_is_deletion "$f"; then
+        del_target="${f#-}"
+        # Deletion target: the path must NOT exist now the task is [x].
+        if [[ -e "$del_target" ]]; then
+          VIOLATIONS+="Task ${task_id}: _Files:_ deletion target '${del_target}' still exists (task is marked [x])"$'\n'
+        fi
+        continue
+      fi
       [[ -e "$f" ]] && continue
       # File missing on disk: tolerated only if gitignored
       # (intentionally untracked targets per T1-2 design).

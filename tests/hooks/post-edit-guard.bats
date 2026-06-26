@@ -114,6 +114,42 @@ EOF
   [[ "$reason" == *"Phantom"* ]]
 }
 
+# ─── deletion target directory (_Files: -dir/) ───────────────
+
+@test "allows [x] toggle for a directory deletion target that was removed" {
+  # A "-dashboard/" deletion target is satisfied by the directory's
+  # files appearing in the diff as deletions — git never lists the bare
+  # directory, so an exact match would wrongly flag phantom completion.
+  _init_feature_with_tasks
+  mkdir -p dashboard && echo a >dashboard/index.ts && echo b >dashboard/util.ts
+  git add -A && git commit -q -m "add dashboard"
+  sed -i.bak 's|_Files: src/a.ts_|_Files: -dashboard/_|' .mumei/specs/REQ-1-foo/tasks.md
+  rm .mumei/specs/REQ-1-foo/tasks.md.bak
+  rm -rf dashboard
+  sed -i.bak 's/- \[ \] 1\.1/- [x] 1.1/' .mumei/specs/REQ-1-foo/tasks.md
+  rm .mumei/specs/REQ-1-foo/tasks.md.bak
+  _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+  [ -z "$stderr" ]
+}
+
+@test "blocks [x] toggle for a directory deletion target that was NOT removed" {
+  # Inverse: the directory still has its files and nothing changed, so
+  # there is no implementation evidence — phantom completion holds.
+  _init_feature_with_tasks
+  mkdir -p dashboard && echo a >dashboard/index.ts
+  git add -A && git commit -q -m "add dashboard"
+  sed -i.bak 's|_Files: src/a.ts_|_Files: -dashboard/_|' .mumei/specs/REQ-1-foo/tasks.md
+  rm .mumei/specs/REQ-1-foo/tasks.md.bak
+  sed -i.bak 's/- \[ \] 1\.1/- [x] 1.1/' .mumei/specs/REQ-1-foo/tasks.md
+  rm .mumei/specs/REQ-1-foo/tasks.md.bak
+  _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
+  [ "$status" -eq 0 ]
+  decision="$(printf '%s' "$output" | jq -r '.decision')"
+  [ "$decision" = "block" ]
+}
+
 # ─── T1-2: gitignored awareness ──────────────────────────────
 
 @test "allows [x] toggle when _Files: path is gitignored" {

@@ -87,6 +87,10 @@ while IFS= read -r task_id; do
   for f in "${file_arr[@]}"; do
     f="$(echo "$f" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
     [[ -n "$f" ]] || continue
+    # A deletion-target marker ("-path") is satisfied by the bare path
+    # appearing in the diff (the deletion itself); strip the marker
+    # before matching so a legit deletion is not flagged as phantom.
+    mumei_tasks_file_is_deletion "$f" && f="${f#-}"
     # Skip tasks.md itself
     [[ "$f" == "$TASKS_FILE" ]] && continue
     # Skip gitignored paths: they are intentionally untracked, so a
@@ -96,6 +100,18 @@ while IFS= read -r task_id; do
       mumei_log_warn "post-edit-guard: skipping gitignored _Files: path: $f"
       has_implementation=1
       break
+    fi
+    # A directory entry (trailing "/") is satisfied by any changed or
+    # newly untracked file under its subtree — git lists files, never
+    # the directory itself, so a deletion shows up as "dir/file". Use a
+    # git pathspec so regex/glob metachars in the path stay literal.
+    if [[ "$f" == */ ]]; then
+      if [[ -n "$(git diff --name-only HEAD -- "$f" 2>/dev/null)" ]] ||
+        [[ -n "$(git ls-files --others --exclude-standard -- "$f" 2>/dev/null)" ]]; then
+        has_implementation=1
+        break
+      fi
+      continue
     fi
     # Was this file changed (HEAD vs worktree, staged included)?
     if git diff --name-only HEAD 2>/dev/null | grep -qFx "$f"; then

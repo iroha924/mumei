@@ -99,6 +99,8 @@ A `REQ-N.M` exists in `requirements.md` but no task references it in `_Requireme
 
 A path in `_Files:_` does not exist on disk. Check via `test -e` or `ls`. Excluded: paths matched by `git check-ignore` (intentionally untracked / generated). For unfamiliar paths, run `git check-ignore -q <path>` first; if it exits 0, treat as gitignored and skip the existence check.
 
+A `_Files:_` entry prefixed with `-` (e.g. `-dashboard/`) is a DELETION target: the owning task removes it, so the bare path (marker stripped) is expected to STILL exist at draft time and to be GONE once the task is `[x]`. Strip the leading `-` before the existence check, and do not flag a deletion target whose bare path currently exists.
+
 ## MEDIUM severity (verdict NEEDS_IMPROVEMENT)
 
 ### Non-executable Verify clause

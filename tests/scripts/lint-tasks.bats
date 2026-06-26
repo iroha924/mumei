@@ -189,6 +189,47 @@ EOF
   fi
 }
 
+# ─── Deletion target (_Files: -path) ─────────────────────────
+
+@test "flags a deletion target that still exists on a [x] task" {
+  # A "-path" entry inverts the existence check: once [x] the bare path
+  # must be GONE. A lingering target is the violation.
+  _init_feature
+  mkdir -p still-here
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+# foo plan
+## Wave 1: alpha
+- [x] 1.1 remove dir
+  - _Files: -still-here_
+  - _Depends: -_
+  - _Requirements: REQ-1.1_
+EOF
+  _run_lint_for_default_feature
+  [ "$status" -eq 0 ]
+  ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"still-here"* ]]
+  [[ "$ctx" == *"still exists"* ]]
+}
+
+@test "tolerates a deletion target that is gone on a [x] task" {
+  # Inverse: the path was deleted, so absence is success — no nag.
+  _init_feature
+  cat >.mumei/specs/REQ-1-foo/tasks.md <<'EOF'
+# foo plan
+## Wave 1: alpha
+- [x] 1.1 remove dir
+  - _Files: -gone-dir_
+  - _Depends: -_
+  - _Requirements: REQ-1.1_
+EOF
+  _run_lint_for_default_feature
+  [ "$status" -eq 0 ]
+  if [ -n "$output" ]; then
+    ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext // empty')"
+    [[ "$ctx" != *"gone-dir"* ]]
+  fi
+}
+
 # ─── Tolerated: missing _Files:_ path that is gitignored ─────
 
 @test "tolerates _Files:_ path that is gitignored even when missing" {
