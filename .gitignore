@@ -22,6 +22,9 @@
 # mumei plugin を mumei 自身で利用する場合の状態 (dogfood 想定)
 /.mumei/
 
+# iroha-for-notion の開発メモ (Notion セッションの mirror + 列挙 index、個人開発スタンス)
+/.iroha/
+
 # self-evaluate skill の dev 採点記録 (個人開発スタンス、配布物外)
 /skills/self-evaluate/results/
 
