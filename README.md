@@ -27,6 +27,10 @@ means. mumei is built for that shift: it pins those checks to the OS boundary,
 so they hold even when code arrives faster than anyone can read it. ([When AI
 Builds Itself](https://www.anthropic.com/institute/recursive-self-improvement))
 
+That shift now has a name — _loop engineering_: designing loops that run agents
+unattended. But an unattended loop also makes mistakes unattended, which is
+exactly the boundary mumei guards.
+
 ## Why mumei
 
 A `CLAUDE.md` rule, a system prompt, a "please run the tests first" — these are
