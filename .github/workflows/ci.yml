@@ -145,7 +145,7 @@ jobs:
       # already vetted at PR time and are intentionally skipped.
 
       - name: markdownlint-cli2
-        uses: DavidAnson/markdownlint-cli2-action@ded1f9488f68a970bc66ea5619e13e9b52e601cd # v23
+        uses: DavidAnson/markdownlint-cli2-action@8de2aa07cae85fd17c0b35642db70cf5495f1d25 # v24.0.0
         with:
           globs: |
             **/*.md
@@ -153,7 +153,7 @@ jobs:
           config: .markdownlint-cli2.jsonc
 
       - name: typos
-        uses: crate-ci/typos@37bb98842b0d8c4ffebdb75301a13db0267cef89 # v1.47.2
+        uses: crate-ci/typos@bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0
 
       - name: shfmt (shell format)
         run: |
@@ -201,7 +201,7 @@ jobs:
       # Both run on every PR (lint-extra is PR-gated). Defense-in-depth is
       # preserved by the weekly full-history rescan in gitleaks.yml.
       - name: trufflehog (secret scan)
-        uses: trufflesecurity/trufflehog@30d5bb91af1a771378349dbbb0c82129392acf70 # v3.95.6
+        uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f # v3.95.8
         with:
           path: ./
           # Pin the docker image tag so the action's internal
@@ -358,11 +358,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v3
+        uses: github/codeql-action/init@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
         with:
           languages: ${{ matrix.language }}
           queries: +security-extended
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v3
+        uses: github/codeql-action/analyze@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
         with:
           category: "/language:${{ matrix.language }}"

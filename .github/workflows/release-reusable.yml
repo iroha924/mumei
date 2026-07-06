@@ -62,7 +62,7 @@ jobs:
       # `Requires-Python: >=3.13` would fail at install with a cryptic
       # "no matching distribution" rather than a clean version mismatch.
       - name: Set up Python 3.14
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.14"
 
@@ -84,7 +84,7 @@ jobs:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
       - name: trufflehog
-        uses: trufflesecurity/trufflehog@30d5bb91af1a771378349dbbb0c82129392acf70 # v3.95.6
+        uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f # v3.95.8
         with:
           path: ./
           # Pin docker image tag (action invokes ghcr.io/.../trufflehog:${VERSION}).
@@ -197,7 +197,7 @@ jobs:
       # the hash-locked install on line 213 resolves on the same
       # interpreter pip-compile used for the lock (3.14).
       - name: Set up Python 3.14
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.14"
 
