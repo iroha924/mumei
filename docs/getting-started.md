@@ -223,6 +223,9 @@ not supported user configuration knobs.
 | `MUMEI_DEBUG` | Enables debug logging from shared hook log helpers. | `0`; set to `1` to print debug lines. |
 | `MUMEI_CONTEXT_LINES` | Caps artifact context lines injected for subagents. | `200`. |
 | `MUMEI_COMPACT_HINT_PCT` | Context-usage threshold for the proactive `/compact` hint. | `60`. |
+| `MUMEI_CONTEXT_MAX_TOKENS` | Model context-window size used by the proactive `/compact` hint calculation. | `1000000`. |
+| `MUMEI_DETECTOR_TIER` | Internal detector metadata field used while classifying Tier1/Tier2 detectors. | Set by detector registration; not a public configuration knob. |
+| `MUMEI_DETECTOR_FAILED` | Internal JSON array of detectors whose binary crashed during pre-review detection. | Set by `pre-review-detector.sh`; not user-supplied. |
 | `MUMEI_DETECTOR_TIMEOUT` | Per-detector timeout in seconds. | `600`. |
 | `MUMEI_DETECTOR_SEMGREP_MIN` | Recommended minimum `semgrep` version for detector degradation checks. | `1.100.0`. |
 | `MUMEI_DETECTOR_OSV_SCANNER_MIN` | Recommended minimum `osv-scanner` version for detector degradation checks. | `2.0.0`. |
