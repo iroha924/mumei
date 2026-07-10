@@ -208,6 +208,42 @@ your project uses a non-standard runner so the pre-commit test gate runs the
 right command, e.g. `MUMEI_TEST_CMD="bats -r tests/"`. The observed exit code
 of each test run is recorded to `verify-log.jsonl` for audit.
 
+### `MUMEI_*` environment variables
+
+The table below consolidates the `MUMEI_*` names used by the hook layer.
+Most users only need `MUMEI_BYPASS` for a one-command escape hatch and,
+occasionally, `MUMEI_TEST_CMD` when a project has a non-standard test
+runner. Variables marked as internal appear in the hook grep output but are
+not supported user configuration knobs.
+
+| Variable | Purpose | Default / notes |
+| --- | --- | --- |
+| `MUMEI_BYPASS` | One-command escape hatch that makes hooks exit without enforcing gates. | Unset; set to `1` for one command only. |
+| `MUMEI_TEST_CMD` | Overrides the commit-gate test command auto-detection. | Unset; auto-detects from common project manifests. |
+| `MUMEI_DEBUG` | Enables debug logging from shared hook log helpers. | `0`; set to `1` to print debug lines. |
+| `MUMEI_CONTEXT_LINES` | Caps artifact context lines injected for subagents. | `200`. |
+| `MUMEI_COMPACT_HINT_PCT` | Context-usage threshold for the proactive `/compact` hint. | `60`. |
+| `MUMEI_CONTEXT_MAX_TOKENS` | Model context-window size used by the proactive `/compact` hint calculation. | `1000000`. |
+| `MUMEI_DETECTOR_FAILED` | Internal JSON array of detectors whose binary crashed during pre-review detection. | Set by `pre-review-detector.sh`; not user-supplied. |
+| `MUMEI_DETECTOR_TIMEOUT` | Per-detector timeout in seconds. | `600`. |
+| `MUMEI_DETECTOR_SEMGREP_MIN` | Recommended minimum `semgrep` version for detector degradation checks. | `1.100.0`. |
+| `MUMEI_DETECTOR_OSV_SCANNER_MIN` | Recommended minimum `osv-scanner` version for detector degradation checks. | `2.0.0`. |
+| `MUMEI_DETECTOR_TIER2` | Enables opt-in Tier2 detectors. | `0`; set to `1` to include Tier2 detectors. |
+| `MUMEI_CODEQL_DB` | Path to a pre-built CodeQL database for the opt-in CodeQL detector. | Unset; CodeQL is skipped unless this points to a directory. |
+| `MUMEI_BYTE_EXACT_EXTS` | Space-separated extensions checked by the byte-exact helper. | `.go .bat .cmd`. |
+| `MUMEI_LOG_MAX_MB` | Size threshold before append-only logs are truncated. | `10`. |
+| `MUMEI_LOG_MAX_LINES` | Log-rotation retained-line cap referenced by hook comments. | `5000`; treated as fixed by the helper. |
+| `MUMEI_LEDGER_MAX_LINES` | Max retained lines in the cross-feature finding ledger. | `5000`. |
+| `MUMEI_LEDGER_PATH` | Overrides the cross-feature finding-ledger path. | Project-local `.mumei/finding-ledger.jsonl`; mainly useful for tests. |
+| `MUMEI_DETECTOR_REGISTRY` | Overrides the detector registry. | `semgrep osv-scanner`; advanced hook development only. |
+| `MUMEI_MEMORY_THRESHOLD` | Internal memory-curator score threshold. | `15`; not a public configuration knob. |
+| `MUMEI_MEMORY_MAX_ENTRIES` | Internal memory-curator entry cap. | `30`; not a public configuration knob. |
+| `MUMEI_MEMORY_MAX_BYTES` | Internal memory-curator input-size cap. | `8192`; not a public configuration knob. |
+| `MUMEI_MEMORY_FINAL_TEXT_MAX_BYTES` | Internal memory-curator final-text cap. | `1024`; not a public configuration knob. |
+| `MUMEI_MEMORY_AXES` | Internal memory-curator scoring-axis array. | Fixed in the helper; not a public configuration knob. |
+| `MUMEI_WT_RAN` | Internal worktree-verification return flag set by helper functions. | Set by mumei; not user-supplied. |
+| `MUMEI_WT_TAIL` | Internal worktree-verification return text set by helper functions. | Set by mumei; not user-supplied. |
+
 At commit time the same test is also re-run against a detached worktree
 checked out at `HEAD`, so uncommitted tampering (rigged `conftest.py`,
 monkeypatched `TestReport`, edited bytecode) cannot fake a pass. A working-tree
