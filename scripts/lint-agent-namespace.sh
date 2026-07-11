@@ -56,12 +56,15 @@ done < <(jq -r '.hooks | to_entries[]
 
 # 2. skills: every subagent_type naming a mumei agent must carry the prefix.
 #    Covers both spellings in use: `subagent_type: "<a>"` and `subagent_type=<a>`.
+#    Whitespace after the delimiter is [[:space:]]* rather than a single optional
+#    space: a recurrence gate that a stray second space walks through is not a
+#    gate.
 for a in "${agents[@]}"; do
   while IFS= read -r hit; do
     printf 'bare subagent_type (would fail to resolve at runtime; use %s:%s): %s\n' \
       "$ns" "$a" "$hit" >&2
     fail=1
-  done < <(grep -rnE "subagent_type[:=] ?\"?${a}\b" skills/ 2>/dev/null)
+  done < <(grep -rnE "subagent_type[:=][[:space:]]*\"?${a}\b" skills/ 2>/dev/null)
 done
 
 if ((fail == 1)); then

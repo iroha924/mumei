@@ -373,56 +373,60 @@ jobs:
       - name: Grounding scan (input, not gate)
         if: steps.gate.outputs.skip != 'true'
         id: grounding
-        # Capture the per-scanner exit code separately so the audit and prompt
-        # can distinguish 'scanner ran clean (0 findings)' from 'scanner
-        # crashed' (adversarial A-F-006). Install failure cannot reach here —
-        # the install step aborts the job.
+        # A scanner that did not run is not a scanner that found nothing, so a
+        # crash aborts the job here just as an install failure aborts the step
+        # above. This is not belt-and-braces: `--error=0` shipped in this file
+        # for months, semgrep rejected it on every run ("option '--error' is a
+        # flag, it cannot take the argument '0'"), the step swallowed the exit
+        # code, and the review reported "scanner crashed" into a job that stayed
+        # green. Nobody read the line. A red job would have been read.
+        #
+        # Exit codes, measured against the pinned semgrep: without `--error` it
+        # exits 0 whether or not there are findings (they still land in the JSON);
+        # with `--error` it exits 1 when there are findings. We want the findings,
+        # not the failure — so the flag is simply absent, and any non-zero code is
+        # a genuine crash.
         run: |
           set -u
           mkdir -p /tmp/grounding
           semgrep_v="$(semgrep --version 2>/dev/null | head -1 || echo unknown)"
           semgrep_rc=0
-          semgrep --config=auto --json --quiet --error=0 \
+          semgrep --config=auto --json --quiet \
             --output=/tmp/grounding/semgrep.json . || semgrep_rc=$?
+          if [ "$semgrep_rc" != "0" ]; then
+            echo "::error::semgrep exited ${semgrep_rc} — aborting rather than reporting a dead detector as 0 findings" >&2
+            exit 1
+          fi
           semgrep_count="$(jq '(.results // []) | length' /tmp/grounding/semgrep.json 2>/dev/null || echo 0)"
-          semgrep_status="ok"
-          [ "$semgrep_rc" != "0" ] && semgrep_status="crashed (rc=$semgrep_rc)"
           osv_v="$(osv-scanner --version 2>/dev/null | head -1 || echo unknown)"
           osv_rc=0
           osv-scanner scan source --format=json --output=/tmp/grounding/osv.json . || osv_rc=$?
           osv_count="$(jq '[.results[]?.packages[]?.vulnerabilities[]?] | length' /tmp/grounding/osv.json 2>/dev/null || echo 0)"
-          osv_status="ok"
           # osv-scanner exits 1 when vulns are found (not a crash) and 128 for
           # "No packages found" — also a valid outcome on repos without
-          # lockfiles/SBOMs (Codex iter-2 finding). Only treat rc == 127
-          # (binary missing) or rc >= 129 (signal terminations) as crashed.
+          # lockfiles/SBOMs (Codex iter-2 finding). Only rc == 127 (binary
+          # missing) or rc >= 129 (signal terminations) mean it did not run, and
+          # a scanner that did not run aborts the job rather than reporting zero.
           if [ "$osv_rc" = "127" ] || [ "$osv_rc" -ge 129 ]; then
-            osv_status="crashed (rc=$osv_rc)"
+            echo "::error::osv-scanner exited ${osv_rc} — aborting rather than reporting a dead detector as 0 vulnerabilities" >&2
+            exit 1
           fi
+          # Reaching this line means both scanners ran, so the counts are real:
+          # "0 findings" now means zero findings, not an unknown dressed as zero.
           {
-            if [ "$semgrep_status" = "ok" ]; then
-              echo "semgrep ${semgrep_v}: ${semgrep_count} findings"
-            else
-              echo "semgrep ${semgrep_v}: SCANNER ${semgrep_status} — treat 'no findings' as unknown, do not rely on this signal"
-            fi
+            echo "semgrep ${semgrep_v}: ${semgrep_count} findings"
             jq -r '(.results // [])[] | "- \(.check_id) @ \(.path):\(.start.line) — \(.extra.message // "" | tostring)"' \
               /tmp/grounding/semgrep.json 2>/dev/null | head -50
             echo ""
-            if [ "$osv_status" = "ok" ]; then
-              echo "osv-scanner ${osv_v}: ${osv_count} vulnerabilities"
-            else
-              echo "osv-scanner ${osv_v}: SCANNER ${osv_status} — treat 'no findings' as unknown, do not rely on this signal"
-            fi
+            echo "osv-scanner ${osv_v}: ${osv_count} vulnerabilities"
             jq -r '.results[]?.packages[]? | .package.name as $n | .vulnerabilities[]? | "- \($n) — \(.id) \(.summary // "")"' \
               /tmp/grounding/osv.json 2>/dev/null | head -50
           } > /tmp/grounding/summary.txt
           {
             echo "semgrep_v=${semgrep_v}"
             echo "semgrep_count=${semgrep_count}"
-            echo "semgrep_status=${semgrep_status}"
             echo "osv_v=${osv_v}"
             echo "osv_count=${osv_count}"
-            echo "osv_status=${osv_status}"
             echo "ci_artifacts_present=false"
           } >>"$GITHUB_OUTPUT"
 
@@ -509,10 +513,8 @@ jobs:
           SKIP_REASON: ${{ steps.gate.outputs.skip_reason }}
           GROUNDING_SEMGREP_V: ${{ steps.grounding.outputs.semgrep_v }}
           GROUNDING_SEMGREP_COUNT: ${{ steps.grounding.outputs.semgrep_count }}
-          GROUNDING_SEMGREP_STATUS: ${{ steps.grounding.outputs.semgrep_status }}
           GROUNDING_OSV_V: ${{ steps.grounding.outputs.osv_v }}
           GROUNDING_OSV_COUNT: ${{ steps.grounding.outputs.osv_count }}
-          GROUNDING_OSV_STATUS: ${{ steps.grounding.outputs.osv_status }}
           CI_ARTIFACTS_PRESENT: ${{ steps.grounding.outputs.ci_artifacts_present }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -530,7 +532,7 @@ jobs:
             else
               perspectives_line="- perspectives_run: INCOMPLETE (claude step outcome=${CLAUDE_OUTCOME:-unknown})"
             fi
-            grounding_block="$(printf -- '- grounding tools:\n  - semgrep %s: status=%s, %s findings\n  - osv-scanner %s: status=%s, %s vulnerabilities' "${GROUNDING_SEMGREP_V:-unknown}" "${GROUNDING_SEMGREP_STATUS:-unknown}" "${GROUNDING_SEMGREP_COUNT:-0}" "${GROUNDING_OSV_V:-unknown}" "${GROUNDING_OSV_STATUS:-unknown}" "${GROUNDING_OSV_COUNT:-0}")"
+            grounding_block="$(printf -- '- grounding tools (a scanner that did not run aborts the job, so these counts are measurements):\n  - semgrep %s: %s findings\n  - osv-scanner %s: %s vulnerabilities' "${GROUNDING_SEMGREP_V:-unknown}" "${GROUNDING_SEMGREP_COUNT:-0}" "${GROUNDING_OSV_V:-unknown}" "${GROUNDING_OSV_COUNT:-0}")"
           fi
           {
             echo "## Review audit record (REQ-24.12)"

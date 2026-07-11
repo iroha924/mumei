@@ -44,6 +44,12 @@ comm -23 "${tmp}/tracked" "${tmp}/archived" >"${tmp}/missing"
 # Declared exclusions: the pattern from each `<pattern> export-ignore` line,
 # with the leading / (root anchor) stripped so it compares as a repo-relative
 # prefix. A trailing / keeps directory semantics.
+#
+# Patterns are compared as literal prefixes, not as gitignore globs. A future
+# glob (`*.md export-ignore`) would therefore be reported as undeclared. That
+# direction is the safe one — the lint over-reports and the author looks — and a
+# glob is exactly the shape that caused the bug this lint exists for, so making
+# one loud is the point, not a defect.
 patterns=()
 while IFS= read -r p; do
   patterns+=("${p#/}")
