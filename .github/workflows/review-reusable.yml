@@ -598,22 +598,38 @@ jobs:
       # no shell, and no file reader either: `Read(/proc/self/environ)` is the
       # same door with a different handle.
       #
-      # `--tools` is the mechanism, not `--allowedTools`. Measured against the
-      # CLI: with `--allowedTools "mcp__x__y"` alone, a Read of an unrelated file
-      # still succeeded — allowedTools pre-approves, it does not restrict. `--tools`
-      # replaces the built-in set outright, so what is absent from it does not
-      # exist for this session. TodoWrite is the inert placeholder: the flag needs
-      # a value (the action's arg parser drops an empty one, turning `--tools ""`
-      # into a valueless boolean flag), and TodoWrite touches nothing outside the
-      # session. The disallowedTools list is kept as a second, independently
-      # measured wall in case a future built-in escapes the first.
+      # `disallowedTools` is what does the work here, and it has to be, because
+      # `allowedTools` is not a restriction and is not ours alone. Two measured
+      # facts:
+      #
+      #   - Against the CLI: with `--allowedTools "mcp__x__y"` and nothing else,
+      #     a Read of an unrelated file still succeeded. allowedTools pre-approves;
+      #     it does not restrict.
+      #   - Against this action: it MERGES its own tools into the allowlist. A run
+      #     of this very workflow logged `allowedTools: [Glob, Grep, LS, Read,
+      #     mcp__github_comment__*, mcp__github_ci__*, Bash(git add:*),
+      #     Bash(git commit:*), Bash(git rm:*), Bash(.../git-push.sh:*)]`. Passing
+      #     an allowlist of one tool does not produce a session with one tool.
+      #
+      # Deny beats allow — also measured: with Read in both lists, and with
+      # `Bash(git add:*)` allowed while `Bash` was denied, both were unavailable
+      # to the model. So the denylist is the wall, and every capability the action
+      # injects has to be named in it explicitly. `--tools` (which replaces the
+      # built-in set outright) is passed as a second wall, but the action strips
+      # extraArgs from its logs, so whether it reaches the CLI is not observable
+      # from a run — it is not what this relies on.
+      #
+      # What survives: the two MCP tools the action needs to publish a review.
+      # `mcp__github_ci__*` is denied — it would let a reviewer pull CI logs for a
+      # PR whose author controls what CI prints.
       #
       # `--setting-sources user` is not hygiene either. The action passes
       # settingSources ["user","project","local"] by default, and "project" is
       # `.claude/settings.json` IN THE CHECKED-OUT PR. Settings carry hooks, so a
       # pull request could ship a SessionStart hook and have it executed inside a
       # job holding the token — no model cooperation required, no tool call to
-      # deny. Only user-level settings are loaded, and the runner has none.
+      # deny. Verified in a run: the SDK received `settingSources: ["user"]`, and
+      # the runner has no user settings.
       #
       # Consequence, handled above: the diff arrives in the prompt rather than
       # being fetched by the reviewer.
@@ -630,7 +646,7 @@ jobs:
             --tools "TodoWrite"
             --setting-sources user
             --allowedTools "mcp__github_inline_comment__create_inline_comment"
-            --disallowedTools "Bash,Read,Write,Edit,NotebookEdit,Glob,Grep,WebFetch,WebSearch,Task,SlashCommand,BashOutput,KillShell"
+            --disallowedTools "Bash,Read,Write,Edit,NotebookEdit,Glob,Grep,LS,WebFetch,WebSearch,Task,SlashCommand,BashOutput,KillShell,mcp__github_ci__get_ci_status,mcp__github_ci__get_workflow_run_details,mcp__github_ci__download_job_log"
 
       - name: Emit audit record to job summary
         if: always()

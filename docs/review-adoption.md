@@ -90,10 +90,12 @@ model differences, not divergent criteria).
   bug.
 - **The reviewer has no shell and no file tools.** It sees the diff, the PR
   title and body, the rubric, your base-branch `AGENTS.md` and the grounding
-  scan — all assembled into its prompt by the workflow — and it can post inline
-  comments. That is the whole of it. The job holds your `CLAUDE_CODE_OAUTH_TOKEN`
-  and reads a diff written by whoever opened the PR; a reviewer with a shell
-  could be talked into printing the one into the other. See
+  scan — all assembled into its prompt by the workflow — and it can post
+  comments. That is the whole of it. The job holds your
+  `CLAUDE_CODE_OAUTH_TOKEN` and reads a diff written by whoever opened the PR;
+  a reviewer with a shell could be talked into printing the one into the other.
+  Your `.claude/settings.json` is not loaded either — settings carry hooks, and
+  under `pull_request` that file comes from the PR. See
   [docs/threat-model.md](./threat-model.md).
 - **semgrep grounding is opt-in and says so when it is off.** The scan installs
   from `.github/requirements/semgrep-review/requirements.txt` **in your
