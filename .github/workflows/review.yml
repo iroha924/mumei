@@ -23,7 +23,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  review:
+  # Job id is deliberately not `review`: GitHub renders a reusable-workflow
+  # check as `<workflow> / <caller job> / <called job>`, so naming all three
+  # `review` produces the check "review / review / review".
+  claude:
     uses: ./.github/workflows/review-reusable.yml
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

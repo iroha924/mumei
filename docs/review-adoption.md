@@ -29,11 +29,16 @@ permissions:
   pull-requests: write
   id-token: write
 jobs:
-  review:
+  claude:
     uses: iroh4-labs/mumei/.github/workflows/review-reusable.yml@<TAG>
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
+
+Name the job something other than `review`. GitHub renders a reusable-workflow
+check as `<workflow> / <caller job> / <called job>`, and the called job here is
+already named `review` — a caller workflow named `review` with a job named
+`review` shows up in the PR as `review / review / review`.
 
 Replace `<TAG>` with a mumei release tag. For stronger supply-chain integrity
 prefer a full commit SHA over a tag (`uses: iroh4-labs/mumei/.github/workflows/review-reusable.yml@<40-char-sha>`)
