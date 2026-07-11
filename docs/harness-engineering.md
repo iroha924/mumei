@@ -979,7 +979,7 @@ mumei が依拠している機構の挙動:
 | 独立 LLM call (利益相反防止) | Mem0 + 自家設計 | reviewer 自身に save 判定させる eager-write を構造的に阻止 |
 | sync 起動 (review JSON 後) | 自家設計 | batch (`_pending/`) は stale 化、KISS |
 
-詳細な実装 (rubric 表、output schema、orchestrator 統合) は `agents/memory-curator.md` / `hooks/_lib/memory.sh` / `skills/plan/SKILL.md` Stage 6.5 を参照。設計判断のログは `docs/mumei-decisions.md` "Memory curation policy (REQ-10)" 節。
+詳細な実装 (rubric 表、output schema、orchestrator 統合) は `agents/memory-curator.md` / `hooks/_lib/memory.sh` / `skills/compose/SKILL.md` Stage 6.5 を参照。設計判断の経緯は maintainer-local な決定ログ (非公開) に記録。
 
 ## Part 13: SubagentStop hook と subagent transcript レイアウト (2026-05、REQ-16 調査)
 
@@ -1059,7 +1059,7 @@ jq -s '[.[] | select(.type=="assistant") | .message.usage] | reduce .[] as $u ({
 
 - 公式 hooks reference: <https://code.claude.com/docs/en/hooks>
 - 公式 hooks ガイド: <https://code.claude.com/docs/en/hooks-guide>
-- mumei 側設計判断ログ: `docs/mumei-decisions.md` (REQ-16 完了後に追記予定)
+- mumei 側の設計判断は maintainer-local な決定ログ (非公開) に記録
 
 ## 付録: ソースリンク集
 
@@ -1242,7 +1242,7 @@ GitHub Issues は番号付きで Part 6 内に明記済 (#41930, #50916, #32160,
 
 ## 付録: reviewer リサーチの一次ソース台帳
 
-reviewer 領域 (Stage 0 detector / adjudication gate / metadata 隔離 / fail-open verdict) の設計根拠となった一次ソースの検証台帳。結論・設計判断は `mumei-decisions.md` を参照。
+reviewer 領域 (Stage 0 detector / adjudication gate / metadata 隔離 / fail-open verdict) の設計根拠となった一次ソースの検証台帳。結論・設計判断は maintainer-local な決定ログ (非公開) に記録。
 
 
 #### LLM reviewer / ensemble / verification
