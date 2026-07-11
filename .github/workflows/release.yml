@@ -40,7 +40,8 @@ jobs:
     uses: ./.github/workflows/release-reusable.yml
     with:
       tag: ${{ github.ref_name }}
-    secrets: inherit
+    secrets:
+      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   provenance:
     needs: release

@@ -29,6 +29,14 @@ on:
       hashes:
         description: "base64-encoded sha256sum of the release tarball, in the SLSA generator subject format."
         value: ${{ jobs.build.outputs.hashes }}
+    secrets:
+      # Declared explicitly so the caller passes only this one instead of
+      # `secrets: inherit` (least privilege). Optional: gitleaks requires a
+      # license only for organization repositories. GITHUB_TOKEN is supplied
+      # automatically to same-repo reusable workflows and is not declared.
+      GITLEAKS_LICENSE:
+        description: "gitleaks license (required for organization-owned repos only)."
+        required: false
 
 permissions:
   contents: read
