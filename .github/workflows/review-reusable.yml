@@ -426,7 +426,7 @@ jobs:
         run: |
           set -u
           mkdir -p /tmp/grounding
-          printf '[]' >/tmp/grounding/semgrep.json
+          printf '{"results":[]}' >/tmp/grounding/semgrep.json
           if [ "${SEMGREP_AVAILABLE:-false}" = "true" ]; then
             semgrep_v="$(semgrep --version 2>/dev/null | head -1 || echo unknown)"
             semgrep_rc=0
@@ -614,8 +614,12 @@ jobs:
             exit 1
           fi
           # Per-run random delimiter to defeat CWE-1336 GitHub Actions delimiter
-          # injection (security F-001). belt-and-suspenders grep -Fxq rejects any
-          # body line that exactly matches the random delimiter.
+          # injection (security F-001). The grep -Fxq below rejects ANY line of the
+          # assembled prompt that equals the delimiter — which now matters more than
+          # it used to: the prompt carries the diff, so those lines are written by
+          # whoever opened the PR. They cannot aim at the delimiter (it is random
+          # per run and never leaves the runner), and if one collided by accident
+          # the run fails loudly instead of injecting.
           delim="MUMEI_PROMPT_EOF_$(openssl rand -hex 16 2>/dev/null || date +%s%N)"
           if grep -Fxq "$delim" /tmp/prompt.txt; then
             echo "::error::prompt body collided with random delimiter (re-run)" >&2
