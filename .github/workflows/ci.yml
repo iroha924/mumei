@@ -324,6 +324,16 @@ jobs:
       - name: Detect gate weakening in this PR
         run: bash scripts/lint-gate-weakening.sh "origin/${{ github.event.pull_request.base.ref }}"
 
+      - name: TEMPORARY PROBE — per-env-string limit on this runner
+        run: |
+          set -u
+          for kb in 100 120 127 128 130 200 400; do
+            v="$(head -c $((kb * 1024)) /dev/zero | tr '\0' 'a')"
+            if FOO="$v" /bin/echo -n "" 2>/dev/null; then r=ok; else r=E2BIG; fi
+            printf '%4s KiB env string -> %s\n' "$kb" "$r"
+          done
+          getconf PAGE_SIZE | xargs printf 'PAGE_SIZE=%s (MAX_ARG_STRLEN = 32 * PAGE_SIZE)\n'
+
   # ─────────────────────────────────────────
   # bats による hook / _lib の単体テスト。
   # macos-latest と ubuntu-latest の matrix で BSD/GNU 差を検出する。
