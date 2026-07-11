@@ -491,14 +491,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # The binding limit is not GITHUB_ENV's size. The prompt reaches the
           # action as a single environment string (`prompt:` -> INPUT_PROMPT),
-          # and execve caps ONE string at MAX_ARG_STRLEN = 32 pages = 128 KiB
-          # (execve(2)). Past that the step does not run a shorter review — it
-          # fails to start. So the budget is on the WHOLE assembled prompt, and
-          # the diff gets whatever is left after the fixed parts.
+          # and execve caps ONE string at MAX_ARG_STRLEN = 32 * PAGE_SIZE.
+          # Measured on an ubuntu-latest runner (PAGE_SIZE=4096): 127 KiB spawns,
+          # 128 KiB and up fail with E2BIG. Past the limit the step does not run a
+          # shorter review — it fails to start. So the budget is on the WHOLE
+          # assembled prompt, and the diff gets whatever is left after the fixed
+          # parts.
           #
-          # This is not theoretical for this repo: the rubric plus AGENTS.md are
-          # ~31 KB before anything else, and PR #182's diff was 98 KB. That
-          # review would have exploded.
+          # Not theoretical: the rubric plus AGENTS.md are ~31 KB before anything
+          # else, and PR #182's diff was 98 KB. 110 KB leaves ~17 KB of headroom
+          # under the measured cliff.
           PROMPT_MAX_BYTES: "110000"
           AGENTS_MAX_BYTES: "24000"
         run: |
