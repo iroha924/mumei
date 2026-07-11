@@ -51,8 +51,8 @@ Examples:
 - [ ] `bats -r tests/` passes locally on macOS or Linux.
 - [ ] `task lint` passes locally (shellcheck + shfmt + `jq empty` + frontmatter + drift checks).
 - [ ] If the change alters external behavior, network egress, or distribution layout: `README.md`, `README.ja.md`, `PRIVACY.md` are updated to match.
-- [ ] If the change introduces a new design decision or revises an existing one: `docs/mumei-decisions.md` (dev-local) is updated with the rationale.
-- [ ] **Ratchet principle**: if this PR adds a new hook rule, agent, skill, or Hook ID, `docs/mumei-decisions.md` has a one-paragraph _why this earned inclusion_ entry naming the dogfood incident or external research that triggered it.
+- [ ] If the change introduces a new design decision or revises an existing one: the rationale is written in this PR's description (a maintainer transcribes it into the maintainer-local decision log at merge).
+- [ ] **Ratchet principle**: if this PR adds a new hook rule, agent, skill, or Hook ID, this PR's description has a one-paragraph _why this earned inclusion_ entry naming the incident or external research that triggered it.
 - [ ] Distributable artifacts (`agents/`, `skills/`, `hooks/`, `.claude-plugin/`, `README*`, `LICENSE`, `PRIVACY.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`) stay in **English**; Japanese intent notes go in `<!-- HTML comments -->` only.
 - [ ] No `--no-verify` or `--force` push to `main` is used.
 - [ ] No secrets, `.env`, credentials, or private keys are added.

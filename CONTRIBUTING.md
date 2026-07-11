@@ -208,12 +208,12 @@ so the full CI suite and AI review run before landing.
 4. Update `README.md`, `PRIVACY.md`, or `docs/` if your change alters external
    behaviour, install steps, network egress, or distribution layout.
 5. **Ratchet principle**: when a PR adds a new hook rule, agent, skill, or
-   Hook ID, append a one-paragraph entry to `docs/mumei-decisions.md`
-   explaining _why this addition earned inclusion_ — link the dogfood
-   incident or external research that triggered the rule. mumei rules earn
-   their place through observed failure or external knowledge, not through
-   speculation. The check is enforced by review (no automated tooling),
-   so do this in the same commit as the rule itself.
+   Hook ID, explain in the PR description _why this addition earned
+   inclusion_ — link the incident or external research that triggered it.
+   mumei rules earn their place through observed failure or external
+   knowledge, not through speculation. A maintainer transcribes the
+   rationale into the maintainer-local design-decision log at merge time;
+   external contributors only need the PR-description paragraph.
 6. Open the PR. The body **must follow** `.github/PULL_REQUEST_TEMPLATE.md`
    (Summary / Motivation / Approach / Affected components / Test plan /
    Pre-merge checklist / Breaking change). When using `gh pr create
@@ -247,8 +247,8 @@ expected to follow the mumei spec workflow itself: `/mumei:compose <feature>` to
 generate `requirements.md` / `design.md` / `tasks.md`, then implement Wave by
 Wave. The artifacts live under `.mumei/specs/<feature>/` (spec documents are
 tracked; only `state.json` and `.mumei/current` are per-developer state). Share
-intent through the PR description and link to the relevant
-`docs/mumei-decisions.md` entry if applicable.
+intent and design rationale through the PR description; a maintainer records
+accepted decisions in the maintainer-local design-decision log.
 
 ## Releases
 

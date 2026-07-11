@@ -101,5 +101,6 @@ statement. Running all three on the same shared rubric gives you a
 model-diverse ensemble (Anthropic / OpenAI / Google) with one viewpoint and
 three decorrelated engines; you, the maintainer, are the meta-reviewer.
 
-See `docs/mumei-decisions.md` for the design rationale and the seeded-bug
-measurement methodology.
+The design rationale and the seeded-bug measurement methodology live in the
+maintainer's decision log; open an issue if you need the details for your
+adoption.

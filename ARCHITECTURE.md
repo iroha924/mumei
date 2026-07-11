@@ -309,7 +309,8 @@ CLAUDE.md). Distinct boundaries:
 | `README.md`, `README.ja.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`, `ARCHITECTURE.md`                  | Yes                   | English (README.ja.md mirrors in Japanese)          |
 | `docs/document-corruption.md`, `docs/getting-started{,.ja}.md`, `docs/operations-playbook.md`, `docs/security-policy.md`, `docs/threat-model.md` | Yes                   | English (getting-started.ja.md mirrors in Japanese) |
 | `CLAUDE.md`, `.claude/` (rules / skills / agents)                                                                                                | Tracked, dev-side     | English                                             |
-| `docs/` dev records (`mumei-decisions.md`, `harness-engineering.md`, `loop-engineering.md`)                                                      | Tracked, dev-side     | Japanese (pre-existing); new entries in English     |
+| `docs/` dev records (`harness-engineering.md`, `loop-engineering.md`)                                                                            | Tracked, dev-side     | Japanese (pre-existing); new entries in English     |
+| `docs/mumei-decisions.md` (design-decision log)                                                                                                  | No (maintainer-local) | —                                                   |
 | `.claude/settings.local.json`, `.claude/agent-memory*/`, `.claude/worktrees/`, `.claude/tdd-guard/`, `CLAUDE.local.md`                           | No (gitignored)       | —                                                   |
 | `tests/`, `.github/`, `.editorconfig`, `.markdownlint-cli2.jsonc`, `_typos.toml`, `lychee.toml`, `.pre-commit-config.yaml`                       | No (CI / dev tooling) | Mixed                                               |
 

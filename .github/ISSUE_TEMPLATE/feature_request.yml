@@ -8,8 +8,9 @@ body:
       value: |
         Thanks for proposing a feature. mumei follows a strict KISS /
         nameless-butler stance — proposals are weighed against current pain (have you hit it
-        in real use?) and against [`docs/mumei-decisions.md`](https://github.com/iroh4-labs/mumei/blob/main/docs/mumei-decisions.md)
-        Non-goals. Read those before filing if you can.
+        in real use?) and against the documented non-goals in
+        [README — What `mumei` is NOT](https://github.com/iroh4-labs/mumei/blob/main/README.md#what-mumei-is-not).
+        Read that section before filing if you can.
 
   - type: textarea
     id: use_case
@@ -29,7 +30,7 @@ body:
       description: |
         How often have you hit this? On which projects? What is the workaround
         you currently use? Features without a recurring pain are usually
-        deferred (see decisions.md FC1-FC16).
+        deferred.
     validations:
       required: true
 
@@ -74,7 +75,7 @@ body:
     attributes:
       label: "Pre-flight checklist"
       options:
-        - label: "I read [`docs/mumei-decisions.md`](https://github.com/iroh4-labs/mumei/blob/main/docs/mumei-decisions.md) Non-goals and confirmed this is not explicitly excluded."
+        - label: "I read [README — What `mumei` is NOT](https://github.com/iroh4-labs/mumei/blob/main/README.md#what-mumei-is-not) and confirmed this is not explicitly excluded."
           required: false
         - label: "I searched existing issues and did not find a duplicate."
           required: true

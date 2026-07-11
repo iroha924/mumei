@@ -14,6 +14,9 @@
 /.claude/worktrees/
 /.claude/tdd-guard/
 
+# Maintainer-local design-decision log (deliberately not published)
+/docs/mumei-decisions.md
+
 # mumei dogfooding state (this repo drives its own development with mumei)
 /.mumei/
 

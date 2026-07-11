@@ -16,7 +16,8 @@ with TaskCreate). Both vehicles share the same review pipeline and the single
 escape hatch (`MUMEI_BYPASS=1`).
 
 Details: [README.md](./README.md). Design-decision history:
-[docs/mumei-decisions.md](./docs/mumei-decisions.md).
+`docs/mumei-decisions.md` (maintainer-local, gitignored — deliberately
+not published).
 
 ## Language policy
 
@@ -24,9 +25,10 @@ Everything tracked in git is written in **English** — plugin payload
 (`agents/`, `skills/`, `hooks/`, manifests, README, LICENSE), development
 assets (`CLAUDE.md`, `.claude/` rules / skills / agents), CI, and all NEW
 additions to `docs/` dev records. The pre-existing Japanese content in
-`docs/mumei-decisions.md`, `docs/harness-engineering.md`, and
-`docs/loop-engineering.md` stays as-is (translation was deliberately skipped —
-see the REQ-31 decision entry); append new entries to those files in English.
+`docs/harness-engineering.md` and `docs/loop-engineering.md` stays as-is
+(translation was deliberately skipped); append new entries to those files in
+English. `docs/mumei-decisions.md` is maintainer-local (gitignored, not
+published); new entries there are also written in English.
 
 `README.ja.md` and `docs/getting-started.ja.md` are intentional Japanese
 mirrors of their English counterparts — keep both sides in sync.
@@ -77,9 +79,11 @@ Details: [.claude/rules/doc-sync.md](./.claude/rules/doc-sync.md).
 
 ## Design decisions
 
-`docs/mumei-decisions.md` is the primary source. Every new design judgment
-gets an entry there (English, dated heading, Why + Non-goals). Drift between
-code and decisions.md is detectable via
+`docs/mumei-decisions.md` (maintainer-local, gitignored) is the primary
+source. Every new design judgment gets an entry there (English, dated
+heading, Why + Non-goals); external contributors provide the rationale in
+their PR description and a maintainer transcribes it. Drift between code and
+decisions.md is detectable via
 `.claude/agents/decisions-consistency-checker.md`.
 
 Research knowledge (CLAUDE.md / hooks / plugins / SDD tools / requirements

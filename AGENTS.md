@@ -34,9 +34,11 @@ export-ignore` in `.gitattributes`); the hooks reference them by
   comment, never at runtime.
 - **Dev-side, tracked (NOT shipped)**: `CLAUDE.md` (project
   instructions, English), `.claude/rules|skills|agents/` (English),
-  `docs/` dev records (`mumei-decisions.md`, `harness-engineering.md`,
-  `loop-engineering.md` — pre-existing Japanese content, new entries
-  in English).
+  `docs/` dev records (`harness-engineering.md`, `loop-engineering.md`
+  — pre-existing Japanese content, new entries in English).
+  `docs/mumei-decisions.md` is maintainer-local (gitignored, not
+  published); external contributors put design rationale in the PR
+  description instead.
 - **Gitignored (per-developer runtime state)**:
   `.claude/settings.local.json`, `.claude/agent-memory*/`,
   `.claude/worktrees/`, `.claude/tdd-guard/`, `CLAUDE.local.md`.
