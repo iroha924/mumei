@@ -501,7 +501,8 @@ jobs:
           # action as a single environment string (`prompt:` -> INPUT_PROMPT),
           # and execve caps ONE string at MAX_ARG_STRLEN = 32 * PAGE_SIZE.
           # Measured on an ubuntu-latest runner (PAGE_SIZE=4096): 127 KiB spawns,
-          # 128 KiB and up fail with E2BIG. Past the limit the step does not run a
+          # 128 KiB and up fail with E2BIG — so the wall is at 131072 bytes and the
+          # budget below keeps 11 KB clear of it. Past the limit the step does not run a
           # shorter review — it fails to start. So the budget is on the WHOLE
           # assembled prompt, and the diff gets whatever is left after the fixed
           # parts.
@@ -509,7 +510,7 @@ jobs:
           # Not theoretical: the rubric plus AGENTS.md are ~31 KB before anything
           # else, and PR #182's diff was 98 KB. 110 KB leaves ~17 KB of headroom
           # under the measured cliff.
-          PROMPT_MAX_BYTES: "110000"
+          PROMPT_MAX_BYTES: "120000"
           AGENTS_MAX_BYTES: "24000"
           BODY_MAX_BYTES: "10000"
         run: |
