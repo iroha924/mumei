@@ -8,3 +8,12 @@
 # tarball still installs cleanly into Claude Code.
 
 schemas/ export-ignore
+
+# Maintainer-side Claude Code assets. These are tracked team assets for
+# developing mumei (project instructions, dev rules, the release and
+# changelog-watch skills), not part of the plugin surface: Claude Code
+# loads a plugin through .claude-plugin/plugin.json, which points only at
+# agents/, skills/ and hooks/. Shipping them would put maintainer-only
+# skills in a plugin user's tarball.
+.claude/ export-ignore
+CLAUDE.md export-ignore
