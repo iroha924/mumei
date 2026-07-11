@@ -298,6 +298,65 @@ while IFS= read -r _tok; do
   # like `*.snap` would otherwise false-deny `/tmp/foo.snap`. golden_paths is a
   # project-local immutability rule, not a global one.
   case "$_tok_rel" in /*) continue ;; esac
+
+  # --- S2: deny Bash-route write to mumei harness internal state ---
+  # The Bash counterpart of S1. Without it, S1's Edit/Write deny is a formality:
+  # `printf '...' >> .mumei/specs/<f>/cost-log.jsonl` writes the very execution
+  # trace the push gate reads as proof a reviewer ran.
+  #
+  # Scoped to the paths whose ONLY legitimate writers are mumei's own hooks and
+  # the orchestrator's _lib helpers (mumei_state_set / mumei_review_persist /
+  # the SubagentStop cost-log hook). Those write through a mktemp + mv inside
+  # the function body, so the guard never sees a protected path as a command
+  # token and the legitimate route stays open.
+  #
+  # config.json is denied only when it already exists: /mumei:kindle creates it
+  # on first run with `cat > .mumei/config.json`. Delete-then-recreate does not
+  # evade this — `rm` is itself a target token, and the file exists at that
+  # point. The attack this closes is dropping an entry from golden_paths to
+  # unlock G1, which pre-bash-guard's own G2 deny message used to spell out.
+  #
+  # NOT covered: `.mumei/current`. /mumei:kindle, /mumei:compose and
+  # /mumei:shelve all write the pointer with a literal redirect, so a Bash-route
+  # deny would break them. S1 still covers the Edit/Write route; the Bash route
+  # for the pointer remains a Tier-2 (auditable, not preventive) surface.
+  _s2=0
+  if [[ "$_tok_rel" =~ ^\.mumei/(specs|plans)/[^/]+/state\.json$ ]] ||
+    [[ "$_tok_rel" =~ ^\.mumei/(specs|plans)/[^/]+/cost-log\.jsonl$ ]] ||
+    [[ "$_tok_rel" =~ ^\.mumei/specs/[^/]+/spec-reviews/[^/]+\.json$ ]] ||
+    [[ "$_tok_rel" =~ ^\.mumei/(specs|plans)/[^/]+/reviews/[^/]+\.json$ ]]; then
+    _s2=1
+  elif [[ "$_tok_rel" == ".mumei/config.json" ]] && [[ -f "$_tok_rel" ]]; then
+    _s2=1
+  fi
+  if [[ "$_s2" == "1" ]]; then
+    if [[ -f "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh" ]]; then
+      # shellcheck disable=SC1091
+      source "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh"
+      mumei_hook_stats_record "S2" "deny" "Bash" "Bash-route write to mumei harness state denied"
+    fi
+    jq -n --arg r "This command writes to mumei harness state ('${_tok}'). state.json / cost-log.jsonl / reviews / config.json are written by mumei's own hooks and orchestrator helpers, not by hand." \
+      --arg c "cost-log.jsonl is an execution trace: it records that a reviewer subagent actually ran, so hand-writing it defeats the push gate that reads it — launch the reviewer instead. To change golden_paths or tool_gates, use mumei_config_add_golden_path. Set MUMEI_BYPASS=1 only for emergency manual repair." \
+      '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
+    exit 0
+  fi
+
+  # --- M2: deny Bash-route write to reviewer MEMORY.md ---
+  # The Bash counterpart of M1. mumei_memory_apply_operation (the curator's
+  # legitimate path) writes through an internal mktemp + mv, so it presents no
+  # MEMORY.md token here.
+  if [[ "$_tok_rel" =~ ^\.claude/agent-memory/[^/]+/MEMORY\.md$ ]]; then
+    if [[ -f "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh" ]]; then
+      # shellcheck disable=SC1091
+      source "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh"
+      mumei_hook_stats_record "M2" "deny" "Bash" "Bash-route write to reviewer MEMORY.md denied"
+    fi
+    jq -n --arg r "This command writes to reviewer memory ('${_tok}'). Memory entries flow through memory-curator + hooks/_lib/memory.sh." \
+      --arg c "Emit candidate entries via the memory_candidates array in your review output. The curator scores each against the 7-axis rubric and the orchestrator persists ADD/UPDATE atomically. Set MUMEI_BYPASS=1 only for emergency manual edits." \
+      '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
+    exit 0
+  fi
+
   # Match the canonicalized path ONLY: matching the raw token too would
   # false-deny a non-golden write that traverses a golden prefix
   # (e.g. `> tests/golden/../safe.txt` canonicalizes to safe.txt).

@@ -80,16 +80,27 @@ fi
 #   2. .mumei/{specs,plans}/<f>/state.json          — phase / wave / counter state
 #   3. .mumei/specs/<f>/spec-reviews/*.json         — spec reviewer audit trail
 #   4. .mumei/{specs,plans}/<f>/reviews/*.json      — Phase 5 / /mumei:peruse audit trail
+#   5. .mumei/config.json                           — golden_paths + tool_gates
+#   6. .mumei/{specs,plans}/<f>/cost-log.jsonl      — reviewer execution trace
 # Same placement rationale as M1: harness state protection must hold
 # regardless of mumei session state. The orchestrator's bash mutators
 # (mumei_state_set / mumei_review_persist / etc.) use file ops that do
 # not pass through this hook, so the legitimate write path is unaffected.
+#
+# (5) is what G1 reads to decide which paths are golden: leaving it writable
+# made G1 self-defeating (drop the path from golden_paths, then rewrite the
+# golden file). (6) is what the push gate reads as proof a reviewer actually
+# ran; it is written by the SubagentStop hook and the Stop-time backfill, both
+# of which are hook processes and do not pass through this hook.
+#
 # Out of scope (intentionally NOT denied): requirements.md / design.md /
 # tasks.md — orchestrator must edit these via Write. archive/ paths are
 # also out of scope (post-archive audit immutability is enforced by git
 # history, not this hook).
 if [[ "$CANON_PATH" =~ /\.mumei/current$ ]] ||
+  [[ "$CANON_PATH" =~ /\.mumei/config\.json$ ]] ||
   [[ "$CANON_PATH" =~ /\.mumei/(specs|plans)/[^/]+/state\.json$ ]] ||
+  [[ "$CANON_PATH" =~ /\.mumei/(specs|plans)/[^/]+/cost-log\.jsonl$ ]] ||
   [[ "$CANON_PATH" =~ /\.mumei/specs/[^/]+/spec-reviews/[^/]+\.json$ ]] ||
   [[ "$CANON_PATH" =~ /\.mumei/(specs|plans)/[^/]+/reviews/[^/]+\.json$ ]]; then
   if [[ -f "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh" ]]; then
@@ -97,8 +108,8 @@ if [[ "$CANON_PATH" =~ /\.mumei/current$ ]] ||
     source "${PLUGIN_ROOT}/hooks/_lib/hook-stats.sh"
     mumei_hook_stats_record "S1" "deny" "${TOOL_NAME:-Edit}" "Direct write to mumei harness state denied"
   fi
-  jq -n --arg r "Direct write to ${FILE_PATH} is denied. mumei harness internal state (current pointer / state.json / spec-reviews / reviews) flows through orchestrator helpers in hooks/_lib/state.sh and hooks/_lib/review.sh." \
-    --arg c "Use /mumei:compose or /mumei:peruse to mutate state legitimately. Edits to requirements.md / design.md / tasks.md are not covered by this rule. Set MUMEI_BYPASS=1 only for emergency manual edits." \
+  jq -n --arg r "Direct write to ${FILE_PATH} is denied. mumei harness internal state (current pointer / config.json / state.json / spec-reviews / reviews / cost-log.jsonl) flows through orchestrator helpers in hooks/_lib/state.sh and hooks/_lib/review.sh, or is written by mumei's own hooks." \
+    --arg c "Use /mumei:compose or /mumei:peruse to mutate state legitimately. The cost-log is an execution trace: it records that a reviewer subagent ran, so hand-writing it would defeat the push gate it feeds — launch the reviewer instead. Edits to requirements.md / design.md / tasks.md are not covered by this rule. Set MUMEI_BYPASS=1 only for emergency manual edits." \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r, additionalContext: $c}}'
   exit 0
 fi
