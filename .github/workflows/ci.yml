@@ -39,10 +39,16 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
+# Cancel superseded runs on PR synchronize; never cancel push-main / scheduled runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -125,6 +131,7 @@ jobs:
   lint-extra:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # Minimum permissions per GitHub hardening guide
     # (https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication).
     permissions:
@@ -159,7 +166,7 @@ jobs:
         run: |
           set -e
           mkdir -p /tmp/shfmt
-          curl -sLo /tmp/shfmt/shfmt \
+          curl --retry 2 --max-time 60 --retry-delay 2 -sLo /tmp/shfmt/shfmt \
             "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64"
           # Pin the binary by SHA256 to detect release-asset tampering or
           # accidental rate-limit HTML responses being mistaken for a binary.
@@ -177,7 +184,7 @@ jobs:
         id: get_actionlint
         run: |
           INSTALLER_SHA="221d1d16c03e4e4fcd867de34104e8d479bdce20ccdfa553b9a5c0dc29bf6af2"
-          curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash" -o "${RUNNER_TEMP}/download-actionlint.bash"
+          curl --retry 2 --max-time 60 --retry-delay 2 -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash" -o "${RUNNER_TEMP}/download-actionlint.bash"
           echo "${INSTALLER_SHA}  ${RUNNER_TEMP}/download-actionlint.bash" | sha256sum -c
           bash "${RUNNER_TEMP}/download-actionlint.bash" 1.7.7
         shell: bash
@@ -230,7 +237,7 @@ jobs:
           ver="0.24.2"
           url="https://github.com/lycheeverse/lychee/releases/download/lychee-v${ver}/lychee-x86_64-unknown-linux-gnu.tar.gz"
           tmp="$(mktemp -d)"
-          curl -sSfL "$url" -o "$tmp/lychee.tar.gz"
+          curl --retry 2 --max-time 60 --retry-delay 2 -sSfL "$url" -o "$tmp/lychee.tar.gz"
           tar -xzf "$tmp/lychee.tar.gz" -C "$tmp"
           sudo install -m 0755 "$tmp/lychee-x86_64-unknown-linux-gnu/lychee" /usr/local/bin/lychee
           lychee --version
@@ -279,7 +286,7 @@ jobs:
         run: |
           set -e
           mkdir -p /tmp/shellharden
-          curl -sLo /tmp/shellharden/sh.tar.gz \
+          curl --retry 2 --max-time 60 --retry-delay 2 -sLo /tmp/shellharden/sh.tar.gz \
             "https://github.com/anordal/shellharden/releases/download/v4.3.1/shellharden-x86_64-unknown-linux-gnu.tar.gz"
           # Pin the tarball by SHA256 (defense against asset overwrite + helps
           # distinguish a yanked release from a successful download).
@@ -304,6 +311,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -345,6 +353,7 @@ jobs:
   codeql:
     name: codeql (${{ matrix.language }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
@@ -366,3 +375,30 @@ jobs:
         uses: github/codeql-action/analyze@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
         with:
           category: "/language:${{ matrix.language }}"
+
+  # Active failure signal for scheduled runs: GitHub only emails the last
+  # workflow-file committer on cron failures, which is easy to miss. Open a
+  # deduped ci-fail issue instead so the failure lands in the issue list.
+  notify-cron-failure:
+    if: failure() && github.event_name == 'schedule'
+    needs: [codeql]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open ci-fail issue (deduped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+          title="ci-fail: scheduled ${WORKFLOW} run failed"
+          existing="$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --label ci-fail --search "in:title \"${title}\"" --json number --jq 'length')"
+          if [ "${existing}" -gt 0 ]; then
+            echo "open ci-fail issue already exists for this workflow; skipping"
+            exit 0
+          fi
+          gh issue create --repo "${GITHUB_REPOSITORY}" --title "${title}" --label ci-fail \
+            --body "Scheduled run failed: ${RUN_URL}"

@@ -1,0 +1,29 @@
+name: review
+
+# Caller for the reusable claude review workflow. mumei dogfoods the same
+# review-reusable.yml it ships to adopters (docs/review-adoption.md), so the
+# rubric and gating logic are exercised on every internal PR. Fork and
+# dependabot PRs are skipped inside the reusable workflow's gate step (no
+# secrets on those events); everything else gets a claude-code-action review.
+# Requires the CLAUDE_CODE_OAUTH_TOKEN repository secret.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+# Cancel superseded runs on PR synchronize; never cancel push-main / scheduled runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  review:
+    uses: ./.github/workflows/review-reusable.yml
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

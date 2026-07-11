@@ -1,35 +1,26 @@
 # =============================================================================
-# 開発者専用 — mumei plugin の配布物には含めない。
-# CLAUDE.md / .claude/ / docs/ はチーム共有もしない (個人開発スタンス)。
+# Machine-local state — CLAUDE.md / .claude/ (rules, skills, agents) and
+# docs/ dev records are tracked team assets; only per-developer runtime
+# state and personal overrides below stay out of git.
 # =============================================================================
 
-# 開発者向け CLAUDE.md (配布物の README.md は別、これは追跡する)
-/CLAUDE.md
+# Personal per-project Claude Code instructions (official gitignore target)
+/CLAUDE.local.md
 
-# 開発者環境の Claude Code 設定 (rules / skills / agents / settings)
-/.claude/
+# Per-developer Claude Code runtime state (never shared)
+/.claude/settings.local.json
+/.claude/agent-memory/
+/.claude/agent-memory-local/
+/.claude/worktrees/
+/.claude/tdd-guard/
 
-# リサーチ・決定ログ (dev 専用、ただし配布対象の英語ドキュメントは個別に許可)
-/docs/*
-!/docs/document-corruption.md
-!/docs/threat-model.md
-!/docs/security-policy.md
-!/docs/operations-playbook.md
-!/docs/getting-started.md
-!/docs/getting-started.ja.md
-!/docs/review-adoption.md
-
-# mumei plugin を mumei 自身で利用する場合の状態 (dogfood 想定)
+# mumei dogfooding state (this repo drives its own development with mumei)
 /.mumei/
 
-# iroha-for-notion の開発メモ (Notion セッションの mirror + 列挙 index、個人開発スタンス)
+# iroha-for-notion session mirror (maintainer-local notes)
 /.iroha/
 
-# self-evaluate skill の dev 採点記録 (個人開発スタンス、配布物外)
-/skills/self-evaluate/results/
-
-# Taskfile (go-task) ローカル checksum cache。sources/generates の up-to-date
-# 判定に使う隠しディレクトリ。dev 環境ごとに再生成されるため共有不要。
+# Taskfile (go-task) local checksum cache; regenerated per dev environment.
 .task/
 
 # =============================================================================

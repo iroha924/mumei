@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: "Security vulnerability"
-    url: "https://github.com/hir4ta/mumei/security/advisories/new"
+    url: "https://github.com/iroh4-labs/mumei/security/advisories/new"
     about: "Do not open a public issue for security reports. Use GitHub Security Advisories (private channel)."
   - name: "Documentation"
-    url: "https://github.com/hir4ta/mumei#readme"
+    url: "https://github.com/iroh4-labs/mumei#readme"
     about: "README, PRIVACY policy, and Hook rules reference."
   - name: "Design rationale"
-    url: "https://github.com/hir4ta/mumei/blob/main/docs/document-corruption.md"
+    url: "https://github.com/iroh4-labs/mumei/blob/main/docs/document-corruption.md"
     about: "nameless-butler stance, structural countermeasures, and why mumei refuses certain features."

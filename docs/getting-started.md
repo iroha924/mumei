@@ -84,11 +84,15 @@ Verify a downloaded release:
 ```bash
 cosign verify-blob \
   --bundle "mumei-${TAG}.tar.gz.cosign.bundle" \
-  --certificate-identity-regexp '^https://github.com/hir4ta/mumei/\.github/workflows/release-reusable\.yml@refs/tags/' \
+  --certificate-identity-regexp '^https://github.com/iroh4-labs/mumei/\.github/workflows/release-reusable\.yml@refs/tags/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   "mumei-${TAG}.tar.gz"
 # Expect: Verified OK
 ```
+
+For tags v0.10.1 and earlier, the signing identity records the
+repository path at signing time: use
+`^https://github.com/hir4ta/mumei/…` in the regexp instead.
 
 Full security model: [SECURITY.md](../SECURITY.md) (vulnerability
 reporting), [docs/security-policy.md](./security-policy.md)

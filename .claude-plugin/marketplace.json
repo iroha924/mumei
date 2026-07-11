@@ -10,8 +10,8 @@
       "name": "mumei",
       "source": "./",
       "description": "Quality Enforcement Layer for Claude Code — Hook-gated SDD (spec & plan vehicles), Wave commits, and grounded multi-agent code review.",
-      "homepage": "https://github.com/hir4ta/mumei",
-      "repository": "https://github.com/hir4ta/mumei",
+      "homepage": "https://github.com/iroh4-labs/mumei",
+      "repository": "https://github.com/iroh4-labs/mumei",
       "license": "MIT",
       "keywords": [
         "harness",

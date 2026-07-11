@@ -5,9 +5,9 @@ name: gitleaks-weekly
 # rescans the entire history each week so newly published rule
 # updates apply retroactively to the repo's full timeline.
 #
-# Findings open issues in the repo's Security tab. A non-zero exit
-# fails the workflow so the schedule alert surfaces in the actions
-# log even if the issues feed is unread.
+# Findings surface as a PR comment (when run in a PR context) and a
+# non-zero exit code; the notify-cron-failure job below turns a failed
+# scheduled run into a deduped ci-fail issue.
 
 on:
   schedule:
@@ -20,6 +20,7 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -30,3 +31,30 @@ jobs:
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # Active failure signal for scheduled runs: GitHub only emails the last
+  # workflow-file committer on cron failures, which is easy to miss. Open a
+  # deduped ci-fail issue instead so the failure lands in the issue list.
+  notify-cron-failure:
+    if: failure() && github.event_name == 'schedule'
+    needs: [scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open ci-fail issue (deduped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+          title="ci-fail: scheduled ${WORKFLOW} run failed"
+          existing="$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --label ci-fail --search "in:title \"${title}\"" --json number --jq 'length')"
+          if [ "${existing}" -gt 0 ]; then
+            echo "open ci-fail issue already exists for this workflow; skipping"
+            exit 0
+          fi
+          gh issue create --repo "${GITHUB_REPOSITORY}" --title "${title}" --label ci-fail \
+            --body "Scheduled run failed: ${RUN_URL}"

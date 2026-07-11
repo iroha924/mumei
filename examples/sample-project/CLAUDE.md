@@ -6,7 +6,7 @@ above the mumei block.
 
 ## mumei (Quality Enforcement Layer)
 
-This project uses [mumei](https://github.com/hir4ta/mumei) for spec-driven
+This project uses [mumei](https://github.com/iroh4-labs/mumei) for spec-driven
 development and physical-enforcement of phase transitions.
 
 ### Workflow

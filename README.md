@@ -1,11 +1,11 @@
 # mumei
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-[![CI](https://github.com/hir4ta/mumei/actions/workflows/ci.yml/badge.svg)](https://github.com/hir4ta/mumei/actions/workflows/ci.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hir4ta/mumei/badge)](https://scorecard.dev/viewer/?uri=github.com/hir4ta/mumei)
+[![CI](https://github.com/iroh4-labs/mumei/actions/workflows/ci.yml/badge.svg)](https://github.com/iroh4-labs/mumei/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/iroh4-labs/mumei/badge)](https://scorecard.dev/viewer/?uri=github.com/iroh4-labs/mumei)
 [![SLSA Level 3](https://img.shields.io/badge/SLSA-level_3-green?logo=slsa)](https://slsa.dev/spec/v1.0/levels#build-l3)
 [![Sigstore signed](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev)
-[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/hir4ta/mumei/network/updates)
+[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/iroh4-labs/mumei/network/updates)
 
 **mumei is a quality-enforcement harness for Claude Code.** It runs two things —
 your spec-driven workflow and a grounded, multi-agent code review. Both pass
@@ -69,7 +69,7 @@ Install from the community marketplace:
 Or track the latest (main) from the self-hosted marketplace:
 
 ```text
-/plugin marketplace add hir4ta/mumei
+/plugin marketplace add iroh4-labs/mumei
 /plugin install mumei@mumei
 /reload-plugins
 ```
@@ -168,6 +168,20 @@ the next section says plainly — never claims to replace human review.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — runtime structure, distribution layout, full enforcement table, reviewer pipeline, file-based state model.
 - **[docs/operations-playbook.md](./docs/operations-playbook.md)** — practical guidance for running mumei (proactive `/compact`, subagent cost, prompt cache, byte-exact tools, `MUMEI_BYPASS=1` discipline).
 - **[SECURITY.md](./SECURITY.md)** + **[docs/security-policy.md](./docs/security-policy.md)** + **[docs/threat-model.md](./docs/threat-model.md)** + **[PRIVACY.md](./PRIVACY.md)** — supply-chain verification, threat model, privacy.
+
+## Contributing
+
+Contributions are welcome — see **[CONTRIBUTING.md](./CONTRIBUTING.md)** for
+the full guide. The fast path:
+
+```bash
+git clone https://github.com/iroh4-labs/mumei.git && cd mumei
+task doctor     # verify required tooling
+task validate   # lint + tests — run before every push
+```
+
+Issues labeled [`good first issue`](https://github.com/iroh4-labs/mumei/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+are scoped for first-time contributors.
 
 ## License
 

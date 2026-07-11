@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for proposing a feature. mumei follows a strict KISS /
         nameless-butler stance — proposals are weighed against current pain (have you hit it
-        in real use?) and against [`docs/mumei-decisions.md`](https://github.com/hir4ta/mumei/blob/main/docs/mumei-decisions.md)
+        in real use?) and against [`docs/mumei-decisions.md`](https://github.com/iroh4-labs/mumei/blob/main/docs/mumei-decisions.md)
         Non-goals. Read those before filing if you can.
 
   - type: textarea
@@ -74,7 +74,7 @@ body:
     attributes:
       label: "Pre-flight checklist"
       options:
-        - label: "I read [`docs/mumei-decisions.md`](https://github.com/hir4ta/mumei/blob/main/docs/mumei-decisions.md) Non-goals and confirmed this is not explicitly excluded."
+        - label: "I read [`docs/mumei-decisions.md`](https://github.com/iroh4-labs/mumei/blob/main/docs/mumei-decisions.md) Non-goals and confirmed this is not explicitly excluded."
           required: false
         - label: "I searched existing issues and did not find a duplicate."
           required: true

@@ -40,4 +40,4 @@ mumei itself does not push these files anywhere. `/mumei:kindle` writes `.mumei/
 
 ## Contact
 
-Open an issue: https://github.com/hir4ta/mumei/issues
+Open an issue: https://github.com/iroh4-labs/mumei/issues

@@ -8,7 +8,7 @@ this repository.
 
 By participating, you agree to abide by the [Code of Conduct](./CODE_OF_CONDUCT.md)
 (Contributor Covenant v2.1). Report incidents through the channels listed in that
-document or via [GitHub Security Advisories](https://github.com/hir4ta/mumei/security/advisories/new)
+document or via [GitHub Security Advisories](https://github.com/iroh4-labs/mumei/security/advisories/new)
 for security-sensitive matters.
 
 ## Local development
@@ -17,7 +17,7 @@ mumei is a Claude Code plugin. The fastest way to iterate is to load it directly
 from your local clone with the `--plugin-dir` flag:
 
 ```bash
-git clone https://github.com/hir4ta/mumei.git
+git clone https://github.com/iroh4-labs/mumei.git
 cd mumei
 claude --plugin-dir "$(pwd)"
 ```
@@ -28,7 +28,9 @@ on the next tool invocation (Hook reload may need `/reload-plugins` in some
 versions of Claude Code).
 
 The repository is split into **distributable artifacts** (English-only, shipped to
-plugin users) and **dev-only files** (Japanese, gitignored). The full boundary
+plugin users) and **dev-side files** (tracked team assets: `CLAUDE.md`,
+`.claude/` rules / skills / agents in English, plus the `docs/` dev records —
+pre-existing Japanese content with new entries in English). The full boundary
 rules, language conventions, bash/jq conventions, and review rubric are documented
 in [AGENTS.md](./AGENTS.md) — tracked and English, it is the canonical conventions
 reference for both human and AI contributors. Read it before your first PR.
@@ -43,6 +45,11 @@ reference for both human and AI contributors. Read it before your first PR.
 | `task` >= 3.40       | task runner (Taskfile.yml entry point)          | `brew install go-task`                     |
 | `bats-core` >= 1.5.0 | test runner                                     | `brew install bats-core` / `npm i -g bats` |
 | `shellcheck`         | shell lint                                      | `brew install shellcheck`                  |
+| `shfmt`              | shell formatter (lint sweep + pre-commit)       | `brew install shfmt`                       |
+| `actionlint`         | GitHub Actions workflow lint                    | `brew install actionlint`                  |
+| `pre-commit`         | local commit gate (`pre-commit install`)        | `brew install pre-commit`                  |
+| `gh`                 | GitHub CLI (PR / CI watching tasks)             | `brew install gh`                          |
+| `python3` + PyYAML   | frontmatter lint                                | `python3 -m pip install pyyaml`            |
 | `semgrep`            | review-phase SAST detector (optional for tests) | `brew install semgrep`                     |
 | `osv-scanner`        | review-phase CVE detector (optional for tests)  | `brew install osv-scanner`                 |
 
@@ -214,9 +221,11 @@ so the full CI suite and AI review run before landing.
    first; the `--body` argument otherwise overrides the template prefill
    that the GitHub web UI would have inserted automatically.
 7. CI runs on the PR. The relevant workflows are `ci.yml` (`lint`,
-   `lint-extra`, `bats` on macOS / Ubuntu, `codeql`), `pr.yml`
-   (`mutable-tag-guard`, `pr-target-guard`), `gitleaks.yml`, and
-   `plugin-json-validate.yml`. Address failures before merge.
+   `lint-extra` — which includes the secret scans, `bats` on macOS /
+   Ubuntu, `codeql`), `pr.yml` (`mutable-tag-guard`, `pr-target-guard`),
+   `review.yml` (claude-code-action review; skipped on fork PRs), and
+   `plugin-json-validate.yml` (manifest-touching PRs only). Address
+   failures before merge.
 8. Monitor the PR after opening:
 
    - `task pr:watch` — wait for the latest CI run on this branch
@@ -227,26 +236,28 @@ so the full CI suite and AI review run before landing.
    does not require any particular reviewer — that is the repo owner's
    choice, not a contribution prerequisite.
 
-9. Self-merge via squash or rebase (linear history; merge commits should
-   be avoided). No required approval count.
+9. A maintainer merges via squash or rebase (linear history; merge
+   commits are disabled). No required approval count; external
+   contributors cannot self-merge.
 
 ## Spec-driven changes
 
 Larger changes (new Hook rules, new agents, schema breaks, new detectors) are
 expected to follow the mumei spec workflow itself: `/mumei:compose <feature>` to
 generate `requirements.md` / `design.md` / `tasks.md`, then implement Wave by
-Wave. The artifacts live under `.mumei/specs/<feature>/`. This is gitignored, so
-the spec stays local; share intent through the PR description and link to the
-relevant `decisions.md` entry under `docs/` if applicable.
+Wave. The artifacts live under `.mumei/specs/<feature>/` (spec documents are
+tracked; only `state.json` and `.mumei/current` are per-developer state). Share
+intent through the PR description and link to the relevant
+`docs/mumei-decisions.md` entry if applicable.
 
 ## Releases
 
 Releases are maintainer-only. External contributors do not need to
-reproduce a release locally; the procedure lives in a private skill
-that is not part of the distributed plugin (the entire `.claude/` tree
-is gitignored).
+reproduce a release locally; the procedure lives in
+[.claude/skills/release/SKILL.md](./.claude/skills/release/SKILL.md)
+(tracked, but not part of the distributed plugin payload).
 
-For maintainers, the procedure (in `.claude/skills/release/SKILL.md`)
+For maintainers, the procedure
 takes either no argument, a SemVer bump keyword
 (`patch` / `minor` / `major`), or an explicit version (`0.4.2`). It
 creates one commit that wraps any uncommitted work, pushes to `main`,
@@ -331,9 +342,9 @@ for repository social preview):
 1. Prepare a 1280×640 PNG. Keep it minimal: project name, one-line tagline,
    and (optionally) the nameless-butler motif. Avoid screenshots that age fast.
 2. Go to **Settings → General → Social preview** of the repo
-   (`https://github.com/hir4ta/mumei/settings`).
+   (`https://github.com/iroh4-labs/mumei/settings`).
 3. Click **Upload an image** and select the PNG.
-4. Verify on the repo home page (`https://github.com/hir4ta/mumei`) — the
+4. Verify on the repo home page (`https://github.com/iroh4-labs/mumei`) — the
    image now appears at the top of the page when shared externally.
 
 Replace the image when the design language or scope of the project changes
@@ -382,13 +393,13 @@ each rule mitigates.
 ## Reporting bugs
 
 Use the **Bug report** template under
-[Issues → New issue](https://github.com/hir4ta/mumei/issues/new/choose). The form
+[Issues → New issue](https://github.com/iroh4-labs/mumei/issues/new/choose). The form
 collects mumei-specific reproduction information (affected component, Claude Code
 version, mumei version, `bash` / `semgrep` / `osv-scanner` versions, the relevant
 `.mumei/specs/<feature>/state.json` and `tasks.md`, and a minimal repro).
 
 For security vulnerabilities, do **not** open a public issue. Use
-[GitHub Security Advisories](https://github.com/hir4ta/mumei/security/advisories/new)
+[GitHub Security Advisories](https://github.com/iroh4-labs/mumei/security/advisories/new)
 instead — see [SECURITY.md](./SECURITY.md).
 
 ## Questions

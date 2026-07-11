@@ -223,19 +223,28 @@ tasks:
             missing=$((missing + 1))
           fi
         fi
+        check_opt() {
+          local tool="$1"
+          local hint="$2"
+          if command -v "$tool" >/dev/null 2>&1; then
+            printf "  ✓ %-14s %s\n" "$tool" "$(command -v "$tool")"
+          else
+            printf "  - %-14s absent — %s\n" "$tool" "$hint"
+          fi
+        }
         echo
-        echo "Optional (CI parity locally):"
-        check gitleaks   "brew install gitleaks"
-        check trufflehog "brew install trufflehog"
-        check semgrep    "brew install semgrep"
-        check osv-scanner "brew install osv-scanner (review detector)"
-        check opengrep   "brew install opengrep (Tier2 SAST, opt-in)"
-        check gosec      "brew install gosec (Tier2 Go SAST, opt-in)"
-        check brakeman   "gem install brakeman (Tier2 Rails SAST, opt-in)"
-        check bandit     "pip install bandit (Tier2 Python SAST, opt-in)"
-        check codeql     "codeql-cli-binaries (Tier2, needs MUMEI_CODEQL_DB; opt-in)"
-        check lychee     "brew install lychee"
-        check shellharden "cargo install shellharden"
+        echo "Optional (CI parity locally; absence does not fail doctor):"
+        check_opt gitleaks   "brew install gitleaks"
+        check_opt trufflehog "brew install trufflehog"
+        check_opt semgrep    "brew install semgrep"
+        check_opt osv-scanner "brew install osv-scanner (review detector)"
+        check_opt opengrep   "brew install opengrep (Tier2 SAST, opt-in)"
+        check_opt gosec      "brew install gosec (Tier2 Go SAST, opt-in)"
+        check_opt brakeman   "gem install brakeman (Tier2 Rails SAST, opt-in)"
+        check_opt bandit     "pip install bandit (Tier2 Python SAST, opt-in)"
+        check_opt codeql     "codeql-cli-binaries (Tier2, needs MUMEI_CODEQL_DB; opt-in)"
+        check_opt lychee     "brew install lychee"
+        check_opt shellharden "cargo install shellharden"
         echo
         if [ "$missing" -gt 0 ]; then
           echo "missing $missing required tool(s); see hints above"

@@ -28,20 +28,26 @@ on:
       - ".github/workflows/plugin-json-validate.yml"
       - "schemas/plugin.schema.json"
   schedule:
-    # Weekly drift sentinel for the vendored schema (added review iter 1
-    # adv-F-004): if upstream json.schemastore.org adds / changes fields
-    # without a mumei manifest PR, the paths-filtered PR run never fires.
-    # Cron picks up the divergence so the operator can refresh
-    # schemas/plugin.schema.json before the next release.
+    # Weekly drift sentinel for the vendored schema: the "Vendored schema
+    # drift vs remote" step below compares a normalized (sorted-keys) dump
+    # of the remote $schema against schemas/plugin.schema.json and fails on
+    # any divergence, so upstream json.schemastore.org changes surface even
+    # when no manifest PR fires the paths filter.
     - cron: "30 9 * * 1" # Mondays 09:30 UTC
   workflow_dispatch: {}
 
 permissions:
   contents: read
 
+# Cancel superseded runs on PR synchronize; never cancel push-main / scheduled runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -99,3 +105,91 @@ jobs:
 
           print(f"manifest valid against {schema_url}")
           PY
+
+      # Exercise the same code path release-reusable.yml uses at tag time:
+      # parse the vendored schema, check it is itself a valid JSON Schema,
+      # and validate the manifest against it. Without this, a broken
+      # vendored copy would first surface inside the release pipeline.
+      - name: Validate vendored schema + manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          import jsonschema
+
+          schema_path = Path("schemas/plugin.schema.json")
+          manifest_path = Path(".claude-plugin/plugin.json")
+
+          schema = json.loads(schema_path.read_text(encoding="utf-8"))
+          validator_cls = jsonschema.validators.validator_for(schema)
+          validator_cls.check_schema(schema)
+          validator = validator_cls(schema)
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          errors = sorted(validator.iter_errors(manifest), key=lambda e: list(e.absolute_path))
+          if errors:
+              for err in errors:
+                  path = "/".join(str(p) for p in err.absolute_path) or "(root)"
+                  print(f"::error file={schema_path}::{path}: {err.message}")
+              sys.exit(1)
+
+          print(f"manifest valid against vendored {schema_path}")
+          PY
+
+      # Weekly drift sentinel: fail when the vendored copy no longer matches
+      # the upstream schema byte-for-byte after key-order normalization.
+      # Scoped to non-PR events so PR runs stay decoupled from upstream
+      # availability beyond the $schema fetch above.
+      - name: Vendored schema drift vs remote
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          import urllib.request
+          from pathlib import Path
+
+          vendored_path = Path("schemas/plugin.schema.json")
+          vendored = json.loads(vendored_path.read_text(encoding="utf-8"))
+          manifest = json.loads(Path(".claude-plugin/plugin.json").read_text(encoding="utf-8"))
+          schema_url = manifest["$schema"]
+
+          with urllib.request.urlopen(schema_url, timeout=20) as resp:
+              remote = json.loads(resp.read().decode("utf-8"))
+
+          norm = lambda obj: json.dumps(obj, sort_keys=True, indent=2)
+          if norm(vendored) != norm(remote):
+              print(f"::error file={vendored_path}::vendored schema has drifted from {schema_url} — refresh the vendored copy")
+              sys.exit(1)
+
+          print("vendored schema matches remote")
+          PY
+
+  # Active failure signal for scheduled runs: GitHub only emails the last
+  # workflow-file committer on cron failures, which is easy to miss. Open a
+  # deduped ci-fail issue instead so the failure lands in the issue list.
+  notify-cron-failure:
+    if: failure() && github.event_name == 'schedule'
+    needs: [validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open ci-fail issue (deduped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+          title="ci-fail: scheduled ${WORKFLOW} run failed"
+          existing="$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --label ci-fail --search "in:title \"${title}\"" --json number --jq 'length')"
+          if [ "${existing}" -gt 0 ]; then
+            echo "open ci-fail issue already exists for this workflow; skipping"
+            exit 0
+          fi
+          gh issue create --repo "${GITHUB_REPOSITORY}" --title "${title}" --label ci-fail \
+            --body "Scheduled run failed: ${RUN_URL}"

@@ -45,11 +45,13 @@ mumei はランタイムと配布物の両面で多層防御を取ります。
 ```bash
 cosign verify-blob \
   --bundle "mumei-${TAG}.tar.gz.cosign.bundle" \
-  --certificate-identity-regexp '^https://github.com/hir4ta/mumei/\.github/workflows/release-reusable\.yml@refs/tags/' \
+  --certificate-identity-regexp '^https://github.com/iroh4-labs/mumei/\.github/workflows/release-reusable\.yml@refs/tags/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   "mumei-${TAG}.tar.gz"
 # 期待値: Verified OK
 ```
+
+v0.10.1 以前のタグは署名時点のリポジトリパスが identity に記録されているため、regexp には `^https://github.com/hir4ta/mumei/…` を使用してください。
 
 完全なセキュリティモデル: [SECURITY.md](../SECURITY.md)（脆弱性報告）、[docs/security-policy.md](./security-policy.md)（tarball / SBOM / SLSA の検証手順）、[docs/threat-model.md](./threat-model.md)（脅威面と緩和策）、[PRIVACY.md](../PRIVACY.md)。
 

@@ -19,6 +19,11 @@ on:
 
 permissions: read-all
 
+# Cancel superseded runs on PR synchronize; never cancel push-main / scheduled runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   scan:
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
@@ -40,3 +45,30 @@ jobs:
       contents: read
       security-events: write
       actions: read
+
+  # Active failure signal for scheduled runs: GitHub only emails the last
+  # workflow-file committer on cron failures, which is easy to miss. Open a
+  # deduped ci-fail issue instead so the failure lands in the issue list.
+  notify-cron-failure:
+    if: failure() && github.event_name == 'schedule'
+    needs: [scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open ci-fail issue (deduped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+          title="ci-fail: scheduled ${WORKFLOW} run failed"
+          existing="$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --label ci-fail --search "in:title \"${title}\"" --json number --jq 'length')"
+          if [ "${existing}" -gt 0 ]; then
+            echo "open ci-fail issue already exists for this workflow; skipping"
+            exit 0
+          fi
+          gh issue create --repo "${GITHUB_REPOSITORY}" --title "${title}" --label ci-fail \
+            --body "Scheduled run failed: ${RUN_URL}"

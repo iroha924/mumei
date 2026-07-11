@@ -45,6 +45,7 @@ jobs:
   preflight:
     name: pre-flight scan
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
@@ -182,6 +183,7 @@ jobs:
   validate-manifest:
     name: validate plugin.json
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: preflight
     permissions:
       contents: read
@@ -253,6 +255,7 @@ jobs:
   build:
     name: build tarball
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [preflight, validate-manifest]
     permissions:
       contents: read
@@ -295,6 +298,7 @@ jobs:
   sbom:
     name: generate SBOM
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: build
     permissions:
       contents: read
@@ -327,6 +331,7 @@ jobs:
   sign:
     name: keyless sign tarball
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: build
     permissions:
       contents: read
@@ -368,6 +373,7 @@ jobs:
   publish:
     name: publish release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [build, sbom, sign]
     permissions:
       contents: write

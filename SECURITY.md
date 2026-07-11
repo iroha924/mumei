@@ -11,10 +11,10 @@ The latest published release is supported. mumei follows semantic versioning
 on the `0.x` track; older `0.x.y` releases receive no backports. Users on
 unsupported versions should upgrade before reporting an issue.
 
-| Version                                                                   | Supported |
-| ------------------------------------------------------------------------- | --------- |
-| Latest `0.x.y` (see [Releases](https://github.com/hir4ta/mumei/releases)) | Yes       |
-| Older `0.x.y`                                                             | No        |
+| Version                                                                       | Supported |
+| ----------------------------------------------------------------------------- | --------- |
+| Latest `0.x.y` (see [Releases](https://github.com/iroh4-labs/mumei/releases)) | Yes       |
+| Older `0.x.y`                                                                 | No        |
 
 ## Reporting a vulnerability
 
@@ -24,7 +24,7 @@ channel exclusively.
 
 To report a vulnerability:
 
-1. Go to <https://github.com/hir4ta/mumei/security/advisories/new>.
+1. Go to <https://github.com/iroh4-labs/mumei/security/advisories/new>.
 2. Fill out the advisory form with:
    - A clear summary of the issue (one sentence).
    - The affected component (`hook` / `agent` / `skill` / `detector`).
@@ -120,7 +120,7 @@ adding any verification surface for users.
 
 Personal Access Tokens used for repo automation are **fine-grained**
 (not classic), scoped to the single repository
-(`hir4ta/mumei`) and limited to the minimum required permissions per
+(`iroh4-labs/mumei`) and limited to the minimum required permissions per
 workflow. PAT expiry is capped at **90 days**; tokens are rotated on
 or before expiry. No PAT is ever committed, exported, or stored in a
 location that is not encrypted at rest.

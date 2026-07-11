@@ -49,7 +49,7 @@ exclude = [
   # though the badge image itself is the documented Dependabot URL. It
   # resolves once Dependabot runs against the SHA-pinned actions added
   # in REQ-8 Wave 2.
-  "github\\.com/hir4ta/mumei/network/updates",
+  "github\\.com/iroh4-labs/mumei/network/updates",
   # slsa.dev intermittently fails TLS handshake from GitHub-hosted
   # runners (~5-10% of recent runs). The page is real and stable; the
   # network path between Azure runners and the SLSA host is the flake.

@@ -10,10 +10,21 @@ name: pr
 on:
   pull_request:
     branches: [main]
+  # Direct pushes to main bypass PR gating (enforce_admins is off); running
+  # the two guards on workflow-file pushes closes the unchecked path for
+  # unpinned actions / pull_request_target introduced outside a PR.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
 
 permissions:
   contents: read
-  pull-requests: read
+
+# Cancel superseded runs on PR synchronize; never cancel push-main / scheduled runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ─────────────────────────────────────────
@@ -21,11 +32,13 @@ jobs:
   # pinned to a mutable target (vN floating tag, main, master, branch).
   # Counters the tj-actions / Trivy-style supply-chain pattern where a
   # malicious force-push to a mutable tag rotates code under everyone's
-  # `@v1` reference. Self-exclusion: this workflow file is excluded
-  # because the regex matches the example patterns in the comments.
+  # floating-tag reference. This file scans itself too; keep comments and
+  # example strings here written so they do not start a line with a bare
+  # uses/pull_request_target token, or the guards will flag them.
   # ─────────────────────────────────────────
   mutable-tag-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -37,7 +50,6 @@ jobs:
           mapfile -t files < <(
             find .github/workflows -maxdepth 1 -type f \
               \( -name '*.yml' -o -name '*.yaml' \) \
-              ! -name 'pr.yml' \
               | sort
           )
           if [ "${#files[@]}" -eq 0 ]; then
@@ -69,12 +81,13 @@ jobs:
   # Reject any PR that introduces a new workflow using
   # `pull_request_target` outside the explicit ALLOWLIST. The trigger
   # runs in the base repo's context with secret access — canonical
-  # attack surface for fork-PR-driven secret exfiltration. Self-
-  # exclusion: pr.yml is skipped because the comment text contains
-  # the literal `pull_request_target` token.
+  # attack surface for fork-PR-driven secret exfiltration. This file
+  # scans itself too (the trigger token only appears mid-line here,
+  # which the line-anchored grep ignores).
   # ─────────────────────────────────────────
   pr-target-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -87,7 +100,6 @@ jobs:
           mapfile -t files < <(
             find .github/workflows -maxdepth 1 -type f \
               \( -name '*.yml' -o -name '*.yaml' \) \
-              ! -name 'pr.yml' \
               | sort
           )
           violations=""

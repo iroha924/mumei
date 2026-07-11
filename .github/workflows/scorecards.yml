@@ -20,6 +20,7 @@ jobs:
   analysis:
     name: scorecard analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       security-events: write
       id-token: write
@@ -45,3 +46,30 @@ jobs:
         uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
         with:
           sarif_file: results.sarif
+
+  # Active failure signal for scheduled runs: GitHub only emails the last
+  # workflow-file committer on cron failures, which is easy to miss. Open a
+  # deduped ci-fail issue instead so the failure lands in the issue list.
+  notify-cron-failure:
+    if: failure() && github.event_name == 'schedule'
+    needs: [analysis]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open ci-fail issue (deduped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+          title="ci-fail: scheduled ${WORKFLOW} run failed"
+          existing="$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --label ci-fail --search "in:title \"${title}\"" --json number --jq 'length')"
+          if [ "${existing}" -gt 0 ]; then
+            echo "open ci-fail issue already exists for this workflow; skipping"
+            exit 0
+          fi
+          gh issue create --repo "${GITHUB_REPOSITORY}" --title "${title}" --label ci-fail \
+            --body "Scheduled run failed: ${RUN_URL}"

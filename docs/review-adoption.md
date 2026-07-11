@@ -30,13 +30,13 @@ permissions:
   id-token: write
 jobs:
   review:
-    uses: hir4ta/mumei/.github/workflows/review-reusable.yml@<TAG>
+    uses: iroh4-labs/mumei/.github/workflows/review-reusable.yml@<TAG>
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
 Replace `<TAG>` with a mumei release tag. For stronger supply-chain integrity
-prefer a full commit SHA over a tag (`uses: hir4ta/mumei/.github/workflows/review-reusable.yml@<40-char-sha>`)
+prefer a full commit SHA over a tag (`uses: iroh4-labs/mumei/.github/workflows/review-reusable.yml@<40-char-sha>`)
 — tags are mutable in principle, and a moved or compromised tag would run
 different workflow code with your repo's `pull-requests: write` /
 `id-token: write` permissions and your Claude OAuth secret. Pinning by SHA
@@ -60,7 +60,7 @@ model differences, not divergent criteria).
    `## Review guidelines` section natively.
 2. Create `.gemini/styleguide.md`. Gemini Code Assist reads this file.
 3. In both files, paste the block from
-   `https://raw.githubusercontent.com/hir4ta/mumei/<TAG>/.github/review-rubric.md`
+   `https://raw.githubusercontent.com/iroh4-labs/mumei/<TAG>/.github/review-rubric.md`
    between its `<!-- BEGIN universal-review-rubric -->` and
    `<!-- END universal-review-rubric -->` markers. Keep the markers — they
    are how mumei's drift lint stays in sync across the three carriers if you

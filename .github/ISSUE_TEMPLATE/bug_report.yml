@@ -8,8 +8,8 @@ body:
       value: |
         Thanks for filing a bug report. Please fill out as many fields as you can.
         For **security vulnerabilities**, do NOT open a public issue — use
-        [GitHub Security Advisories](https://github.com/hir4ta/mumei/security/advisories/new)
-        instead (see [SECURITY.md](https://github.com/hir4ta/mumei/blob/main/SECURITY.md)).
+        [GitHub Security Advisories](https://github.com/iroh4-labs/mumei/security/advisories/new)
+        instead (see [SECURITY.md](https://github.com/iroh4-labs/mumei/blob/main/SECURITY.md)).
 
   - type: dropdown
     id: component
@@ -17,9 +17,9 @@ body:
       label: "Affected component"
       description: "Which part of mumei did you observe the bug in?"
       options:
-        - "hook (pre-edit / pre-bash / post-edit / post-bash / stop / pre-review-detector)"
-        - "agent (requirements / design / tasks / spec-compliance / code-quality / security / adversarial / issue-validator)"
-        - "skill (compose / glean / kindle / peruse / shelve / muse)"
+        - "hook (pre-edit / pre-bash / post-edit / post-bash / stop / pre-review-detector / session / task-event / subagent / other handler)"
+        - "agent (requirements / design / tasks / spec-compliance / security / adversarial / issue-validator / memory-curator / property-author)"
+        - "skill (compose / glean / kindle / peruse / review / shelve / muse / attest / glance)"
         - "detector (semgrep / osv-scanner)"
         - "I don't know / multiple"
     validations:
@@ -39,7 +39,7 @@ body:
     attributes:
       label: "mumei version"
       description: "From `.claude-plugin/plugin.json` `version` field, or `/plugin list` output."
-      placeholder: "e.g., 0.1.13"
+      placeholder: "e.g., 0.10.1"
     validations:
       required: true
 

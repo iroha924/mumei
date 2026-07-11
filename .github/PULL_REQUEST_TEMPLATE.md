@@ -40,7 +40,7 @@ Reproducible commands. Reviewers will run these.
 Examples:
 - `bats -r tests/`
 - `bash hooks/_lib/detectors.sh --self-test`
-- `/validate` (inside Claude Code)
+- `task lint` (or `bash scripts/lint-all.sh`)
 -->
 
 ## Pre-merge checklist
@@ -49,12 +49,12 @@ Examples:
 - [ ] No `Co-Authored-By` trailer.
 - [ ] Single-line subject; PR body holds the long description (this template).
 - [ ] `bats -r tests/` passes locally on macOS or Linux.
-- [ ] `/validate` skill passes locally (`jq empty` + `bash -n` + `shellcheck` + frontmatter check).
+- [ ] `task lint` passes locally (shellcheck + shfmt + `jq empty` + frontmatter + drift checks).
 - [ ] If the change alters external behavior, network egress, or distribution layout: `README.md`, `README.ja.md`, `PRIVACY.md` are updated to match.
 - [ ] If the change introduces a new design decision or revises an existing one: `docs/mumei-decisions.md` (dev-local) is updated with the rationale.
 - [ ] **Ratchet principle**: if this PR adds a new hook rule, agent, skill, or Hook ID, `docs/mumei-decisions.md` has a one-paragraph _why this earned inclusion_ entry naming the dogfood incident or external research that triggered it.
 - [ ] Distributable artifacts (`agents/`, `skills/`, `hooks/`, `.claude-plugin/`, `README*`, `LICENSE`, `PRIVACY.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`) stay in **English**; Japanese intent notes go in `<!-- HTML comments -->` only.
-- [ ] No `--no-verify`, `--force` push to `main`, or `git tag --no-gpg-sign` is used.
+- [ ] No `--no-verify` or `--force` push to `main` is used.
 - [ ] No secrets, `.env`, credentials, or private keys are added.
 
 ## Breaking change?

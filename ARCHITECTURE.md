@@ -6,12 +6,11 @@ sufficient for plugin install and daily workflow.
 
 ## Distribution layout
 
-The repository ships only the directories below as the plugin payload. Other
-top-level files (`CLAUDE.md`, `.claude/`, and most of `docs/`) are gitignored
-development artifacts and never reach the plugin user. The single tracked
-exception under `docs/` is `docs/document-corruption.md` (English, linked from
-README's Philosophy section); see the table below for the full distribution
-matrix.
+The repository ships only the directories below as the plugin payload.
+Development assets (`CLAUDE.md`, `.claude/` rules / skills / agents, and the
+`docs/` dev records) are tracked team assets but are not part of the plugin
+surface — Claude Code only loads the payload directories from an installed
+plugin. See the table below for the full distribution matrix.
 
 ```text
 mumei/
@@ -275,9 +274,18 @@ mumei stores zero state outside the project tree. Everything lives under
 │   ├── state.json                # phase / current_wave / created_at / updated_at / scratch_source (gitignored)
 │   ├── spec-reviews/             # per-iteration JSON from spec-reviewers (created lazily by /mumei:compose; absent on fresh features)
 │   └── reviews/                  # Phase 5 review results + detector reports
+├── plans/<slug>/
+│   ├── plan.md                   # plan captured by the ExitPlanMode hook
+│   ├── state.json                # phase (implement|done) / task counter / pending_review (gitignored)
+│   ├── verify-log.jsonl          # test-run audit trail (commit-gate / agent-run)
+│   └── reviews/<ts>.json         # /mumei:peruse verdicts
 ├── archive/<YYYY-MM>/<feature>/  # completed features moved here by /mumei:shelve
 └── scratch/<feature>.md          # /mumei:glean output (tracked, team-shared); co-moved into archive/<feature>/scratch.md by /mumei:shelve via the recorded state.json scratch_source
 ```
+
+`.mumei/current` holds the active feature key: the compound `REQ-N-<slug>`
+form for spec-vehicle features, or the bare `<slug>` form for plan-vehicle
+features.
 
 The split `gitignored vs tracked` is precise:
 
@@ -290,15 +298,19 @@ spec history but not the in-progress cursor.
 
 ## Distributable vs dev-only
 
-The plugin payload is English; mumei's internal development uses Japanese in a
-parallel set of dev-only files that are gitignored. Distinct boundaries:
+The plugin payload and all tracked project instructions are English. The
+`docs/` research records predating the English-only convention remain in
+Japanese as-is; new dev-record additions are written in English (see
+CLAUDE.md). Distinct boundaries:
 
 | Directory / file                                                                                                                                 | Distributed?          | Language                                            |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- | --------------------------------------------------- |
 | `agents/`, `skills/`, `hooks/`, `scripts/`, `.claude-plugin/`                                                                                    | Yes                   | English                                             |
 | `README.md`, `README.ja.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`, `ARCHITECTURE.md`                  | Yes                   | English (README.ja.md mirrors in Japanese)          |
 | `docs/document-corruption.md`, `docs/getting-started{,.ja}.md`, `docs/operations-playbook.md`, `docs/security-policy.md`, `docs/threat-model.md` | Yes                   | English (getting-started.ja.md mirrors in Japanese) |
-| `CLAUDE.md`, `.claude/`, other `docs/` (`mumei-decisions.md`, `harness-engineering.md`, etc.)                                                    | No (gitignored)       | Japanese                                            |
+| `CLAUDE.md`, `.claude/` (rules / skills / agents)                                                                                                | Tracked, dev-side     | English                                             |
+| `docs/` dev records (`mumei-decisions.md`, `harness-engineering.md`, `loop-engineering.md`)                                                      | Tracked, dev-side     | Japanese (pre-existing); new entries in English     |
+| `.claude/settings.local.json`, `.claude/agent-memory*/`, `.claude/worktrees/`, `.claude/tdd-guard/`, `CLAUDE.local.md`                           | No (gitignored)       | —                                                   |
 | `tests/`, `.github/`, `.editorconfig`, `.markdownlint-cli2.jsonc`, `_typos.toml`, `lychee.toml`, `.pre-commit-config.yaml`                       | No (CI / dev tooling) | Mixed                                               |
 
 Maintainers: do not add Japanese prose to distributable files; the
@@ -308,8 +320,8 @@ HTML comments for Japanese intent notes inside English bodies.
 ## Bash conventions for hook authors
 
 Hook handlers and `hooks/_lib/` modules follow a documented set of conventions
-(see project-local `.claude/rules/bash-conventions.md` if you are the
-maintainer). The five most load-bearing rules:
+(see [.claude/rules/bash-conventions.md](./.claude/rules/bash-conventions.md)).
+The five most load-bearing rules:
 
 1. `set -u` always; `set -e` deliberately not used (handlers need fall-through
    on missing files).

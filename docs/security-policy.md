@@ -79,11 +79,15 @@ workflow:
 ```bash
 cosign verify-blob \
   --bundle "mumei-${TAG}.tar.gz.cosign.bundle" \
-  --certificate-identity-regexp '^https://github.com/hir4ta/mumei/\.github/workflows/release-reusable\.yml@refs/tags/' \
+  --certificate-identity-regexp '^https://github.com/iroh4-labs/mumei/\.github/workflows/release-reusable\.yml@refs/tags/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   "mumei-${TAG}.tar.gz"
 # Expect: Verified OK
 ```
+
+For tags v0.10.1 and earlier, the signing identity records the
+repository path at signing time: use
+`^https://github.com/hir4ta/mumei/…` in the regexp instead.
 
 If `cosign` is not installed: `brew install cosign` (macOS) or
 [release binary](https://github.com/sigstore/cosign/releases).
@@ -96,11 +100,14 @@ the official SLSA generator. Inspect it with `slsa-verifier`:
 ```bash
 slsa-verifier verify-artifact \
   --provenance-path mumei-${TAG}.intoto.jsonl \
-  --source-uri github.com/hir4ta/mumei \
+  --source-uri github.com/iroh4-labs/mumei \
   --source-tag "${TAG}" \
   "mumei-${TAG}.tar.gz"
 # Expect: PASSED: SLSA verification passed
 ```
+
+For tags v0.10.1 and earlier, the provenance records the source URI at
+build time: pass `--source-uri github.com/hir4ta/mumei` instead.
 
 If `slsa-verifier` is not installed: `go install
 github.com/slsa-framework/slsa-verifier/v2/cli/slsa-verifier@latest`

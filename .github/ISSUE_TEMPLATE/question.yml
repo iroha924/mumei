@@ -7,9 +7,9 @@ body:
     attributes:
       value: |
         Thanks for your question. Before opening, please skim:
-        - [README.md](https://github.com/hir4ta/mumei#readme) — install, workflow, Hook rules.
-        - [PRIVACY.md](https://github.com/hir4ta/mumei/blob/main/PRIVACY.md) — network egress, telemetry policy.
-        - [`docs/document-corruption.md`](https://github.com/hir4ta/mumei/blob/main/docs/document-corruption.md) — nameless-butler stance, design rationale.
+        - [README.md](https://github.com/iroh4-labs/mumei#readme) — install, workflow, Hook rules.
+        - [PRIVACY.md](https://github.com/iroh4-labs/mumei/blob/main/PRIVACY.md) — network egress, telemetry policy.
+        - [`docs/document-corruption.md`](https://github.com/iroh4-labs/mumei/blob/main/docs/document-corruption.md) — nameless-butler stance, design rationale.
 
         If your question is about a defect, use the **Bug report** template.
         If it is a feature proposal, use the **Feature request** template.

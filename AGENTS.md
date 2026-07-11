@@ -6,8 +6,11 @@ is read automatically by AI coding / review agents that respect it
 others). It supplies project-specific context so the reviewer flags
 the right things and stays away from the wrong things.
 
-The same conventions are documented in `CONTRIBUTING.md` for human
-contributors. This file is the agent-side mirror.
+The canonical convention sources are `.claude/rules/*.md` (auto-loaded
+by Claude Code) and `CLAUDE.md`; `CONTRIBUTING.md` carries the same
+conventions for human contributors. This file is the thin mirror for
+agents that read the AGENTS.md standard instead — it keeps the
+load-bearing summary inline and links to the canonical files for depth.
 
 ## What mumei is
 
@@ -29,13 +32,14 @@ Repository layout:
   hooks write. Excluded from the plugin tarball (`schemas/
 export-ignore` in `.gitattributes`); the hooks reference them by
   comment, never at runtime.
-- **Dev-only / gitignored**: `CLAUDE.md` (maintainer's local
-  Claude Code rules), `.claude/` (dev rules / skills / agents),
-  most of `docs/` (research log, decisions, harness engineering).
-  Tracked exceptions: `docs/document-corruption.md`,
-  `docs/threat-model.md`, `docs/security-policy.md`,
-  `docs/getting-started.md` / `.ja.md`,
-  `docs/operations-playbook.md`.
+- **Dev-side, tracked (NOT shipped)**: `CLAUDE.md` (project
+  instructions, English), `.claude/rules|skills|agents/` (English),
+  `docs/` dev records (`mumei-decisions.md`, `harness-engineering.md`,
+  `loop-engineering.md` — pre-existing Japanese content, new entries
+  in English).
+- **Gitignored (per-developer runtime state)**:
+  `.claude/settings.local.json`, `.claude/agent-memory*/`,
+  `.claude/worktrees/`, `.claude/tdd-guard/`, `CLAUDE.local.md`.
 
 ## Setup commands
 
@@ -58,16 +62,21 @@ See `Taskfile.yml` and `CONTRIBUTING.md`.
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `AGENTS.md` are SHIPPED
   to plugin users. They MUST be **English**. Japanese intent notes
   go in `<!-- HTML comments -->` only.
-- Files under `.claude/`, `CLAUDE.md`, gitignored `docs/*` are
-  dev-only — Japanese is fine.
-- A PR that adds Japanese to a shipped artifact is a bug. Flag it.
-- A PR that adds a new tracked file under `docs/` without
-  whitelisting it in `.gitignore` is also a bug — the file would
-  be silently dropped from the next clone. Flag it.
+- Dev-side tracked files (`.claude/`, `CLAUDE.md`, `docs/` dev
+  records) are English too; only the pre-existing Japanese `docs/`
+  research content stays Japanese as-is.
+- A PR that adds Japanese prose to any tracked artifact (outside the
+  legacy Japanese docs and the intentional `.ja.md` mirrors) is a
+  bug. Flag it.
 
 ## Code style
 
 ### Bash conventions (`hooks/`, `scripts/`)
+
+Canonical rule (full detail: sed portability, atomic writes,
+double-source guards, LOC thresholds):
+[.claude/rules/bash-conventions.md](./.claude/rules/bash-conventions.md).
+The load-bearing subset:
 
 - `bash` 4.0+ baseline; portable across `bash` and `zsh`. Compatible
   with **BSD awk** (macOS) and **GNU awk** (Linux). Notably
