@@ -15,7 +15,6 @@ updates:
     # it. Surfaced by the Stage 0 semgrep's first-ever real run (#183).
     cooldown:
       default-days: 7
-      semver-major-days: 14
     commit-message:
       prefix: "chore(deps)"
     labels:
@@ -56,7 +55,6 @@ updates:
     # it. Surfaced by the Stage 0 semgrep's first-ever real run (#183).
     cooldown:
       default-days: 7
-      semver-major-days: 14
     commit-message:
       prefix: "chore(deps)"
     labels:
@@ -79,7 +77,6 @@ updates:
     # it. Surfaced by the Stage 0 semgrep's first-ever real run (#183).
     cooldown:
       default-days: 7
-      semver-major-days: 14
     commit-message:
       prefix: "chore(deps)"
     labels:
@@ -115,7 +112,6 @@ updates:
     # it. Surfaced by the Stage 0 semgrep's first-ever real run (#183).
     cooldown:
       default-days: 7
-      semver-major-days: 14
     commit-message:
       prefix: "chore(deps)"
     labels:

@@ -607,6 +607,15 @@ jobs:
             cat /tmp/pr.diff
           } >/tmp/prompt.txt
 
+          # head -c cuts at an arbitrary byte, so a truncated diff does not end in a
+          # newline — and then the GITHUB_ENV heredoc's closing delimiter lands
+          # glued to the last line and the whole block is rejected ("Matching
+          # delimiter not found"). Only reachable once truncation actually fires,
+          # which is exactly why it has to be handled here rather than noticed
+          # later. Same reason head -c can split a multibyte glyph: the tail of a
+          # truncated diff is bytes, not text.
+          [ -n "$(tail -c1 /tmp/prompt.txt)" ] && printf '\n' >>/tmp/prompt.txt
+
           prompt_bytes="$(wc -c </tmp/prompt.txt | tr -d ' ')"
           echo "prompt: ${prompt_bytes} bytes (prefix ${prefix_bytes}, diff $(wc -c </tmp/pr.diff | tr -d ' '))"
           if [ "$prompt_bytes" -gt "$PROMPT_MAX_BYTES" ]; then
