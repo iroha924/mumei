@@ -71,6 +71,17 @@ The implemented controls map onto the surfaces above:
 - **Workflow permissions creep**: every workflow declares minimal
   `permissions:` at top level; CI is read-only; release jobs gate on
   the `release` GitHub Environment with required reviewers.
+- **Reviewer cannot read the secret it runs under**: the review job
+  passes `CLAUDE_CODE_OAUTH_TOKEN` to `claude-code-action`, which puts
+  it in the Claude process's environment and cannot do otherwise (the
+  SDK authenticates with it). The reviewer also reads a diff written by
+  whoever opened the PR — a prompt-injection surface by construction. So
+  the reviewer is given no shell and no filesystem tools: one MCP tool
+  for inline comments, nothing else. A model can only exfiltrate what it
+  knows, and without a shell it never learns the token (`env` and
+  `$CLAUDE_CODE_OAUTH_TOKEN` both need one; `Read(/proc/self/environ)`
+  would be the same door, so Read is denied too). The diff is assembled
+  into the prompt by the workflow instead of being fetched by the model.
 - **Secret scanning at multiple stages**: pre-commit (gitleaks +
   trufflehog locally) → `ci.yml` gitleaks on every PR → weekly full
   history rescan via `gitleaks.yml`. Pre-flight scans rerun
