@@ -327,11 +327,17 @@ jobs:
       # system python3 (3.12) would otherwise drift from the lock's
       # resolution context (3.14). `if:` mirrors the install step so we
       # don't pay the setup cost when the review gate skips.
-      - name: Set up Python 3.14
+      # Python is here only to run semgrep, so it follows semgrep's support
+      # window, not the newest release. The pinned semgrep 1.111.0 declares
+      # Python 3.9 / 3.10 / 3.11 in its classifiers but leaves Requires-Python
+      # open (>=3.9), so pip installs it happily on 3.14 and it then dies at
+      # import time with "TypeError: Metaclasses with custom tp_new are not
+      # supported". Bump this only alongside the semgrep pin.
+      - name: Set up Python 3.11
         if: steps.gate.outputs.skip != 'true'
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.14"
+          python-version: "3.11"
 
       - name: Install grounding tools
         if: steps.gate.outputs.skip != 'true'
