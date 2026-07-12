@@ -11,7 +11,8 @@ bats_require_minimum_version 1.5.0
 load '../test_helper'
 
 _run_hook() {
-  local input_json="${1:-{\"source\":\"startup\"\}}"
+  local default_json='{"source":"startup"}'
+  local input_json="${1:-$default_json}"
   local input_file
   input_file="$(mktemp -t mumei-hook-input.XXXXXX)"
   printf '%s' "$input_json" >"$input_file"
