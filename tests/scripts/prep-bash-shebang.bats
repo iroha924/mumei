@@ -71,24 +71,65 @@ _is_executable() { [ -x "$1" ]; }
 }
 
 # ─── shfmt ───────────────────────────────────────────────────
+#
+# Whether shfmt reformats correctly is shfmt's business, not ours — and
+# depending on the real binary would mean these tests silently skip on any
+# runner without it, which is what the CI bats job (bats + PyYAML only) is.
+# What IS ours is the decision of WHICH files to hand it. So stub shfmt on
+# PATH, record its arguments, and assert the decision. No skip, no dependency.
 
-@test "a .sh file is reformatted to the project's 2-space indent" {
-  if ! command -v shfmt >/dev/null 2>&1; then skip "shfmt not installed"; fi
-  printf '#!/usr/bin/env bash\nif true; then\n        echo deep\nfi\n' >s.sh
-  _prep s.sh
-  [ "$status" -eq 0 ]
-  # 8-space indent collapses to 2.
-  grep -q '^  echo deep$' s.sh
+# Put a fake shfmt first on PATH; it appends its args to shfmt-calls.
+_stub_shfmt() {
+  mkdir -p bin
+  cat >bin/shfmt <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${MUMEI_TEST_TMPDIR}/shfmt-calls"
+exit 0
+EOF
+  chmod +x bin/shfmt
+  : >"${MUMEI_TEST_TMPDIR}/shfmt-calls"
+  PATH="${MUMEI_TEST_TMPDIR}/bin:${PATH}"
+  export PATH
 }
 
-@test "a .bats file is NOT run through shfmt (its DSL would be rewritten)" {
-  if ! command -v shfmt >/dev/null 2>&1; then skip "shfmt not installed"; fi
-  printf '#!/usr/bin/env bats\n@test "x" {\n        true\n}\n' >t.bats
+_shfmt_calls() { cat "${MUMEI_TEST_TMPDIR}/shfmt-calls" 2>/dev/null; }
+
+@test "a .sh file is handed to shfmt with the project's -i 2" {
+  _stub_shfmt
+  printf '#!/usr/bin/env bash\necho hi\n' >s.sh
+  _prep s.sh
+  [ "$status" -eq 0 ]
+  [[ "$(_shfmt_calls)" == *"-i 2 -w s.sh"* ]] || return 1
+}
+
+@test "a .bats file is NOT handed to shfmt (its DSL would be rewritten)" {
+  _stub_shfmt
+  printf '#!/usr/bin/env bats\n@test "x" {\n  true\n}\n' >t.bats
   chmod 644 t.bats
   _prep t.bats
   [ "$status" -eq 0 ]
-  # chmod still applies...
+  # chmod still applies to it...
   _is_executable t.bats
-  # ...but the body is byte-for-byte untouched.
-  grep -q '^        true$' t.bats
+  # ...but shfmt is never called on it.
+  [ -z "$(_shfmt_calls)" ]
+}
+
+@test "a file with no shebang is handed to neither chmod nor shfmt" {
+  _stub_shfmt
+  printf 'just data\n' >data.txt
+  _prep data.txt
+  [ "$status" -eq 0 ]
+  [ -z "$(_shfmt_calls)" ]
+}
+
+@test "a missing shfmt is tolerated rather than failing the commit" {
+  # The script guards with `command -v shfmt`; without it the chmod half must
+  # still happen. PATH keeps coreutils but drops the directories shfmt lives in
+  # (/opt/homebrew/bin locally; it is absent from the CI bats runner entirely).
+  printf '#!/usr/bin/env bash\necho hi\n' >s.sh
+  chmod 644 s.sh
+  run --separate-stderr env PATH="/usr/bin:/bin" \
+    /bin/bash "${CLAUDE_PLUGIN_ROOT}/scripts/prep-bash-shebang.sh" s.sh
+  [ "$status" -eq 0 ]
+  _is_executable s.sh
 }
