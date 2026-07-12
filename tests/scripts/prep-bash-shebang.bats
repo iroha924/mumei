@@ -80,13 +80,13 @@ _is_executable() { [ -x "$1" ]; }
 
 # Put a fake shfmt first on PATH; it appends its args to shfmt-calls.
 _stub_shfmt() {
-  mkdir -p bin
-  cat >bin/shfmt <<EOF
+  mkdir -p "${MUMEI_TEST_TMPDIR}/bin"
+  cat >"${MUMEI_TEST_TMPDIR}/bin/shfmt" <<EOF
 #!/usr/bin/env bash
 printf '%s\n' "\$*" >>"${MUMEI_TEST_TMPDIR}/shfmt-calls"
 exit 0
 EOF
-  chmod +x bin/shfmt
+  chmod +x "${MUMEI_TEST_TMPDIR}/bin/shfmt"
   : >"${MUMEI_TEST_TMPDIR}/shfmt-calls"
   PATH="${MUMEI_TEST_TMPDIR}/bin:${PATH}"
   export PATH
@@ -119,7 +119,12 @@ _shfmt_calls() { cat "${MUMEI_TEST_TMPDIR}/shfmt-calls" 2>/dev/null; }
   printf 'just data\n' >data.txt
   _prep data.txt
   [ "$status" -eq 0 ]
+  # Both halves of the gate, or the name is a lie: shfmt is never invoked...
   [ -z "$(_shfmt_calls)" ]
+  # ...and the file does not become executable. printf leaves it 644, so the
+  # bit is a clean signal — a regression that chmod +x'd every passed file
+  # would otherwise leave this test green.
+  ! _is_executable data.txt
 }
 
 @test "a missing shfmt is tolerated rather than failing the commit" {
@@ -129,7 +134,7 @@ _shfmt_calls() { cat "${MUMEI_TEST_TMPDIR}/shfmt-calls" 2>/dev/null; }
   printf '#!/usr/bin/env bash\necho hi\n' >s.sh
   chmod 644 s.sh
   run --separate-stderr env PATH="/usr/bin:/bin" \
-    /bin/bash "${CLAUDE_PLUGIN_ROOT}/scripts/prep-bash-shebang.sh" s.sh
+    bash "${CLAUDE_PLUGIN_ROOT}/scripts/prep-bash-shebang.sh" s.sh
   [ "$status" -eq 0 ]
   _is_executable s.sh
 }
