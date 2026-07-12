@@ -30,7 +30,7 @@ permissions:
   id-token: write
 jobs:
   claude:
-    uses: iroha924/mumei/.github/workflows/review-reusable.yml@<40-CHAR-SHA> # v0.11.1
+    uses: iroha924/mumei/.github/workflows/review-reusable.yml@<40-CHAR-SHA> # v0.11.2
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
