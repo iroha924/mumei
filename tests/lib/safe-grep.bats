@@ -64,6 +64,16 @@ _init_repo() {
   [ "$output" = "1" ]
 }
 
+@test "mumei_safe_grep_count with an empty pattern counts every line" {
+  # scripts/aggregate-{curator-log,hook-stats}.sh count JSONL records this way,
+  # so an empty pattern must keep meaning "match all lines" — not be
+  # special-cased to 0 by a future change to the helper.
+  printf 'a\nb\nc\n' >log.jsonl
+  run mumei_safe_grep_count "" log.jsonl
+  [ "$status" -eq 0 ]
+  [ "$output" = "3" ]
+}
+
 # ─── mumei_path_is_gitignored ───
 
 @test "mumei_path_is_gitignored exits 0 for a gitignored path inside a repo" {
