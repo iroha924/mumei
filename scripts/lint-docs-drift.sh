@@ -174,6 +174,25 @@ if [[ -n "${narrative_n:-}" ]] && [[ -n "${table_rows:-}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# (f) Taskfile lint:* tasks vs the "Individual lints" list in CLAUDE.md
+#
+# CLAUDE.md enumerates the lints by hand, so adding one to Taskfile.yml and
+# forgetting the list is a silent drift — it happened to lint:rubric, and again
+# to lint:bats-assertions. The list is the thing a developer reads to find out
+# what checks exist; a lint missing from it is a lint nobody runs on purpose.
+# ---------------------------------------------------------------------------
+taskfile="${ROOT}/Taskfile.yml"
+claude_md="${ROOT}/CLAUDE.md"
+if [[ -f "$taskfile" ]] && [[ -f "$claude_md" ]]; then
+  while IFS= read -r task; do
+    [[ -n "$task" ]] || continue
+    if ! grep -q "lint:${task}\`" "$claude_md" 2>/dev/null; then
+      _mumei_emit "CLAUDE.md: Taskfile defines 'lint:${task}' but it is absent from the lint list"
+    fi
+  done < <(grep -oE '^  lint:[a-z-]+:' "$taskfile" | sed 's/^  lint://; s/:$//')
+fi
+
+# ---------------------------------------------------------------------------
 # Result
 # ---------------------------------------------------------------------------
 if ((violations > 0)); then
@@ -181,5 +200,5 @@ if ((violations > 0)); then
   exit 1
 fi
 
-printf 'lint-docs-drift: 5 docs/filesystem pairs are in sync\n'
+printf 'lint-docs-drift: 6 docs/filesystem pairs are in sync\n'
 exit 0
