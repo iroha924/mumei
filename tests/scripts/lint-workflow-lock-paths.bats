@@ -183,16 +183,12 @@ YAML
   [[ "$stderr" == *"deps/requirements.txt"* ]]
 }
 
-@test "a renamed lock file cannot hide from the matcher -> exit 1" {
+@test "a renamed lock is still checked -> exit 1 (matcher keys on use, not on name)" {
   _init_repo
-  # The matcher keys off the name `requirements.txt`. Rename ONE lock, point its
-  # workflow at the new name, and the matcher stops seeing it — quietly, because
-  # the OTHER lock keeps the match set non-empty and the gone-blind guard never
-  # fires. (With a single lock the guard would catch it, which is why the second
-  # lock is the whole point of this fixture.) Widening the regex would only move
-  # the blind spot; the directory-anchored orphan check is what closes it.
-  mkdir -p .github-deps/other
-  printf 'requests==2.34.2\n' >.github-deps/other/requirements.txt
+  # Rename the lock to a name the by-name pattern cannot see, point the workflow at
+  # it, and mistype the path. The by-syntax pattern reads the argument of `-r`, so
+  # the filename is irrelevant and the typo is caught anyway. Earlier versions keyed
+  # only on the name `requirements.txt` and went silent here.
   git add -A
   git mv .github-deps/validate/requirements.txt .github-deps/validate/constraints.txt
   cat >.github/workflows/validate.yml <<'YAML'
@@ -203,54 +199,70 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          python3 -m pip install --require-hashes -r .github-deps/validate/constraints.txt
-          python3 -m pip install --require-hashes -r .github-deps/other/requirements.txt
+          python3 -m pip install --require-hashes -r .github-deps/valdate/constraints.txt
 YAML
   git add -A
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/validate"* ]]
-  [[ "$stderr" == *"no workflow installs from"* ]]
+  [[ "$stderr" == *".github-deps/valdate/constraints.txt"* ]]
 }
 
-@test "a lock directory nothing installs from is dead weight -> exit 1" {
+@test "two locks in one directory are both checked -> exit 1" {
   _init_repo
-  mkdir -p .github-deps/unused
-  printf 'requests==2.34.2\n' >.github-deps/unused/requirements.txt
+  # Nothing is anchored on the directory any more, so a second lock beside the first
+  # is not shadowed by it. A directory-anchored check tolerated this silently.
+  printf 'requests==2.34.2\n' >.github-deps/validate/extra.txt
+  cat >.github/workflows/validate.yml <<'YAML'
+name: validate
+on: [pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          python3 -m pip install --require-hashes -r .github-deps/validate/requirements.txt
+          python3 -m pip install --require-hashes -r .github-deps/validate/extraTYPO.txt
+YAML
   git add -A
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/unused"* ]]
+  [[ "$stderr" == *".github-deps/validate/extraTYPO.txt"* ]]
 }
 
-@test "a lock nested deeper than the lint understands -> exit 1, not a silent collapse" {
+@test "--requirement, the long form, is read too -> exit 1" {
   _init_repo
-  # The directory check reads a lock dir as .github-deps/<name>/. A lock below that
-  # would fold onto its first-level ancestor, and a rename among siblings there would
-  # be tolerated in silence. The layout is therefore enforced, not assumed: the next
-  # person to nest deeper gets a red check telling them to teach the lint, which is
-  # the opposite of what every other finding on this file has been.
-  mkdir -p .github-deps/grp/b
-  printf 'requests==2.34.2\n' >.github-deps/grp/b/requirements.txt
+  cat >.github/workflows/validate.yml <<'YAML'
+name: validate
+on: [pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          python3 -m pip install --requirement .github-deps/valdate/requirements.txt
+YAML
   git add -A
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/grp/b/requirements.txt"* ]]
-  [[ "$stderr" == *"deeper than this lint understands"* ]]
+  [[ "$stderr" == *".github-deps/valdate/requirements.txt"* ]]
 }
 
-@test "non-lock files beside the locks are free -> exit 0 (no denylist to keep current)" {
+@test "files that are not installed from are none of the lint's business -> exit 0" {
   _init_repo
-  # The unit checked is the directory, not the file, so nothing here needs to be
-  # excluded by name. A denylist of non-locks would always be one entry short, and
-  # an allowlist of lock names would hide a renamed lock in silence. Neither exists.
+  # No list of what a lock is called, and none of what it is not. A file nothing
+  # installs from is simply never examined, so a README, a .gitignore, a helper
+  # script in its own subdirectory and a nested tree are all free. Every false
+  # positive this lint ever had came from trying to classify these.
   printf 'jsonschema\n' >.github-deps/validate/requirements.in
   printf '# CI dependency locks\n' >.github-deps/README.md
   printf 'venv/\n' >.github-deps/.gitignore
   printf 'x = 1\n' >.github-deps/validate/notes.toml
+  mkdir -p .github-deps/tools .github-deps/grp/nested
+  printf 'echo regen\n' >.github-deps/tools/regen.sh
+  printf 'requests==2.34.2\n' >.github-deps/grp/nested/requirements.txt
   git add -A
 
   _run_lint
