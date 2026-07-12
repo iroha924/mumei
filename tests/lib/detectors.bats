@@ -221,8 +221,8 @@ STUB
     mumei_detector_version_check semgrep 1.100.0
   '
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"semgrep 1.50.0"* ]]
-  [[ "$stderr" == *"below recommended minimum 1.100.0"* ]]
+  [[ "$stderr" == *"semgrep 1.50.0"* ]] || return 1
+  [[ "$stderr" == *"below recommended minimum 1.100.0"* ]] || return 1
 }
 
 @test "version_check: stub semgrep at recommended version is silent" {
@@ -260,8 +260,8 @@ STUB
 # ─── detector registry (Wave 1) ───────────────────────────────
 
 @test "registry: builtin detectors registered by default" {
-  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" semgrep "* ]]
-  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" osv-scanner "* ]]
+  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" semgrep "* ]] || return 1
+  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" osv-scanner "* ]] || return 1
 }
 
 @test "registry: register is idempotent" {

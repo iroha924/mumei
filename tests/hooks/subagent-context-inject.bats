@@ -37,9 +37,9 @@ _run_hook_agent() {
   _run_hook
   [ "$status" -eq 0 ]
   [ "$(jq -r '.hookSpecificOutput.hookEventName' <<<"$output")" = "SubagentStart" ]
-  [[ "$(_ctx)" == *"not authoritative"* ]]
-  [[ "$(_ctx)" == *"Active feature spec"* ]]
-  [[ "$(_ctx)" == *"Acceptance Test"* ]]
+  [[ "$(_ctx)" == *"not authoritative"* ]] || return 1
+  [[ "$(_ctx)" == *"Active feature spec"* ]] || return 1
+  [[ "$(_ctx)" == *"Acceptance Test"* ]] || return 1
 }
 
 @test "injects only the framing prefix when no active feature is set" {
@@ -47,8 +47,8 @@ _run_hook_agent() {
   : >.mumei/current
   _run_hook
   [ "$status" -eq 0 ]
-  [[ "$(_ctx)" == *"not authoritative"* ]]
-  [[ "$(_ctx)" != *"Active feature spec"* ]]
+  [[ "$(_ctx)" == *"not authoritative"* ]] || return 1
+  [[ "$(_ctx)" != *"Active feature spec"* ]] || return 1
 }
 
 @test "does not inject in a non-mumei project (no .mumei/ directory)" {
@@ -75,9 +75,9 @@ _run_hook_agent() {
   run --separate-stderr bash -c \
     "printf '%s' '{\"agent_id\":\"a1\"}' | MUMEI_CONTEXT_LINES=5 bash '${CLAUDE_PLUGIN_ROOT}/hooks/subagent-context-inject.sh'"
   [ "$status" -eq 0 ]
-  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"first 5 lines"* ]]
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"first 5 lines"* ]] || return 1
   # line 6+ of the artifact must be excluded by the head -n 5 cap.
-  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" != *"line 10"* ]]
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" != *"line 10"* ]] || return 1
 }
 
 @test "falls back to 200 lines (and still injects the artifact) when MUMEI_CONTEXT_LINES is non-numeric" {
@@ -87,9 +87,9 @@ _run_hook_agent() {
     "printf '%s' '{\"agent_id\":\"a1\"}' | MUMEI_CONTEXT_LINES=200a bash '${CLAUDE_PLUGIN_ROOT}/hooks/subagent-context-inject.sh'"
   [ "$status" -eq 0 ]
   # artifact body must still be present (no silent context loss from a head failure).
-  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"body line"* ]]
-  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"first 200 lines"* ]]
-  [[ "$stderr" == *"not a positive integer"* ]]
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"body line"* ]] || return 1
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"first 200 lines"* ]] || return 1
+  [[ "$stderr" == *"not a positive integer"* ]] || return 1
 }
 
 @test "falls back to 200 lines when MUMEI_CONTEXT_LINES is 0 (head -n 0 would drop the body)" {
@@ -98,8 +98,8 @@ _run_hook_agent() {
   run --separate-stderr bash -c \
     "printf '%s' '{\"agent_id\":\"a1\"}' | MUMEI_CONTEXT_LINES=0 bash '${CLAUDE_PLUGIN_ROOT}/hooks/subagent-context-inject.sh'"
   [ "$status" -eq 0 ]
-  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"body line"* ]]
-  [[ "$stderr" == *"not a positive integer"* ]]
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"body line"* ]] || return 1
+  [[ "$stderr" == *"not a positive integer"* ]] || return 1
 }
 
 # ─── property-author blind branch (pillar B / REQ-21.7) ──────
@@ -112,10 +112,10 @@ _run_hook_agent() {
   _run_hook_agent mumei:property-author
   [ "$status" -eq 0 ]
   ctx="$(_ctx)"
-  [[ "$ctx" == *"blind property-author"* ]]
-  [[ "$ctx" == *"not authoritative"* ]]
+  [[ "$ctx" == *"blind property-author"* ]] || return 1
+  [[ "$ctx" == *"not authoritative"* ]] || return 1
   # Blindness: the full requirements.md ("Active feature spec" block) is NOT injected.
-  [[ "$ctx" != *"Active feature spec"* ]]
+  [[ "$ctx" != *"Active feature spec"* ]] || return 1
 }
 
 @test "non-property-author agent still receives the full artifact (no regression)" {
@@ -124,8 +124,8 @@ _run_hook_agent() {
   _run_hook_agent mumei:security-reviewer
   [ "$status" -eq 0 ]
   ctx="$(_ctx)"
-  [[ "$ctx" == *"Active feature spec"* ]]
-  [[ "$ctx" == *"body line"* ]]
+  [[ "$ctx" == *"Active feature spec"* ]] || return 1
+  [[ "$ctx" == *"body line"* ]] || return 1
 }
 
 @test "property-author blind branch fires even on a bare (un-namespaced) agent_type" {
@@ -134,6 +134,6 @@ _run_hook_agent() {
   _run_hook_agent property-author
   [ "$status" -eq 0 ]
   ctx="$(_ctx)"
-  [[ "$ctx" == *"blind property-author"* ]]
-  [[ "$ctx" != *"Active feature spec"* ]]
+  [[ "$ctx" == *"blind property-author"* ]] || return 1
+  [[ "$ctx" != *"Active feature spec"* ]] || return 1
 }

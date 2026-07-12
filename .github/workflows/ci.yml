@@ -79,6 +79,12 @@ jobs:
       - name: verify mumei_ prefix on bash functions
         run: task lint:bash-prefix
 
+      # A bare `[[ ]]` assertion is enforced by bats on ubuntu (bash 5) and
+      # silently skipped on macOS (bash 3.2 does not errexit on the keyword),
+      # so it makes the macos-latest bats job weaker than it looks.
+      - name: bats assertions enforce on both bashes
+        run: task lint:bats-assertions
+
       - name: jq empty (manifest, hooks)
         run: |
           jq empty .claude-plugin/plugin.json

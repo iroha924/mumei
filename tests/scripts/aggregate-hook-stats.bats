@@ -30,26 +30,26 @@ _run_agg() {
   rm -f .mumei/.hook-stats.jsonl
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"no log file"* ]]
+  [[ "$stderr" == *"no log file"* ]] || return 1
 }
 
 @test "5 records: groups by hook_id × decision" {
   _seed_log
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$output" == *"M1"*"deny"*"2"* ]]
-  [[ "$output" == *"P1"*"deny"*"1"* ]]
-  [[ "$output" == *"X1"*"warn"*"1"* ]]
-  [[ "$output" == *"X3"*"pass"*"1"* ]]
+  [[ "$output" == *"M1"*"deny"*"2"* ]] || return 1
+  [[ "$output" == *"P1"*"deny"*"1"* ]] || return 1
+  [[ "$output" == *"X1"*"warn"*"1"* ]] || return 1
+  [[ "$output" == *"X3"*"pass"*"1"* ]] || return 1
 }
 
 @test "totals report deny / warn / pass counts" {
   _seed_log
   _run_agg
-  [[ "$output" == *"records: 5"* ]]
-  [[ "$output" == *"deny: 3"* ]]
-  [[ "$output" == *"warn: 1"* ]]
-  [[ "$output" == *"pass: 1"* ]]
+  [[ "$output" == *"records: 5"* ]] || return 1
+  [[ "$output" == *"deny: 3"* ]] || return 1
+  [[ "$output" == *"warn: 1"* ]] || return 1
+  [[ "$output" == *"pass: 1"* ]] || return 1
 }
 
 @test "explicit -f flag accepts a custom log path" {
@@ -59,7 +59,7 @@ _run_agg() {
 EOF
   run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/aggregate-hook-stats.sh" -f "$custom"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"records: 1"* ]]
+  [[ "$output" == *"records: 1"* ]] || return 1
   rm -f "$custom"
 }
 
@@ -67,5 +67,5 @@ EOF
   : >.mumei/.hook-stats.jsonl
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$output" == *"records: 0"* ]]
+  [[ "$output" == *"records: 0"* ]] || return 1
 }

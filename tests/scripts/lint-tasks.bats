@@ -101,8 +101,8 @@ EOF
   _run_lint_for_default_feature
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"Task 1.1"* ]]
-  [[ "$ctx" == *"_Files:_"* ]]
+  [[ "$ctx" == *"Task 1.1"* ]] || return 1
+  [[ "$ctx" == *"_Files:_"* ]] || return 1
 }
 
 # ─── Violation: invalid REQ syntax ───────────────────────────
@@ -121,8 +121,8 @@ EOF
   _run_lint_for_default_feature
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"REQ-1"* ]]
-  [[ "$ctx" == *"REQ-N.M"* ]]
+  [[ "$ctx" == *"REQ-1"* ]] || return 1
+  [[ "$ctx" == *"REQ-N.M"* ]] || return 1
 }
 
 # ─── Violation: REQ token not defined in requirements.md ─────
@@ -141,8 +141,8 @@ EOF
   _run_lint_for_default_feature
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"REQ-1.99"* ]]
-  [[ "$ctx" == *"not defined in requirements.md"* ]]
+  [[ "$ctx" == *"REQ-1.99"* ]] || return 1
+  [[ "$ctx" == *"not defined in requirements.md"* ]] || return 1
 }
 
 # ─── Violation: missing _Files:_ path ────────────────────────
@@ -164,8 +164,8 @@ EOF
   _run_lint_for_default_feature
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"src/missing.ts"* ]]
-  [[ "$ctx" == *"does not exist"* ]]
+  [[ "$ctx" == *"src/missing.ts"* ]] || return 1
+  [[ "$ctx" == *"does not exist"* ]] || return 1
 }
 
 @test "tolerates _Files:_ path that does not exist on a [ ] task" {
@@ -185,7 +185,7 @@ EOF
   # Either no output (no violations) or output that does NOT mention this file.
   if [ -n "$output" ]; then
     ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext // empty')"
-    [[ "$ctx" != *"src/missing.ts"* ]] || [[ "$ctx" != *"does not exist"* ]]
+    [[ "$ctx" != *"src/missing.ts"* ]] || [[ "$ctx" != *"does not exist"* ]] || return 1
   fi
 }
 
@@ -207,8 +207,8 @@ EOF
   _run_lint_for_default_feature
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"still-here"* ]]
-  [[ "$ctx" == *"still exists"* ]]
+  [[ "$ctx" == *"still-here"* ]] || return 1
+  [[ "$ctx" == *"still exists"* ]] || return 1
 }
 
 @test "tolerates a deletion target that is gone on a [x] task" {
@@ -226,7 +226,7 @@ EOF
   [ "$status" -eq 0 ]
   if [ -n "$output" ]; then
     ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext // empty')"
-    [[ "$ctx" != *"gone-dir"* ]]
+    [[ "$ctx" != *"gone-dir"* ]] || return 1
   fi
 }
 

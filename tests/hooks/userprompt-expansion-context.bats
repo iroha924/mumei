@@ -76,9 +76,9 @@ _write_review() {
   [ "$status" -eq 0 ]
   [ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "UserPromptExpansion" ]
   ctx="$(_context)"
-  [[ "$ctx" == *"archive target REQ-1-foo"* ]]
-  [[ "$ctx" == *"verdict=PASS"* ]]
-  [[ "$ctx" == *"Waves=3"* ]]
+  [[ "$ctx" == *"archive target REQ-1-foo"* ]] || return 1
+  [[ "$ctx" == *"verdict=PASS"* ]] || return 1
+  [[ "$ctx" == *"Waves=3"* ]] || return 1
 }
 
 @test "reports Waves=n/a for a plan-vehicle feature (no Wave concept)" {
@@ -88,7 +88,7 @@ _write_review() {
   _run_hook '{"command_args":"REQ-2-bar"}'
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"Waves=n/a (plan vehicle)"* ]]
+  [[ "$ctx" == *"Waves=n/a (plan vehicle)"* ]] || return 1
 }
 
 @test "reports verdict=unknown when the feature has no reviews directory" {
@@ -97,7 +97,7 @@ _write_review() {
   _run_hook '{"command_args":"REQ-1-foo"}'
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"verdict=unknown"* ]]
+  [[ "$ctx" == *"verdict=unknown"* ]] || return 1
 }
 
 @test "picks the newest review and ignores detector reports" {
@@ -111,7 +111,7 @@ _write_review() {
   _run_hook '{"command_args":"REQ-1-foo"}'
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"verdict=PASS"* ]]
+  [[ "$ctx" == *"verdict=PASS"* ]] || return 1
 }
 
 @test "reports verdict=unknown when reviews/ holds only a detector report" {
@@ -123,7 +123,7 @@ _write_review() {
   _run_hook '{"command_args":"REQ-1-foo"}'
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"verdict=unknown"* ]]
+  [[ "$ctx" == *"verdict=unknown"* ]] || return 1
 }
 
 @test "takes the first whitespace-delimited token as the feature slug" {
@@ -132,8 +132,8 @@ _write_review() {
   _run_hook '{"command_args":"REQ-1-foo --force extra"}'
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"archive target REQ-1-foo"* ]]
-  [[ "$ctx" == *"Waves=2"* ]]
+  [[ "$ctx" == *"archive target REQ-1-foo"* ]] || return 1
+  [[ "$ctx" == *"Waves=2"* ]] || return 1
 }
 
 # ─── Wave count edge: a tasks.md with no Wave headers ────────
@@ -146,7 +146,7 @@ _write_review() {
   ctx="$(_context)"
   # The summary is one line: a multi-line WAVE_COUNT would corrupt it.
   [ "$(printf '%s\n' "$ctx" | wc -l | tr -d ' ')" -eq 1 ]
-  [[ "$ctx" == *"Waves=0"* ]]
+  [[ "$ctx" == *"Waves=0"* ]] || return 1
 }
 
 # ─── commits-since-creation ──────────────────────────────────
@@ -160,7 +160,7 @@ _write_review() {
   [ "$status" -eq 0 ]
   ctx="$(_context)"
   # _init_feature stamps created_at 2026-01-01; the seed commit is newer.
-  [[ "$ctx" == *"commits-since-creation=1"* ]]
+  [[ "$ctx" == *"commits-since-creation=1"* ]] || return 1
 }
 
 @test "reports commits-since-creation=? outside a git repo" {
@@ -169,7 +169,7 @@ _write_review() {
   _run_hook '{"command_args":"REQ-1-foo"}'
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"commits-since-creation=?"* ]]
+  [[ "$ctx" == *"commits-since-creation=?"* ]] || return 1
 }
 
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────

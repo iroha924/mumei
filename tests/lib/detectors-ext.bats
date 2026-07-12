@@ -24,9 +24,9 @@ teardown() {
 # ─── registration + metadata ──────────────────────────────────
 
 @test "ext detectors register into the pluggable registry" {
-  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" secret-scan "* ]]
-  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" type-check "* ]]
-  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" test-check "* ]]
+  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" secret-scan "* ]] || return 1
+  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" type-check "* ]] || return 1
+  [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" test-check "* ]] || return 1
 }
 
 @test "ext detectors are tier 1, ground_truth" {
@@ -128,14 +128,14 @@ teardown() {
   printf '[]' >finds.json
   _mumei_det_test_check_collect out.json finds.json
   run jq -r '.[0].message' finds.json
-  [[ "$output" == *"task test:bats"* ]]
+  [[ "$output" == *"task test:bats"* ]] || return 1
 }
 
 # --- Wave 5: Tier2 opt-in detectors (REQ-27.7) ---
 
 @test "Tier2 detectors register as tier 2 candidate" {
   for d in opengrep gosec brakeman codeql bandit; do
-    [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" $d "* ]]
+    [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" $d "* ]] || return 1
     [ "$(mumei_detector_meta "$d")" = "2 candidate" ]
   done
 }

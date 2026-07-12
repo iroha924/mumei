@@ -39,8 +39,8 @@ _edit_input() {
   _run_hook "$(_edit_input "tests/golden/snapshot.json")"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
-  [[ "$(jq -r '.hookSpecificOutput.permissionDecisionReason' <<<"$output")" == *golden* ]]
-  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"git checkout HEAD --"* ]]
+  [[ "$(jq -r '.hookSpecificOutput.permissionDecisionReason' <<<"$output")" == *golden* ]] || return 1
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"git checkout HEAD --"* ]] || return 1
 }
 
 @test "G1: editing an exact golden path is denied" {
@@ -111,5 +111,5 @@ _edit_input() {
   _run_hook "$(_edit_input "tests/encode.property.test.ts")"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
-  [[ "$(jq -r '.hookSpecificOutput.permissionDecisionReason' <<<"$output")" == *golden* ]]
+  [[ "$(jq -r '.hookSpecificOutput.permissionDecisionReason' <<<"$output")" == *golden* ]] || return 1
 }

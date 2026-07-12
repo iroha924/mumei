@@ -146,9 +146,9 @@ _plan_state() {
   printf '# T\n## Open Questions\n- [ ] q1\n- [x] q2\n\n## Other\nignored\n' >art.md
   run mumei_gencontrol_oq_section art.md
   [ "$status" -eq 0 ]
-  [[ "$output" == *"q1"* ]]
-  [[ "$output" == *"q2"* ]]
-  [[ "$output" != *"ignored"* ]]
+  [[ "$output" == *"q1"* ]] || return 1
+  [[ "$output" == *"q2"* ]] || return 1
+  [[ "$output" != *"ignored"* ]] || return 1
 }
 
 @test "oq_section anchors the heading: a '## Open Questions Extra' decoy is not sliced" {
@@ -157,6 +157,6 @@ _plan_state() {
   printf '## Open Questions Extra\n- [ ] decoy\n\n## Open Questions\n- [x] real\n' >art.md
   run mumei_gencontrol_oq_section art.md
   [ "$status" -eq 0 ]
-  [[ "$output" != *"decoy"* ]]
-  [[ "$output" == *"real"* ]]
+  [[ "$output" != *"decoy"* ]] || return 1
+  [[ "$output" == *"real"* ]] || return 1
 }

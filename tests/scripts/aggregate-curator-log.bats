@@ -31,7 +31,7 @@ _run_agg() {
   rm -f .mumei/.curator-log.jsonl
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"no log file"* ]]
+  [[ "$stderr" == *"no log file"* ]] || return 1
 }
 
 @test "5 records: groups by reviewer + operation with counts" {
@@ -44,35 +44,35 @@ _run_agg() {
 EOF
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$output" == *"spec-compliance-reviewer"*"ADD"*"2"* ]]
-  [[ "$output" == *"security-reviewer"*"UPDATE"*"1"* ]]
-  [[ "$output" == *"records: 5"* ]]
-  [[ "$output" == *"applied (ADD or UPDATE): 3"* ]]
+  [[ "$output" == *"spec-compliance-reviewer"*"ADD"*"2"* ]] || return 1
+  [[ "$output" == *"security-reviewer"*"UPDATE"*"1"* ]] || return 1
+  [[ "$output" == *"records: 5"* ]] || return 1
+  [[ "$output" == *"applied (ADD or UPDATE): 3"* ]] || return 1
 }
 
 @test "29 records: no >=30 hint" {
   _append_skips 29
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$output" != *"dogfood data >=30"* ]]
-  [[ "$output" == *"records: 29"* ]]
+  [[ "$output" != *"dogfood data >=30"* ]] || return 1
+  [[ "$output" == *"records: 29"* ]] || return 1
 }
 
 @test "30 records: >=30 hint appears (boundary inclusive)" {
   _append_skips 30
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$output" == *"dogfood data >=30"* ]]
-  [[ "$output" == *"records: 30"* ]]
-  [[ "$output" == *"worth reviewing"* ]] || [[ "$output" == *"Review agreement rate"* ]]
+  [[ "$output" == *"dogfood data >=30"* ]] || return 1
+  [[ "$output" == *"records: 30"* ]] || return 1
+  [[ "$output" == *"worth reviewing"* ]] || [[ "$output" == *"Review agreement rate"* ]] || return 1
 }
 
 @test "31 records: hint still appears" {
   _append_skips 31
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$output" == *"dogfood data >=30"* ]]
-  [[ "$output" == *"records: 31"* ]]
+  [[ "$output" == *"dogfood data >=30"* ]] || return 1
+  [[ "$output" == *"records: 31"* ]] || return 1
 }
 
 @test "average score is rounded to 1 decimal place" {
@@ -83,7 +83,7 @@ EOF
 EOF
   _run_agg
   # avg = (15+16+18)/3 = 16.333... → rounded down to 1 decimal = 16.3
-  [[ "$output" == *"16.3"* ]]
+  [[ "$output" == *"16.3"* ]] || return 1
 }
 
 @test "explicit -f flag accepts a custom log path" {
@@ -93,6 +93,6 @@ EOF
 EOF
   run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/aggregate-curator-log.sh" -f "$custom"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"records: 1"* ]]
+  [[ "$output" == *"records: 1"* ]] || return 1
   rm -f "$custom"
 }

@@ -73,16 +73,16 @@ _plan() {
   _spec "$OQ_OPEN"
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/app.js"}}'
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"permissionDecision": "deny"'* ]]
-  [[ "$output" == *"Open Questions"* ]]
+  [[ "$output" == *'"permissionDecision": "deny"'* ]] || return 1
+  [[ "$output" == *"Open Questions"* ]] || return 1
 }
 
 @test "E1 denies production edit when the Open Questions section is absent" {
   _spec "$OQ_ABSENT"
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/app.js"}}'
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"permissionDecision": "deny"'* ]]
-  [[ "$output" == *"Open Questions"* ]]
+  [[ "$output" == *'"permissionDecision": "deny"'* ]] || return 1
+  [[ "$output" == *"Open Questions"* ]] || return 1
 }
 
 @test "E1 allows production edit when spec OQ is fully resolved (None)" {
@@ -104,8 +104,8 @@ _plan() {
   rm -f .mumei/specs/REQ-1-foo/requirements.md
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":"src/app.js"}}'
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"permissionDecision": "deny"'* ]]
-  [[ "$output" == *"artifact"* ]]
+  [[ "$output" == *'"permissionDecision": "deny"'* ]] || return 1
+  [[ "$output" == *"artifact"* ]] || return 1
 }
 
 # E1 is spec-vehicle only: plan.md is captured verbatim from ExitPlanMode and

@@ -29,7 +29,7 @@ teardown() {
 
 @test "regression: registry holds builtin + Tier1 + Tier2 detectors" {
   for d in semgrep osv-scanner secret-scan type-check test-check opengrep gosec brakeman codeql bandit; do
-    [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" $d "* ]]
+    [[ " ${MUMEI_DETECTOR_REGISTRY} " == *" $d "* ]] || return 1
   done
 }
 

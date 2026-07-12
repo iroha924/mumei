@@ -24,24 +24,24 @@ _run_glance() {
 
 @test "glance: no .mumei/current → stdout 'no active feature' + exit 0 (REQ-25.2.3)" {
   run _run_glance
-  [[ "$status" -eq 0 ]]
-  [[ "$output" == "no active feature" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ "$output" == "no active feature" ]] || return 1
 }
 
 @test "glance: .mumei/current points to non-existent feature → 'no active feature' + exit 0" {
   mkdir -p .mumei
   printf '%s\n' "ghost-feature" >.mumei/current
   run _run_glance
-  [[ "$status" -eq 0 ]]
-  [[ "$output" == "no active feature" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ "$output" == "no active feature" ]] || return 1
 }
 
 @test "glance: active feature with empty log → N/A one-liner (REQ-25.2.1)" {
   mkdir -p ".mumei/specs/REQ-1-empty"
   printf '%s\n' "REQ-1-empty" >.mumei/current
   run _run_glance
-  [[ "$status" -eq 0 ]]
-  [[ "$output" == "REQ-1-empty | pass^3: N/A (n=0, window=10, k=3)" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ "$output" == "REQ-1-empty | pass^3: N/A (n=0, window=10, k=3)" ]] || return 1
 }
 
 @test "glance: explicit feature arg overrides .mumei/current (REQ-25.2.2)" {
@@ -49,8 +49,8 @@ _run_glance() {
   mkdir -p ".mumei/specs/REQ-2-other"
   printf '%s\n' "REQ-1-active" >.mumei/current
   run _run_glance "REQ-2-other"
-  [[ "$status" -eq 0 ]]
-  [[ "$output" == "REQ-2-other | pass^3: N/A (n=0, window=10, k=3)" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ "$output" == "REQ-2-other | pass^3: N/A (n=0, window=10, k=3)" ]] || return 1
 }
 
 @test "glance: populated log → numeric value in one line" {
@@ -62,15 +62,15 @@ _run_glance() {
   mumei_reliability_append "REQ-1-populated" "1" "1.2" "true"
   mumei_reliability_append "REQ-1-populated" "1" "1.3" "true"
   run _run_glance
-  [[ "$status" -eq 0 ]]
-  [[ "$output" == "REQ-1-populated | pass^3: 1 (n=3, window=10, k=3)" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ "$output" == "REQ-1-populated | pass^3: 1 (n=3, window=10, k=3)" ]] || return 1
 }
 
 @test "glance: output is exactly one line (no trailing blank, no header)" {
   mkdir -p ".mumei/specs/REQ-1-oneliner"
   printf '%s\n' "REQ-1-oneliner" >.mumei/current
   run _run_glance
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || return 1
   # Count lines in output: bats captures stdout into $output; trailing newline already stripped.
   local line_count
   line_count="$(printf '%s' "$output" | wc -l | tr -d ' ')"

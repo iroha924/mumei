@@ -72,7 +72,7 @@ _git_repo_with_commit() {
   mumei_worktree_run_test "sh -c 'echo boom; exit 1'" || rc=$?
   [ "$rc" -ne 0 ]
   [ "$MUMEI_WT_RAN" -eq 1 ]
-  [[ "$MUMEI_WT_TAIL" == *boom* ]]
+  [[ "$MUMEI_WT_TAIL" == *boom* ]] || return 1
 }
 
 @test "run_test measures HEAD, not uncommitted working-tree changes" {
@@ -168,7 +168,7 @@ _git_repo_with_commit() {
   mumei_worktree_run_test "true" >/dev/null 2>&1
   # The unowned worktree must still be registered.
   run git worktree list
-  [[ "$output" == *"mumei-wt.userland"* ]]
+  [[ "$output" == *"mumei-wt.userland"* ]] || return 1
 }
 
 @test "stale sweep does not remove a worktree whose owner marker names a different repo" {
@@ -180,7 +180,7 @@ _git_repo_with_commit() {
   touch -t 202001010000 "$other" 2>/dev/null || true
   mumei_worktree_run_test "true" >/dev/null 2>&1
   run git worktree list
-  [[ "$output" == *"mumei-wt.other"* ]]
+  [[ "$output" == *"mumei-wt.other"* ]] || return 1
 }
 
 @test "run_test leaves no worktree registered after completion" {

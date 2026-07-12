@@ -182,7 +182,7 @@ _rel_rows() {
   # No commit-gate seeded → derive_pass empty → skip path.
   _commit_and_run_hook
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"reliability append skipped"* ]]
+  [[ "$stderr" == *"reliability append skipped"* ]] || return 1
 }
 
 @test "F-003: successful append emits a row-count log line" {
@@ -190,7 +190,7 @@ _rel_rows() {
   _seed_commit_gate 0
   _commit_and_run_hook
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"appended 2 reliability row"* ]]
+  [[ "$stderr" == *"appended 2 reliability row"* ]] || return 1
 }
 
 # ─── plan-vehicle isolation (REQ-26.5 boundary) ─────────────

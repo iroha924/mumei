@@ -15,9 +15,9 @@ setup() {
 
 @test "prefix mentions the agent name" {
   prefix="$(mumei_reviewer_prompt_prefix "spec-compliance-reviewer")"
-  [[ "$prefix" == *"spec-compliance-reviewer"* ]]
-  [[ "$prefix" == *"immutable prefix"* ]]
-  [[ "$prefix" == *"variable suffix"* ]]
+  [[ "$prefix" == *"spec-compliance-reviewer"* ]] || return 1
+  [[ "$prefix" == *"immutable prefix"* ]] || return 1
+  [[ "$prefix" == *"variable suffix"* ]] || return 1
 }
 
 @test "prefix is byte-identical across calls for the same agent" {
@@ -34,36 +34,36 @@ setup() {
 
 @test "suffix carries feature/wave/iter in <context>" {
   suffix="$(mumei_reviewer_prompt_suffix "REQ-11-foo" 1 2 "" "" "")"
-  [[ "$suffix" == *"feature: REQ-11-foo"* ]]
-  [[ "$suffix" == *"wave: 1"* ]]
-  [[ "$suffix" == *"iter: 2"* ]]
-  [[ "$suffix" == *"<context>"* ]]
-  [[ "$suffix" == *"</context>"* ]]
+  [[ "$suffix" == *"feature: REQ-11-foo"* ]] || return 1
+  [[ "$suffix" == *"wave: 1"* ]] || return 1
+  [[ "$suffix" == *"iter: 2"* ]] || return 1
+  [[ "$suffix" == *"<context>"* ]] || return 1
+  [[ "$suffix" == *"</context>"* ]] || return 1
 }
 
 @test "suffix wraps diff in <diff> tags when non-empty" {
   suffix="$(mumei_reviewer_prompt_suffix "f" 1 1 "+ added line" "" "")"
-  [[ "$suffix" == *"<diff>"* ]]
-  [[ "$suffix" == *"+ added line"* ]]
-  [[ "$suffix" == *"</diff>"* ]]
+  [[ "$suffix" == *"<diff>"* ]] || return 1
+  [[ "$suffix" == *"+ added line"* ]] || return 1
+  [[ "$suffix" == *"</diff>"* ]] || return 1
 }
 
 @test "suffix omits <diff> when diff is empty" {
   suffix="$(mumei_reviewer_prompt_suffix "f" 1 1 "" "" "")"
-  [[ "$suffix" != *"<diff>"* ]]
+  [[ "$suffix" != *"<diff>"* ]] || return 1
 }
 
 @test "suffix wraps prior_findings in <prior_findings> tags" {
   suffix="$(mumei_reviewer_prompt_suffix "f" 1 1 "" '[{"id":"F-001"}]' "")"
-  [[ "$suffix" == *"<prior_findings>"* ]]
-  [[ "$suffix" == *"F-001"* ]]
-  [[ "$suffix" == *"</prior_findings>"* ]]
+  [[ "$suffix" == *"<prior_findings>"* ]] || return 1
+  [[ "$suffix" == *"F-001"* ]] || return 1
+  [[ "$suffix" == *"</prior_findings>"* ]] || return 1
 }
 
 @test "suffix appends detector_block verbatim" {
   block='<detector_findings ground_truth="true">[{"rule":"x"}]</detector_findings>'
   suffix="$(mumei_reviewer_prompt_suffix "f" 1 1 "" "" "$block")"
-  [[ "$suffix" == *"$block"* ]]
+  [[ "$suffix" == *"$block"* ]] || return 1
 }
 
 @test "compose: prefix appears before suffix" {
@@ -83,9 +83,9 @@ setup() {
 
 @test "prefix carries the metadata-quarantine instruction" {
   prefix="$(mumei_reviewer_prompt_prefix "security-reviewer")"
-  [[ "$prefix" == *"Metadata quarantine"* ]]
-  [[ "$prefix" == *"judge ONLY the code"* ]]
-  [[ "$prefix" == *"intent, not reassurance"* ]]
+  [[ "$prefix" == *"Metadata quarantine"* ]] || return 1
+  [[ "$prefix" == *"judge ONLY the code"* ]] || return 1
+  [[ "$prefix" == *"intent, not reassurance"* ]] || return 1
 }
 
 @test "metadata-quarantine instruction is byte-stable across agents (cache-safe)" {

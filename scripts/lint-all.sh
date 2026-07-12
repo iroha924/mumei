@@ -40,6 +40,7 @@ else
   printf '\n=== shellharden (quoting hardening) ===\n(skipped: shellharden not installed locally; CI will gate)\n'
 fi
 _mumei_run "verify mumei_ prefix" bash "$here/lint-bash-prefix.sh"
+_mumei_run "bats assertions (no bare [[ ]])" bash "$here/lint-bats-assertions.sh"
 _mumei_run "jq empty (manifest, hooks)" bash -c 'jq empty .claude-plugin/plugin.json && jq empty hooks/hooks.json'
 _mumei_run "frontmatter check (agents/skills)" bash "$here/lint-frontmatter.sh"
 _mumei_run "plan-vehicle hooks registration" bash "$here/lint-plan-vehicle-hooks.sh"

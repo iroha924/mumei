@@ -44,7 +44,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 0 ]
-  [[ "$output" == *"1 workflow-referenced locks are tracked files"* ]]
+  [[ "$output" == *"1 workflow-referenced locks are tracked files"* ]] || return 1
 }
 
 @test "mistyped lock path -> exit 1 (the #194 near-miss)" {
@@ -64,7 +64,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/validat/requirements.txt"* ]]
+  [[ "$stderr" == *".github-deps/validat/requirements.txt"* ]] || return 1
 }
 
 @test "soft-fail path: a semgrep_lock= that does not exist -> exit 1" {
@@ -90,8 +90,8 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/semgrep-review/requirements.txt"* ]]
-  [[ "$stderr" == *"not run"* ]]
+  [[ "$stderr" == *".github-deps/semgrep-review/requirements.txt"* ]] || return 1
+  [[ "$stderr" == *"not run"* ]] || return 1
 }
 
 @test "lock exists on disk but is untracked -> exit 1 (green locally, dead in CI)" {
@@ -115,7 +115,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/ghost/requirements.txt"* ]]
+  [[ "$stderr" == *".github-deps/ghost/requirements.txt"* ]] || return 1
 }
 
 @test "matching nothing is a failure, not a pass (the lint must not go blind)" {
@@ -137,7 +137,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"gone blind"* ]]
+  [[ "$stderr" == *"gone blind"* ]] || return 1
 }
 
 @test "a .yaml workflow is scanned too -> exit 1 (the extension must not blind it)" {
@@ -159,7 +159,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/typo/requirements.txt"* ]]
+  [[ "$stderr" == *".github-deps/typo/requirements.txt"* ]] || return 1
 }
 
 @test "a single-segment lock path is checked, not skipped -> exit 1" {
@@ -180,7 +180,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"deps/requirements.txt"* ]]
+  [[ "$stderr" == *"deps/requirements.txt"* ]] || return 1
 }
 
 @test "a renamed lock is still checked -> exit 1 (matcher keys on use, not on name)" {
@@ -205,7 +205,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/valdate/constraints.txt"* ]]
+  [[ "$stderr" == *".github-deps/valdate/constraints.txt"* ]] || return 1
 }
 
 @test "two locks in one directory are both checked -> exit 1" {
@@ -228,7 +228,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/validate/extraTYPO.txt"* ]]
+  [[ "$stderr" == *".github-deps/validate/extraTYPO.txt"* ]] || return 1
 }
 
 @test "--requirement, the long form, is read too -> exit 1" {
@@ -247,7 +247,7 @@ YAML
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *".github-deps/valdate/requirements.txt"* ]]
+  [[ "$stderr" == *".github-deps/valdate/requirements.txt"* ]] || return 1
 }
 
 @test "files that are not installed from are none of the lint's business -> exit 0" {

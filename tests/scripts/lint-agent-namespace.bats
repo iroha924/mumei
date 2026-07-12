@@ -38,7 +38,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 0 ]
-  [[ "$output" == *"use mumei: correctly"* ]]
+  [[ "$output" == *"use mumei: correctly"* ]] || return 1
 }
 
 @test "bare anchored matcher (the v0.10.2 shape) -> fail" {
@@ -46,7 +46,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"cannot match its runtime name mumei:security-reviewer"* ]]
+  [[ "$stderr" == *"cannot match its runtime name mumei:security-reviewer"* ]] || return 1
 }
 
 @test "bare subagent_type in a skill -> fail" {
@@ -54,7 +54,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"bare subagent_type"* ]]
+  [[ "$stderr" == *"bare subagent_type"* ]] || return 1
 }
 
 @test "agent absent from the matcher is not reported (property-author is opt-in)" {
@@ -62,5 +62,5 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 0 ]
-  [[ "$stderr" != *"property-author"* ]]
+  [[ "$stderr" != *"property-author"* ]] || return 1
 }

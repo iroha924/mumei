@@ -372,13 +372,13 @@ _write_config() {
   [ "$status" -eq 0 ]
   # G3 does not deny (no permissionDecision JSON on stdout from G3 itself).
   [ -z "$output" ]
-  [[ "$stderr" == *"G3"* ]]
+  [[ "$stderr" == *"G3"* ]] || return 1
 }
 
 @test "G3: sys.exit(0) signature warns" {
   _run_hook "$(_bash_input "echo 'sys.exit(0)' >> conftest.py")"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"G3"* ]]
+  [[ "$stderr" == *"G3"* ]] || return 1
 }
 
 # --- I3 worktree double-measurement / divergence flag (scenario ①) ---
@@ -420,7 +420,7 @@ EOF
   MUMEI_TEST_CMD="bash run-test.sh" _run_hook_env "$(_bash_input "git commit -m work")"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$output")" = "deny" ]
-  [[ "$(jq -r '.hookSpecificOutput.permissionDecisionReason' <<<"$output")" == *"uncommitted tampering"* ]]
+  [[ "$(jq -r '.hookSpecificOutput.permissionDecisionReason' <<<"$output")" == *"uncommitted tampering"* ]] || return 1
 }
 
 @test "I3: working-tree pass + clean-HEAD pass is allowed" {

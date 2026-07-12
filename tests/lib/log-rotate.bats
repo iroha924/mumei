@@ -111,7 +111,7 @@ setup() {
   local after_lines
   after_lines="$(wc -l <.mumei/.hook-stats.jsonl | tr -d ' ')"
   [ "$after_lines" -eq 5000 ]
-  [[ "$stderr" == *"reaped stale lock"* ]]
+  [[ "$stderr" == *"reaped stale lock"* ]] || return 1
   # Trap RETURN should clean up the fresh lock dir.
   [ ! -d ".mumei/.hook-stats.jsonl.rotate.lock" ]
 }
@@ -142,6 +142,6 @@ setup() {
   run --separate-stderr mumei_log_rotate_check_and_truncate ".mumei/.hook-stats.jsonl"
   [ "$status" -eq 0 ]
   # Hooks write JSON to stdout; the cleanup notice MUST go to stderr.
-  [[ "$stderr" == *"auto-cleanup"* ]]
-  [[ "$output" != *"auto-cleanup"* ]]
+  [[ "$stderr" == *"auto-cleanup"* ]] || return 1
+  [[ "$output" != *"auto-cleanup"* ]] || return 1
 }

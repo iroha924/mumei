@@ -99,7 +99,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"missing field: reason"* ]]
+  [[ "$stderr" == *"missing field: reason"* ]] || return 1
 }
 
 @test "validate: missing score_breakdown axis reports it" {
@@ -109,7 +109,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"missing field: score_breakdown.confidence"* ]]
+  [[ "$stderr" == *"missing field: score_breakdown.confidence"* ]] || return 1
 }
 
 @test "validate: out-of-range score_total reports it" {
@@ -119,7 +119,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"out-of-range: score_total=99"* ]]
+  [[ "$stderr" == *"out-of-range: score_total=99"* ]] || return 1
 }
 
 @test "validate: out-of-range axis reports it" {
@@ -129,7 +129,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"out-of-range: generality=4"* ]]
+  [[ "$stderr" == *"out-of-range: generality=4"* ]] || return 1
 }
 
 @test "validate: invalid operation enum reports it" {
@@ -139,7 +139,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"invalid operation: DELETE"* ]]
+  [[ "$stderr" == *"invalid operation: DELETE"* ]] || return 1
 }
 
 @test "validate: non-JSON reports it" {
@@ -148,7 +148,7 @@ setup() {
     echo "not json at all" | mumei_memory_validate_curator_output
   '
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"invalid: not a JSON object"* ]]
+  [[ "$stderr" == *"invalid: not a JSON object"* ]] || return 1
 }
 
 @test "validate: UPDATE without merge_target_id reports it" {
@@ -158,7 +158,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"missing field: merge_target_id (required for UPDATE)"* ]]
+  [[ "$stderr" == *"missing field: merge_target_id (required for UPDATE)"* ]] || return 1
 }
 
 # ─── mumei_memory_apply_operation ─────────────────────────────
@@ -243,7 +243,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_apply_operation '${dir}'
   "
   [ "$status" -ne 0 ]
-  [[ "$stderr" == *"UPDATE failed"* ]]
+  [[ "$stderr" == *"UPDATE failed"* ]] || return 1
   # MEMORY.md must NOT have been pre-created (only ADD touches an empty file).
   [ ! -f "$dir/MEMORY.md" ]
 }
@@ -270,7 +270,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"final_text too long"* ]]
+  [[ "$stderr" == *"final_text too long"* ]] || return 1
 }
 
 @test "validate: final_text at exactly 1024 bytes is accepted (no off-by-one)" {
@@ -295,7 +295,7 @@ setup() {
     printf '%s' '${input}' | mumei_memory_validate_curator_output
   "
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"1025"* ]]
+  [[ "$stderr" == *"1025"* ]] || return 1
 }
 
 # ─── curator-log append (REQ-11.9) ────────────────────────────────────
@@ -332,7 +332,7 @@ setup() {
   mkdir -p "$reviewer_dir"
   printf '%s' '{"operation":"SKIP","reason":"r"}' | mumei_memory_apply_operation "$reviewer_dir"
   ts="$(jq -r '.ts' <.mumei/.curator-log.jsonl)"
-  [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+  [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || return 1
 }
 
 @test "curator-log: 3 invocations produce 3 JSONL lines, all parsable" {
@@ -437,8 +437,8 @@ _curator_add_json() {
   "
   [ "$status" -eq 0 ]
   # mumei_log_info goes to stderr — assert the evicted id and reviewer name appear.
-  [[ "$output" == *"memory cap reached for test-reviewer"* ]]
-  [[ "$output" == *"evicted entry: id-0001"* ]]
+  [[ "$output" == *"memory cap reached for test-reviewer"* ]] || return 1
+  [[ "$output" == *"evicted entry: id-0001"* ]] || return 1
 }
 
 @test "LRU: ADD into byte-cap-exceeding file evicts multiple entries (REQ-17.9 byte cap)" {
@@ -540,6 +540,6 @@ _curator_add_json() {
     _mumei_memory_apply_lru_eviction '${dir}/MEMORY.md' 'r'
   "
   [ "$status" -eq 0 ]
-  [[ "$stderr" != *"syntax error"* ]]
-  [[ "$stderr" != *"eviction failed"* ]]
+  [[ "$stderr" != *"syntax error"* ]] || return 1
+  [[ "$stderr" != *"eviction failed"* ]] || return 1
 }

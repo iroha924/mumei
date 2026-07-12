@@ -126,7 +126,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.decision')"
   [ "$decision" = "block" ]
   reason="$(printf '%s' "$output" | jq -r '.reason')"
-  [[ "$reason" == *"detector_report"* ]]
+  [[ "$reason" == *"detector_report"* ]] || return 1
 }
 
 @test "blocks when detector_report points at a file that does not exist" {
@@ -166,7 +166,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.decision')"
   [ "$decision" = "block" ]
   reason="$(printf '%s' "$output" | jq -r '.reason')"
-  [[ "$reason" == *"not valid JSON"* ]]
+  [[ "$reason" == *"not valid JSON"* ]] || return 1
 }
 
 @test "blocks when latest review is 0-byte (truncated write)" {
@@ -180,7 +180,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.decision')"
   [ "$decision" = "block" ]
   reason="$(printf '%s' "$output" | jq -r '.reason')"
-  [[ "$reason" == *"empty or not valid JSON"* ]]
+  [[ "$reason" == *"empty or not valid JSON"* ]] || return 1
 }
 
 @test "blocks when latest review is whitespace-only" {
@@ -222,7 +222,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.decision')"
   [ "$decision" = "block" ]
   reason="$(printf '%s' "$output" | jq -r '.reason')"
-  [[ "$reason" == *"review"* ]]
+  [[ "$reason" == *"review"* ]] || return 1
 }
 
 @test "blocks when latest review is older than tasks.md (stale)" {
@@ -251,8 +251,8 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.decision')"
   [ "$decision" = "block" ]
   reason="$(printf '%s' "$output" | jq -r '.reason')"
-  [[ "$reason" == *"/mumei:shelve"* ]]
-  [[ "$reason" == *"REQ-1-foo"* ]]
+  [[ "$reason" == *"/mumei:shelve"* ]] || return 1
+  [[ "$reason" == *"REQ-1-foo"* ]] || return 1
 }
 
 @test "exits cleanly when phase=done and .mumei/current points at a different feature" {

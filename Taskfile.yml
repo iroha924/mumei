@@ -61,6 +61,11 @@ tasks:
     cmds:
       - bash scripts/lint-bash-prefix.sh
 
+  lint:bats-assertions:
+    desc: "No bare [[ ]] assertions in tests/ (they no-op on macOS bash 3.2)"
+    cmds:
+      - bash scripts/lint-bats-assertions.sh
+
   lint:frontmatter:
     desc: "Agents + skills frontmatter validity"
     cmds:

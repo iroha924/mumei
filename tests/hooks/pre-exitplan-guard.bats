@@ -138,8 +138,8 @@ _plan_input() {
   # No plan-vehicle dir created for the colliding slug.
   [ ! -d ".mumei/plans/REQ-1-foo" ]
   # A warn was emitted on stderr (visible to humans, no block).
-  [[ "$stderr" == *"L-P1"* ]]
-  [[ "$stderr" == *"spec-vehicle"* ]]
+  [[ "$stderr" == *"L-P1"* ]] || return 1
+  [[ "$stderr" == *"spec-vehicle"* ]] || return 1
 }
 
 # ─── escape hatch ─────────────────────────────────────────────────────

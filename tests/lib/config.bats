@@ -144,17 +144,17 @@ _write_config() {
   _write_config '{"tool_gates": {"typecheck": "npm run tc", "lint": "eslint ."}}'
   run mumei_config_tool_gates
   [ "$status" -eq 0 ]
-  [[ "$output" == *$'typecheck\tnpm run tc'* ]]
-  [[ "$output" == *$'lint\teslint .'* ]]
+  [[ "$output" == *$'typecheck\tnpm run tc'* ]] || return 1
+  [[ "$output" == *$'lint\teslint .'* ]] || return 1
 }
 
 @test "mumei_config_tool_gates skips non-string values" {
   _write_config '{"tool_gates": {"good": "echo ok", "bad": 123, "arr": ["x"]}}'
   run mumei_config_tool_gates
   [ "$status" -eq 0 ]
-  [[ "$output" == *$'good\techo ok'* ]]
-  [[ "$output" != *bad* ]]
-  [[ "$output" != *arr* ]]
+  [[ "$output" == *$'good\techo ok'* ]] || return 1
+  [[ "$output" != *bad* ]] || return 1
+  [[ "$output" != *arr* ]] || return 1
 }
 
 @test "mumei_config_tool_gates emits nothing when tool_gates is not an object" {

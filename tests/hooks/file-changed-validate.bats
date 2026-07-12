@@ -111,12 +111,12 @@ EOF
   # Never blocks: exit 0, nothing on stdout.
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
-  [[ "$stderr" == *"file-changed warning"* ]]
+  [[ "$stderr" == *"file-changed warning"* ]] || return 1
   # The warning carries what lint-tasks actually found, not just that it found
   # something — lint-tasks exits 0 even when violations exist, so this is the
   # assertion that keeps the detection off the exit status.
-  [[ "$stderr" == *"missing meta"* ]]
-  [[ "$stderr" == *"1.1"* ]]
+  [[ "$stderr" == *"missing meta"* ]] || return 1
+  [[ "$stderr" == *"1.1"* ]] || return 1
 }
 
 @test "a tasks.md outside a mumei feature dir yields no warning" {

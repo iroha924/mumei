@@ -54,8 +54,8 @@ _run_hook_with_bad_cwd() {
     '{"tool_input":{"file_path":"/tmp/x.md"},"tool_name":"Edit"}'
 
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"pre-edit-guard.sh: cd CLAUDE_PROJECT_DIR="* ]]
-  [[ "$stderr" == *"failed; gate not enforced"* ]]
+  [[ "$stderr" == *"pre-edit-guard.sh: cd CLAUDE_PROJECT_DIR="* ]] || return 1
+  [[ "$stderr" == *"failed; gate not enforced"* ]] || return 1
 
   [ -f .mumei/.hook-stats.jsonl ]
   local lines
@@ -79,8 +79,8 @@ _run_hook_with_bad_cwd() {
   _run_hook_with_bad_cwd "stop-guard.sh" '{}'
 
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"stop-guard.sh: cd CLAUDE_PROJECT_DIR="* ]]
-  [[ "$stderr" == *"failed; gate not enforced"* ]]
+  [[ "$stderr" == *"stop-guard.sh: cd CLAUDE_PROJECT_DIR="* ]] || return 1
+  [[ "$stderr" == *"failed; gate not enforced"* ]] || return 1
 
   [ -f .mumei/.hook-stats.jsonl ]
   local rec

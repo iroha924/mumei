@@ -43,7 +43,7 @@ setup() {
 @test "mumei_log_warn handles empty argument without crashing" {
   run --separate-stderr mumei_log_warn ""
   [ "$status" -eq 0 ]
-  [[ "$stderr" == "[mumei WARN]"* ]]
+  [[ "$stderr" == "[mumei WARN]"* ]] || return 1
 }
 
 # ─── mumei_log_error ─────────────────────────────────────────

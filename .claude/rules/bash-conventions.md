@@ -2,6 +2,7 @@
 paths:
   - "hooks/**/*.sh"
   - "scripts/**/*.sh"
+  - "tests/**/*.bats"
 ---
 
 # Bash conventions (mumei)
@@ -100,6 +101,23 @@ The silence was written for an operator who sets `MUMEI_BYPASS` themselves. It d
 - Do not trust user input (the hook's stdin JSON). Read with `jq -r` and an empty default; skip when empty.
 - Detect git availability with `git rev-parse --git-dir >/dev/null 2>&1`. In git-less environments, make the feature a no-op.
 - "No matching feature" and "no `.mumei/`" are **no-ops, not errors** (do not get in the way of projects that do not use mumei).
+
+## bats assertions: never a bare `[[ ]]`
+
+Write `[[ ... ]] || return 1`, or use the POSIX `[ ... ]`. A bare `[[ ]]` on its own line is enforced by `lint-bats-assertions` (pre-commit + CI).
+
+The reason is not style. bash 3.2 — the `/bin/bash` every macOS ships — does not fire `errexit` on a failing `[[ ]]`, because `[[` is a keyword and 3.2 skips it. bash 5 (ubuntu CI) does. bats turns a failed assertion into a failed test _via errexit_, so a bare `[[ ]]` anywhere but the last line of a test is enforced on ubuntu and silently ignored on macOS. Measured:
+
+| runner        | bash   | bare `[[ ]]` that is false, mid-test |
+| ------------- | ------ | ------------------------------------ |
+| ubuntu-latest | 5.2.21 | `not ok` — enforced                  |
+| macos-latest  | 3.2.57 | `ok` — **skipped**                   |
+
+`[ ... ]` is the POSIX `test` builtin — a simple command, not a keyword — so errexit fires on it under both bashes. It needs no suffix.
+
+What this cost before it was caught: the `macos-latest` bats job exists to catch BSD/GNU differences, and roughly half its assertions were not running. A developer on macOS could see green, push, and watch ubuntu go red.
+
+Do not "fix" this by putting bash 5 on the macOS runner. The hooks themselves must keep being exercised under bash 3.2, because that is what macOS users run them on.
 
 ## LOC threshold
 

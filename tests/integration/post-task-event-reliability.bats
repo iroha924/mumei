@@ -68,16 +68,16 @@ _init_spec_feature() {
   printf '%s\n' '{"ts":"'"$(_now_ts)"'","feature":"fix-login","vehicle":"plan","source":"commit-gate","command":"npm test","exit_code":0}' \
     >.mumei/plans/fix-login/verify-log.jsonl
   run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || return 1
   local logfile=".mumei/plans/fix-login/reliability-log.jsonl"
-  [[ -f "$logfile" ]]
+  [[ -f "$logfile" ]] || return 1
   local task_id wave pass
   task_id="$(jq -r '.task_id' "$logfile")"
   wave="$(jq -r '.wave' "$logfile")"
   pass="$(jq -r '.pass' "$logfile")"
-  [[ "$task_id" == "1" ]]
-  [[ "$wave" == "" ]]
-  [[ "$pass" == "true" ]]
+  [[ "$task_id" == "1" ]] || return 1
+  [[ "$wave" == "" ]] || return 1
+  [[ "$pass" == "true" ]] || return 1
 }
 
 @test "TaskCompleted appends a reliability-log row for spec vehicle with wave (verify-log pass)" {
@@ -85,16 +85,16 @@ _init_spec_feature() {
   printf '%s\n' '{"ts":"'"$(_now_ts)"'","feature":"REQ-99-foo","vehicle":"spec","source":"commit-gate","command":"bats","exit_code":0}' \
     >.mumei/specs/REQ-99-foo/verify-log.jsonl
   run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"2.1"}'
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || return 1
   local logfile=".mumei/specs/REQ-99-foo/reliability-log.jsonl"
-  [[ -f "$logfile" ]]
+  [[ -f "$logfile" ]] || return 1
   local task_id wave pass
   task_id="$(jq -r '.task_id' "$logfile")"
   wave="$(jq -r '.wave' "$logfile")"
   pass="$(jq -r '.pass' "$logfile")"
-  [[ "$task_id" == "2.1" ]]
-  [[ "$wave" == "2" ]]
-  [[ "$pass" == "true" ]]
+  [[ "$task_id" == "2.1" ]] || return 1
+  [[ "$wave" == "2" ]] || return 1
+  [[ "$pass" == "true" ]] || return 1
 }
 
 @test "TaskCompleted SKIPS reliability append when verify-log is empty (adversarial F-001 fix)" {
@@ -102,16 +102,16 @@ _init_spec_feature() {
   # No verify-log row exists → reliability append must skip rather than
   # fabricating pass=true (the iter-1 silent default).
   run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
-  [[ "$status" -eq 0 ]]
-  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]] || return 1
 }
 
 # ─── REQ-25.3.2 — silent skip when .mumei/current missing ──
 
 @test "TaskCompleted with no .mumei/current skips silently (hook exit 0)" {
   run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
-  [[ "$status" -eq 0 ]]
-  [[ ! -e ".mumei/current" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ ! -e ".mumei/current" ]] || return 1
   # No reliability-log dir should have been created.
   [[ ! -d ".mumei/plans" ]] || ! find ".mumei/plans" -name "reliability-log.jsonl" | grep -q .
   [[ ! -d ".mumei/specs" ]] || ! find ".mumei/specs" -name "reliability-log.jsonl" | grep -q .
@@ -142,28 +142,28 @@ _init_spec_feature() {
     return 1
   }
   # And reliability-log still got its row.
-  [[ -f ".mumei/plans/fix-login/reliability-log.jsonl" ]]
+  [[ -f ".mumei/plans/fix-login/reliability-log.jsonl" ]] || return 1
 }
 
 @test "TaskCompleted exits 0 even when task_id is missing from the input payload" {
   _init_plan_feature "fix-login"
   run _invoke_hook '{"hook_event_name":"TaskCompleted"}'
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || return 1
   # No row appended (missing task_id), but the counter still incremented.
-  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]]
+  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]] || return 1
   local completed
   completed="$(jq -r '.task_completed_count' .mumei/plans/fix-login/state.json)"
-  [[ "$completed" == "1" ]]
+  [[ "$completed" == "1" ]] || return 1
 }
 
 @test "TaskCreated does NOT append a reliability row (append is TaskCompleted-only)" {
   _init_plan_feature "fix-login"
   run _invoke_hook '{"hook_event_name":"TaskCreated","task_id":"1"}'
-  [[ "$status" -eq 0 ]]
-  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]] || return 1
   local created
   created="$(jq -r '.task_created_count' .mumei/plans/fix-login/state.json)"
-  [[ "$created" == "1" ]]
+  [[ "$created" == "1" ]] || return 1
 }
 
 # ─── REQ-25.3.1 — pass derived from verify-log.jsonl exit_code (post-iter-1 fix) ──
@@ -190,8 +190,8 @@ _init_spec_feature() {
   printf '%s\n' "{\"ts\":\"$(date -u -v-1H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)\",\"feature\":\"fix-login\",\"vehicle\":\"plan\",\"source\":\"commit-gate\",\"command\":\"npm test\",\"exit_code\":0}" \
     >.mumei/plans/fix-login/verify-log.jsonl
   run _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
-  [[ "$status" -eq 0 ]]
-  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ ! -f ".mumei/plans/fix-login/reliability-log.jsonl" ]] || return 1
 }
 
 @test "TaskCompleted end-to-end via real mumei_verify_log_append (adversarial F-001 regression)" {
@@ -202,9 +202,9 @@ _init_spec_feature() {
   source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/verify-log.sh"
   # Write a real verify-log row with exit_code=0 via the canonical writer.
   mumei_verify_log_append "fix-login" "commit-gate" "npm test" "0"
-  [[ -f ".mumei/plans/fix-login/verify-log.jsonl" ]]
+  [[ -f ".mumei/plans/fix-login/verify-log.jsonl" ]] || return 1
   _invoke_hook '{"hook_event_name":"TaskCompleted","task_id":"1"}'
-  [[ -f ".mumei/plans/fix-login/reliability-log.jsonl" ]]
+  [[ -f ".mumei/plans/fix-login/reliability-log.jsonl" ]] || return 1
   local pass
   pass="$(jq -r '.pass' .mumei/plans/fix-login/reliability-log.jsonl)"
   [[ "$pass" == "true" ]] || {

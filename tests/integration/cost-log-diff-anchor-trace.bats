@@ -117,5 +117,5 @@ _reviewer_run() {
 
   run mumei_review_trace_ok "$FDIR"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"spec-compliance-reviewer"* ]]
+  [[ "$output" == *"spec-compliance-reviewer"* ]] || return 1
 }

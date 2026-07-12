@@ -115,8 +115,8 @@ _init_feature_plan() {
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"out-of-scope.txt"* ]]
-  [[ "$ctx" == *"NOT listed"* ]]
+  [[ "$ctx" == *"out-of-scope.txt"* ]] || return 1
+  [[ "$ctx" == *"NOT listed"* ]] || return 1
 }
 
 @test "warning suppresses tracked .mumei/ files at full-path granularity" {
@@ -132,10 +132,10 @@ _init_feature_plan() {
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"out-of-scope.txt"* ]]
+  [[ "$ctx" == *"out-of-scope.txt"* ]] || return 1
   # Tracked .mumei/ file must NOT appear in the listed-files block.
   listed="$(printf '%s' "$ctx" | sed -n '/NOT listed/,/If these changes/p')"
-  [[ "$listed" != *$'\n.mumei/specs'* ]]
+  [[ "$listed" != *$'\n.mumei/specs'* ]] || return 1
 }
 
 @test "warning lists out-of-scope file but excludes .mumei state changes" {
@@ -149,12 +149,12 @@ _init_feature_plan() {
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"out-of-scope.txt"* ]]
+  [[ "$ctx" == *"out-of-scope.txt"* ]] || return 1
   # The listed-files block (between the colon and the trailing instruction)
   # should not enumerate any .mumei/ entries — only the explanatory boilerplate
   # mentions .mumei/ paths.
   listed="$(printf '%s' "$ctx" | sed -n '/NOT listed/,/If these changes/p')"
-  [[ "$listed" != *$'\n.mumei/'* ]]
+  [[ "$listed" != *$'\n.mumei/'* ]] || return 1
 }
 
 # ─── T1-2: gitignored awareness ──────────────────────────────
@@ -195,7 +195,7 @@ _init_feature_plan() {
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"echo"}}'
   [ "$status" -eq 0 ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
-  [[ "$ctx" == *"new_pkg/index.ts"* ]]
+  [[ "$ctx" == *"new_pkg/index.ts"* ]] || return 1
 }
 
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────
@@ -266,7 +266,7 @@ EOF
   # reflog HEAD@{0} is now "commit: wave 1 commit" (from the helper) — pre-fix
   # this would trigger X3 on every bash; post-fix it must not.
   reflog_top="$(git reflog show HEAD -n1 --pretty='%gs')"
-  [[ "$reflog_top" == commit:* ]]
+  [[ "$reflog_top" == commit:* ]] || return 1
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"ls"}}'
   source "$CLAUDE_PLUGIN_ROOT/hooks/_lib/state.sh"
   [ "$(mumei_state_get 'REQ-1-foo' '.current_wave')" = "1" ]

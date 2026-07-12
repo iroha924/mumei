@@ -85,8 +85,8 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"Wave 1"* ]]
-  [[ "$reason" == *"incomplete"* ]]
+  [[ "$reason" == *"Wave 1"* ]] || return 1
+  [[ "$reason" == *"incomplete"* ]] || return 1
 }
 
 @test "allows git commit once the current Wave is complete" {
@@ -113,7 +113,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"MAJOR_ISSUES"* ]]
+  [[ "$reason" == *"MAJOR_ISSUES"* ]] || return 1
 }
 
 @test "allows git push when PASS is backed by all baseline reviewer records (R2)" {
@@ -144,7 +144,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"not backed by a reviewer-execution trace"* ]]
+  [[ "$reason" == *"not backed by a reviewer-execution trace"* ]] || return 1
 }
 
 @test "denies git push when a baseline reviewer has no cost-log record (partial trace) (R2)" {
@@ -162,7 +162,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"spec-compliance-reviewer has no cost-log record"* ]]
+  [[ "$reason" == *"spec-compliance-reviewer has no cost-log record"* ]] || return 1
 }
 
 @test "allows git push when a malformed cost-log line precedes valid baseline records (R2)" {
@@ -204,7 +204,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"MAJOR_ISSUES"* ]]
+  [[ "$reason" == *"MAJOR_ISSUES"* ]] || return 1
 }
 
 @test "allows git push when the latest review is a short-circuit resting on a real review (R2)" {
@@ -247,7 +247,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"only synthetic short-circuit"* ]]
+  [[ "$reason" == *"only synthetic short-circuit"* ]] || return 1
 }
 
 @test "denies plan-vehicle git push when a clearing verdict lacks a reviewer-execution trace (L-R2)" {
@@ -262,7 +262,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"not backed by a reviewer-execution trace"* ]]
+  [[ "$reason" == *"not backed by a reviewer-execution trace"* ]] || return 1
 }
 
 @test "allows plan-vehicle git push when PASS is backed by all baseline reviewers (L-R2)" {
@@ -319,7 +319,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"working tree changed"* ]]
+  [[ "$reason" == *"working tree changed"* ]] || return 1
 }
 
 @test "curator advisory: clearing push with skipped curation warns but allows (R2)" {
@@ -338,8 +338,8 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision // "none"')"
   [ "$decision" = "none" ]
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext // ""')"
-  [[ "$ctx" == *"Advisory"* ]]
-  [[ "$ctx" == *"curation"* ]]
+  [[ "$ctx" == *"Advisory"* ]] || return 1
+  [[ "$ctx" == *"curation"* ]] || return 1
 }
 
 @test "curator advisory: clearing push with curation done emits no advisory (R2)" {
@@ -376,7 +376,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"Review pipeline has not run"* ]]
+  [[ "$reason" == *"Review pipeline has not run"* ]] || return 1
 }
 
 @test "denies git push when phase=review and reviews/ exists but only detector reports (R2)" {
@@ -399,7 +399,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"Review pipeline has not run"* ]]
+  [[ "$reason" == *"Review pipeline has not run"* ]] || return 1
 }
 
 @test "allows git push when phase=implement and no review yet (review not required yet)" {
@@ -449,11 +449,11 @@ _complete_wave1() {
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"Tests failing"* ]]
+  [[ "$reason" == *"Tests failing"* ]] || return 1
   rec="$(cat .mumei/specs/REQ-1-foo/verify-log.jsonl)"
   [ "$(jq -r '.source' <<<"$rec")" = "commit-gate" ]
   [ "$(jq -r '.exit_code' <<<"$rec")" = "3" ]
-  [[ "$(jq -r '.excerpt' <<<"$rec")" == *"TESTFAIL"* ]]
+  [[ "$(jq -r '.excerpt' <<<"$rec")" == *"TESTFAIL"* ]] || return 1
 }
 
 @test "no test runner and no MUMEI_TEST_CMD → no spurious verify-log record" {
@@ -487,7 +487,7 @@ _complete_wave1() {
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"lint"* ]]
+  [[ "$reason" == *"lint"* ]] || return 1
 }
 
 @test "I5: declared tool_gate not found (exit 127) → deny as config error" {
@@ -499,7 +499,7 @@ _complete_wave1() {
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"not found"* ]]
+  [[ "$reason" == *"not found"* ]] || return 1
 }
 
 @test "I5: tool_gate run is recorded to verify-log (source=tool-gate, command=key)" {
@@ -547,7 +547,7 @@ _complete_wave1() {
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"z_fail"* ]]
+  [[ "$reason" == *"z_fail"* ]] || return 1
 }
 
 @test "I5: empty tool_gate command is denied (config error, not silent skip)" {
@@ -558,7 +558,7 @@ _complete_wave1() {
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"empty command"* ]]
+  [[ "$reason" == *"empty command"* ]] || return 1
 }
 
 @test "I5: failure-masking chain in a tool_gate command warns on stderr" {
@@ -566,7 +566,7 @@ _complete_wave1() {
   _complete_wave1
   printf '%s' '{"tool_gates": {"lint": "true || true"}}' >.mumei/config.json
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m foo"}}'
-  [[ "$stderr" == *"may be masked"* ]]
+  [[ "$stderr" == *"may be masked"* ]] || return 1
 }
 
 @test "I5: tool-gate verify-log record carries no tool output (secret safety)" {
@@ -579,7 +579,7 @@ _complete_wave1() {
   rec="$(jq -rc 'select(.source=="tool-gate")' .mumei/specs/REQ-1-foo/verify-log.jsonl | head -1)"
   [ -n "$rec" ]
   [ "$(printf '%s' "$rec" | jq -r 'has("excerpt")')" = "false" ]
-  [[ "$rec" != *SECRET_TOKEN* ]]
+  [[ "$rec" != *SECRET_TOKEN* ]] || return 1
 }
 
 @test "I5: deny additionalContext renders real newlines, not literal backslash-n" {
@@ -589,5 +589,5 @@ _complete_wave1() {
   _run_hook '{"tool_name":"Bash","tool_input":{"command":"git commit -m foo"}}'
   ctx="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   # jq -r unescapes JSON; a real newline means the literal two-char \n is absent.
-  [[ "$ctx" != *'\n'* ]]
+  [[ "$ctx" != *'\n'* ]] || return 1
 }

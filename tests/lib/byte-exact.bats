@@ -16,8 +16,8 @@ setup() {
 @test ".go + CRLF -> emits CRLF advisory" {
   printf 'package main\r\nfunc main() {}\r\n' >test.go
   out="$(mumei_byte_exact_check "$MUMEI_TEST_TMPDIR/test.go")"
-  [[ "$out" == *"CRLF line endings"* ]]
-  [[ "$out" == *"byte-exact match"* ]]
+  [[ "$out" == *"CRLF line endings"* ]] || return 1
+  [[ "$out" == *"byte-exact match"* ]] || return 1
 }
 
 @test ".go + LF only -> no advisory" {
@@ -29,7 +29,7 @@ setup() {
 @test ".go + tab indent -> emits tab advisory" {
   printf 'package main\nfunc main() {\n\treturn\n}\n' >test.go
   out="$(mumei_byte_exact_check "$MUMEI_TEST_TMPDIR/test.go")"
-  [[ "$out" == *"tab indentation"* ]]
+  [[ "$out" == *"tab indentation"* ]] || return 1
 }
 
 @test ".txt with CRLF -> excluded extension, no advisory" {
@@ -51,26 +51,26 @@ setup() {
 @test "MUMEI_BYTE_EXACT_EXTS override extends the watch list" {
   printf 'line1\r\nline2\r\n' >script.makefile
   out="$(MUMEI_BYTE_EXACT_EXTS=".makefile" mumei_byte_exact_check "$MUMEI_TEST_TMPDIR/script.makefile")"
-  [[ "$out" == *"CRLF"* ]]
+  [[ "$out" == *"CRLF"* ]] || return 1
 }
 
 @test ".bat + CRLF (default ext) -> emits advisory" {
   printf 'echo hi\r\n' >run.bat
   out="$(mumei_byte_exact_check "$MUMEI_TEST_TMPDIR/run.bat")"
-  [[ "$out" == *"CRLF"* ]]
+  [[ "$out" == *"CRLF"* ]] || return 1
 }
 
 @test ".cmd + CRLF (default ext) -> emits advisory" {
   printf 'echo hi\r\n' >run.cmd
   out="$(mumei_byte_exact_check "$MUMEI_TEST_TMPDIR/run.cmd")"
-  [[ "$out" == *"CRLF"* ]]
+  [[ "$out" == *"CRLF"* ]] || return 1
 }
 
 @test "CRLF takes precedence over tab when both present" {
   # CRLF check runs first; we don't get a second advisory line.
   printf '\tindent line1\r\n' >test.go
   out="$(mumei_byte_exact_check "$MUMEI_TEST_TMPDIR/test.go")"
-  [[ "$out" == *"CRLF"* ]]
+  [[ "$out" == *"CRLF"* ]] || return 1
   # Output is one line, no double-advisory.
   line_count="$(printf '%s' "$out" | wc -l | tr -d ' ')"
   [ "$line_count" = "0" ] # printf without trailing newline → wc -l = 0

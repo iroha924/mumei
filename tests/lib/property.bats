@@ -28,7 +28,7 @@ teardown() {
 @test "validate rejects tautological roundtrip (fn==inverse)" {
   run mumei_property_validate_invariant "type=roundtrip fn=encode inverse=encode"
   [ "$status" -eq 1 ]
-  [[ "$output" == *tautological* ]]
+  [[ "$output" == *tautological* ]] || return 1
 }
 
 @test "validate rejects roundtrip missing inverse" {
@@ -64,13 +64,13 @@ teardown() {
 @test "validate rejects tautological oracle-match (fn==oracle)" {
   run mumei_property_validate_invariant "type=oracle-match fn=sort oracle=sort"
   [ "$status" -eq 1 ]
-  [[ "$output" == *tautological* ]]
+  [[ "$output" == *tautological* ]] || return 1
 }
 
 @test "validate rejects unknown type" {
   run mumei_property_validate_invariant "type=magic fn=x"
   [ "$status" -eq 1 ]
-  [[ "$output" == *unknown* ]]
+  [[ "$output" == *unknown* ]] || return 1
 }
 
 @test "validate rejects spec without a type field" {
@@ -86,7 +86,7 @@ teardown() {
 @test "validate rejects a multi-word value (read -ra truncation guard)" {
   run mumei_property_validate_invariant "type=invariant-preservation fn=sort invariant=output is sorted"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"malformed invariant token"* ]]
+  [[ "$output" == *"malformed invariant token"* ]] || return 1
 }
 
 # ─── mumei_property_acs_with_invariant ───────────────────────
@@ -105,9 +105,9 @@ teardown() {
 EOF
   run mumei_property_acs_with_invariant req.md
   [ "$status" -eq 0 ]
-  [[ "$output" == *$'REQ-1.1\ttype=roundtrip fn=encode inverse=decode'* ]]
-  [[ "$output" == *$'REQ-1.3\ttype=idempotency fn=normalize'* ]]
-  [[ "$output" != *REQ-1.2* ]]
+  [[ "$output" == *$'REQ-1.1\ttype=roundtrip fn=encode inverse=decode'* ]] || return 1
+  [[ "$output" == *$'REQ-1.3\ttype=idempotency fn=normalize'* ]] || return 1
+  [[ "$output" != *REQ-1.2* ]] || return 1
 }
 
 @test "acs_with_invariant emits nothing for a missing artifact" {
@@ -136,7 +136,7 @@ EOF
 EOF
   run mumei_property_acs_with_invariant req.md
   [ "$status" -eq 0 ]
-  [[ "$output" == *"REQ-1.1"*"roundtrip"* ]]
+  [[ "$output" == *"REQ-1.1"*"roundtrip"* ]] || return 1
   # The Open Questions prose mention must NOT produce a second (fake) line.
   [ "$(printf '%s\n' "$output" | grep -c .)" = "1" ]
 }

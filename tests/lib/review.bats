@@ -60,7 +60,7 @@ EOF
   [ "$source_field" = "structural-integrity" ]
 
   msg="$(jq -r '.[0].message' <<<"$out")"
-  [[ "$msg" == *"stub lint-hook-ids ran"* ]]
+  [[ "$msg" == *"stub lint-hook-ids ran"* ]] || return 1
 }
 
 @test "structural_check: lint-docs-drift fails -> 1 finding" {
@@ -113,7 +113,7 @@ EOF
   rule="$(jq -r '.[0].rule' <<<"$out")"
   [ "$rule" = "lint-docs-drift" ]
   msg="$(jq -r '.[0].message' <<<"$out")"
-  [[ "$msg" == *"not found"* ]]
+  [[ "$msg" == *"not found"* ]] || return 1
 }
 
 @test "structural_check: both linter scripts missing -> 2 MEDIUM findings (REQ-17.8)" {
@@ -363,7 +363,7 @@ _make_git_repo() {
   _make_git_repo
   printf 'change\n' >>base.txt
   out="$(mumei_review_diff_hash)"
-  [[ "$out" =~ ^[0-9a-f]{64}$ ]]
+  [[ "$out" =~ ^[0-9a-f]{64}$ ]] || return 1
 }
 
 @test "diff_hash: deterministic across repeated calls on the same state" {
@@ -531,7 +531,7 @@ _setup_trace_fixture() {
   mv "${FDIR}/cl.tmp" "${FDIR}/cost-log.jsonl"
   run mumei_review_trace_ok "$FDIR"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"spec-compliance-reviewer"* ]]
+  [[ "$output" == *"spec-compliance-reviewer"* ]] || return 1
 }
 
 @test "trace_ok: reviewers ran against a different diff -> block" {
@@ -545,7 +545,7 @@ _setup_trace_fixture() {
   done
   run mumei_review_trace_ok "$FDIR"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"matching the gating diff"* ]]
+  [[ "$output" == *"matching the gating diff"* ]] || return 1
 }
 
 @test "trace_ok: legacy gating review with no diff_hash -> fail-closed" {
@@ -554,7 +554,7 @@ _setup_trace_fixture() {
     >"${FDIR}/reviews/20260101T000000Z.json"
   run mumei_review_trace_ok "$FDIR"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"no diff_hash"* ]]
+  [[ "$output" == *"no diff_hash"* ]] || return 1
 }
 
 @test "trace_ok: re-edit after the verdict (current != gating) -> block" {
@@ -562,7 +562,7 @@ _setup_trace_fixture() {
   printf 'post-review edit\n' >>base.txt
   run mumei_review_trace_ok "$FDIR"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"working tree changed"* ]]
+  [[ "$output" == *"working tree changed"* ]] || return 1
 }
 
 @test "trace_ok: recompute failure in a git repo (empty cur, gating anchored) -> fail-closed (Codex P1)" {
@@ -573,7 +573,7 @@ _setup_trace_fixture() {
   mumei_review_diff_hash() { printf ''; }
   run mumei_review_trace_ok "$FDIR"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"cannot recompute"* ]]
+  [[ "$output" == *"cannot recompute"* ]] || return 1
 }
 
 # --- mumei_review_should_short_circuit (anchored-prev requirement, Codex P1) ---

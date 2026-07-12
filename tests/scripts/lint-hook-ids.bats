@@ -46,7 +46,7 @@ EOF
 
   _run_lint
   [ "$status" -eq 0 ]
-  [[ "$output" == *"2 Hook IDs verified"* ]]
+  [[ "$output" == *"2 Hook IDs verified"* ]] || return 1
 }
 
 @test "duplicate row in ARCHITECTURE.md table -> fail" {
@@ -60,7 +60,7 @@ EOF
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"duplicate Hook ID 'P1' in the Hook rules table"* ]]
+  [[ "$stderr" == *"duplicate Hook ID 'P1' in the Hook rules table"* ]] || return 1
 }
 
 @test "duplicate '# --- ID: ---' declaration across hooks -> fail" {
@@ -77,7 +77,7 @@ EOF
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"duplicate Hook ID declaration: P1"* ]]
+  [[ "$stderr" == *"duplicate Hook ID declaration: P1"* ]] || return 1
 }
 
 @test "indented '# --- ID: ---' is recognised" {
@@ -97,7 +97,7 @@ EOF
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"duplicate Hook ID declaration: P1"* ]]
+  [[ "$stderr" == *"duplicate Hook ID declaration: P1"* ]] || return 1
 }
 
 @test "single '# --- ID: ---' (no collision) -> exit 0" {
@@ -125,7 +125,7 @@ EOF
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"bats test references Hook ID 'P9'"* ]]
+  [[ "$stderr" == *"bats test references Hook ID 'P9'"* ]] || return 1
 }
 
 @test "README mentions ID missing from table -> fail" {
@@ -134,7 +134,7 @@ EOF
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"references Hook ID 'W7'"* ]]
+  [[ "$stderr" == *"references Hook ID 'W7'"* ]] || return 1
 }
 
 @test "a strikethrough ID in prose is ignored" {
@@ -175,7 +175,7 @@ EOF
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"duplicate Hook ID declaration: X2"* ]]
+  [[ "$stderr" == *"duplicate Hook ID declaration: X2"* ]] || return 1
 }
 
 @test "doc orphan check excludes IDs that are listed in ARCHITECTURE table" {

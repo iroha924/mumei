@@ -32,7 +32,7 @@ teardown() {
 @test "fingerprint: keeps category + dir-inclusive relative path" {
   f='{"category":"injection","location":"a/b/c/db.ts:42","evidence":"x"}'
   fp="$(mumei_ledger_fingerprint "$f")"
-  [[ "$fp" == injection:a/b/c/db.ts:* ]]
+  [[ "$fp" == injection:a/b/c/db.ts:* ]] || return 1
 }
 
 @test "fingerprint: same basename in different dirs do NOT collide (issue #65)" {

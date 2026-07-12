@@ -98,7 +98,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"phase=plan"* ]]
+  [[ "$reason" == *"phase=plan"* ]] || return 1
 }
 
 # ─── P2: [NEEDS CLARIFICATION] in requirements blocks design.md ──
@@ -114,7 +114,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"NEEDS CLARIFICATION"* ]]
+  [[ "$reason" == *"NEEDS CLARIFICATION"* ]] || return 1
 }
 
 # ─── P3: tasks.md requires design.md ─────────────────────────
@@ -127,7 +127,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"design.md missing"* ]]
+  [[ "$reason" == *"design.md missing"* ]] || return 1
 }
 
 # ─── I2: scope creep ─────────────────────────────────────────
@@ -139,7 +139,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"out of scope"* ]]
+  [[ "$reason" == *"out of scope"* ]] || return 1
 }
 
 # ─── I1: dependency incomplete ───────────────────────────────
@@ -154,7 +154,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"depends on task 1.1"* ]]
+  [[ "$reason" == *"depends on task 1.1"* ]] || return 1
 }
 
 # ─── W1: previous Wave uncommitted ───────────────────────────
@@ -171,7 +171,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"uncommitted"* ]]
+  [[ "$reason" == *"uncommitted"* ]] || return 1
 }
 
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────
@@ -193,7 +193,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"memory-curator"* ]]
+  [[ "$reason" == *"memory-curator"* ]] || return 1
 }
 
 @test "M1: deny Edit on .claude/agent-memory/security-reviewer/MEMORY.md" {
@@ -301,7 +301,7 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')"
   [ "$decision" = "deny" ]
   reason="$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
-  [[ "$reason" == *"harness internal state"* ]]
+  [[ "$reason" == *"harness internal state"* ]] || return 1
 }
 
 @test "S1: deny Write on spec vehicle state.json" {

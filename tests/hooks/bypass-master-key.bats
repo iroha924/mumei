@@ -81,8 +81,8 @@ _decision() {
   run --separate-stderr bash -c \
     "MUMEI_BYPASS=1 bash '${CLAUDE_PLUGIN_ROOT}/hooks/session-start-bypass-notice.sh' </dev/null"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"MUMEI_BYPASS=1"* ]]
-  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"BYPASSED"* ]]
+  [[ "$stderr" == *"MUMEI_BYPASS=1"* ]] || return 1
+  [[ "$(jq -r '.hookSpecificOutput.additionalContext' <<<"$output")" == *"BYPASSED"* ]] || return 1
 }
 
 @test "X6: without the bypass it says nothing (nameless-butler stance)" {
@@ -105,8 +105,8 @@ _decision() {
   run --separate-stderr bash -c \
     "printf '%s' '{\"config_source\":\"local_settings\",\"changed_fields\":[\"env\"]}' | CLAUDE_PROJECT_DIR='${MUMEI_TEST_TMPDIR}' bash '${CLAUDE_PLUGIN_ROOT}/hooks/config-change-audit.sh'"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"X7"* ]]
-  [[ "$stderr" == *"every mumei gate is disabled"* ]]
+  [[ "$stderr" == *"X7"* ]] || return 1
+  [[ "$stderr" == *"every mumei gate is disabled"* ]] || return 1
   run jq -sr '[.[] | select(.event == "bypass-enabled-via-settings")] | length' .mumei/audit-log/config-change.jsonl
   [ "$output" = "1" ]
 }
@@ -116,7 +116,7 @@ _decision() {
   run --separate-stderr bash -c \
     "printf '%s' '{\"config_source\":\"local_settings\",\"changed_fields\":[\"model\"]}' | CLAUDE_PROJECT_DIR='${MUMEI_TEST_TMPDIR}' bash '${CLAUDE_PLUGIN_ROOT}/hooks/config-change-audit.sh'"
   [ "$status" -eq 0 ]
-  [[ "$stderr" != *"X7"* ]]
+  [[ "$stderr" != *"X7"* ]] || return 1
 }
 
 @test "S3: the USER-GLOBAL ~/.claude/settings.json is covered too" {

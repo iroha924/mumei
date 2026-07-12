@@ -79,7 +79,7 @@ _run_lint() {
   _build_baseline
   _run_lint
   [ "$status" -eq 0 ]
-  [[ "$output" == *"5 docs/filesystem pairs are in sync"* ]]
+  [[ "$output" == *"5 docs/filesystem pairs are in sync"* ]] || return 1
 }
 
 @test "(a) agent count drift -> fail" {
@@ -87,7 +87,7 @@ _run_lint() {
   : >"${MUMEI_TEST_TMPDIR}/agents/r3.md"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"agent count drift"* ]]
+  [[ "$stderr" == *"agent count drift"* ]] || return 1
 }
 
 @test "(b) hooks/_lib drift: filesystem has extra file -> fail" {
@@ -95,7 +95,7 @@ _run_lint() {
   : >"${MUMEI_TEST_TMPDIR}/hooks/_lib/extra.sh"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"hooks/_lib/extra.sh exists"* ]]
+  [[ "$stderr" == *"hooks/_lib/extra.sh exists"* ]] || return 1
 }
 
 @test "(b) hooks/_lib drift: ARCHITECTURE has stale entry -> fail" {
@@ -103,7 +103,7 @@ _run_lint() {
   rm "${MUMEI_TEST_TMPDIR}/hooks/_lib/tasks.sh"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"references tasks.sh that does not exist"* ]]
+  [[ "$stderr" == *"references tasks.sh that does not exist"* ]] || return 1
 }
 
 @test "(c) skills drift: filesystem has extra skill -> fail" {
@@ -112,7 +112,7 @@ _run_lint() {
   : >"${MUMEI_TEST_TMPDIR}/skills/extra/SKILL.md"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"skills/extra/SKILL.md exists"* ]]
+  [[ "$stderr" == *"skills/extra/SKILL.md exists"* ]] || return 1
 }
 
 @test "(c) skills drift: README mentions non-existent skill -> fail" {
@@ -120,7 +120,7 @@ _run_lint() {
   printf '%s\n' '' '/mumei:phantom is referenced.' >>"${MUMEI_TEST_TMPDIR}/README.md"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"/mumei:phantom"* ]]
+  [[ "$stderr" == *"/mumei:phantom"* ]] || return 1
 }
 
 @test "(d) Hook ID drift: table lists ID not mentioned in code -> fail" {
@@ -138,7 +138,7 @@ _run_lint() {
   mv "${MUMEI_TEST_TMPDIR}/ARCHITECTURE.md.tmp" "${MUMEI_TEST_TMPDIR}/ARCHITECTURE.md"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"table lists 'P9'"* ]]
+  [[ "$stderr" == *"table lists 'P9'"* ]] || return 1
 }
 
 @test "(d) Hook ID drift: code mentions ID missing from table -> fail" {
@@ -146,7 +146,7 @@ _run_lint() {
   printf '%s\n' '# rule W7 lives here' >>"${MUMEI_TEST_TMPDIR}/hooks/pre-edit-guard.sh"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"mentions Hook ID 'W7'"* ]]
+  [[ "$stderr" == *"mentions Hook ID 'W7'"* ]] || return 1
 }
 
 @test "(e) The {N} rules narrative drift -> fail" {
@@ -155,7 +155,7 @@ _run_lint() {
   mv "${MUMEI_TEST_TMPDIR}/A.tmp" "${MUMEI_TEST_TMPDIR}/ARCHITECTURE.md"
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"'The 99 rules' narrative does not match"* ]]
+  [[ "$stderr" == *"'The 99 rules' narrative does not match"* ]] || return 1
 }
 
 @test "ARCHITECTURE.md missing -> soft no-op" {

@@ -110,8 +110,8 @@ EOF
   decision="$(printf '%s' "$output" | jq -r '.decision')"
   [ "$decision" = "block" ]
   reason="$(printf '%s' "$output" | jq -r '.reason')"
-  [[ "$reason" == *"1.1"* ]]
-  [[ "$reason" == *"Phantom"* ]]
+  [[ "$reason" == *"1.1"* ]] || return 1
+  [[ "$reason" == *"Phantom"* ]] || return 1
 }
 
 # ─── deletion target directory (_Files: -dir/) ───────────────
@@ -168,7 +168,7 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
   # Stderr carries the masking warning so a real bug is debuggable.
-  [[ "$stderr" == *"skipping gitignored"* ]]
+  [[ "$stderr" == *"skipping gitignored"* ]] || return 1
 }
 
 @test "allows [x] toggle when _Files: mixes tracked-changed and gitignored paths" {
@@ -196,7 +196,7 @@ EOF
   _run_hook '{"tool_name":"Edit","tool_input":{"file_path":".mumei/specs/REQ-1-foo/tasks.md"}}'
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
-  [[ "$stderr" == *"skipping gitignored"* ]]
+  [[ "$stderr" == *"skipping gitignored"* ]] || return 1
 }
 
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────

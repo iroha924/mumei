@@ -143,6 +143,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^((hooks/|scripts/)[^/]*\.sh|hooks/_lib/[^/]*\.sh)$
+      - id: lint-bats-assertions
+        name: lint-bats-assertions (no bare [[ ]] — no-ops on macOS bash 3.2)
+        entry: bash scripts/lint-bats-assertions.sh
+        language: system
+        pass_filenames: false
+        files: ^(tests/.*\.bats|scripts/lint-bats-assertions\.sh)$
       - id: lint-frontmatter
         name: lint-frontmatter (agents / skills)
         entry: bash scripts/lint-frontmatter.sh

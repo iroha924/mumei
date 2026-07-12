@@ -69,7 +69,7 @@ _make_subagent() {
   # 12 + 8 = 20 input tokens (sum across 2 assistant entries in fixture)
   [ "$(jq -r '.input_tokens' <<<"$rec")" = "20" ]
   [ "$(jq -r '.output_tokens' <<<"$rec")" = "550" ]
-  [[ "$stderr" == *"appended 1 record"* ]]
+  [[ "$stderr" == *"appended 1 record"* ]] || return 1
 }
 
 @test "case (b): session log dir missing → partial backfill only, exit 0" {
@@ -79,7 +79,7 @@ _make_subagent() {
 
   run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"partial backfill only"* ]]
+  [[ "$stderr" == *"partial backfill only"* ]] || return 1
   [ ! -f "${feature_dir}/cost-log.jsonl" ]
 }
 
@@ -91,8 +91,8 @@ _make_subagent() {
 
   run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"partial backfill only"* ]]
-  [[ "$stderr" == *"none matched mumei"* ]]
+  [[ "$stderr" == *"partial backfill only"* ]] || return 1
+  [[ "$stderr" == *"none matched mumei"* ]] || return 1
   [ ! -f "${feature_dir}/cost-log.jsonl" ]
 }
 
@@ -104,7 +104,7 @@ _make_subagent() {
 
   run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"partial backfill only"* ]]
+  [[ "$stderr" == *"partial backfill only"* ]] || return 1
   [ ! -f "${feature_dir}/cost-log.jsonl" ]
 }
 
@@ -119,7 +119,7 @@ _make_subagent() {
   run --separate-stderr env MUMEI_BACKFILL_FROM="not-a-date" \
     bash "${CLAUDE_PLUGIN_ROOT}/scripts/cost-backfill.sh" "$feature_dir"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"failed to parse as ISO 8601"* ]]
+  [[ "$stderr" == *"failed to parse as ISO 8601"* ]] || return 1
   # Refuse-to-backfill must NOT collapse to all-of-history.
   [ ! -f "${feature_dir}/cost-log.jsonl" ]
 }

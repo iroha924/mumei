@@ -30,7 +30,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 0 ]
-  [[ "$output" == *"gate-weakening: none"* ]]
+  [[ "$output" == *"gate-weakening: none"* ]] || return 1
 }
 
 @test "added continue-on-error -> fail" {
@@ -40,7 +40,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"continue-on-error"* ]]
+  [[ "$stderr" == *"continue-on-error"* ]] || return 1
 }
 
 @test "added @ts-ignore -> fail" {
@@ -50,7 +50,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"type-check suppression"* ]]
+  [[ "$stderr" == *"type-check suppression"* ]] || return 1
 }
 
 @test "deleted test file -> fail" {
@@ -60,7 +60,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"a test file was deleted"* ]]
+  [[ "$stderr" == *"a test file was deleted"* ]] || return 1
 }
 
 @test "a renamed test file is not a deletion" {
@@ -79,5 +79,5 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"does not accept a justification written by the author"* ]]
+  [[ "$stderr" == *"does not accept a justification written by the author"* ]] || return 1
 }

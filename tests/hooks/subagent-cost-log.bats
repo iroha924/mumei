@@ -73,7 +73,7 @@ _run_hook() {
   event="$(_event_json a1 mumei:spec-compliance-reviewer)"
   _run_hook "$event"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"no active feature"* ]]
+  [[ "$stderr" == *"no active feature"* ]] || return 1
   [ ! -d .mumei/specs ]
 }
 
@@ -107,8 +107,8 @@ _run_hook() {
 
   _run_hook "$event"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"extraction failed"* ]]
-  [[ "$stderr" == *"subagent jsonl not readable"* ]]
+  [[ "$stderr" == *"extraction failed"* ]] || return 1
+  [[ "$stderr" == *"subagent jsonl not readable"* ]] || return 1
   [ ! -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
 }
 
@@ -203,7 +203,7 @@ _run_hook() {
 
   _run_hook "$event"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"skipped (zero usage)"* ]]
+  [[ "$stderr" == *"skipped (zero usage)"* ]] || return 1
   [ ! -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
 }
 
@@ -229,7 +229,7 @@ _run_hook() {
   [ -f ".mumei/specs/REQ-1-foo/cost-log.jsonl" ]
   dh="$(jq -r 'select(.phase=="after") | .diff_hash // empty' \
     ".mumei/specs/REQ-1-foo/cost-log.jsonl" | tail -1)"
-  [[ "$dh" =~ ^[0-9a-f]{64}$ ]]
+  [[ "$dh" =~ ^[0-9a-f]{64}$ ]] || return 1
 }
 
 @test "diff-anchor: diff_hash omitted outside a git repo (record stays valid)" {
@@ -270,7 +270,7 @@ _run_hook() {
   event="$(_event_json keep-id mumei:security-reviewer)"
   _run_hook "$event"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"subagent jsonl not readable"* ]]
+  [[ "$stderr" == *"subagent jsonl not readable"* ]] || return 1
   [ -f ".mumei/in-flight-agents/keep-id" ]
   [ "$(sed -n 2p .mumei/in-flight-agents/keep-id)" = "LAUNCHHASH" ]
 }
@@ -283,7 +283,7 @@ _run_hook() {
   printf 'REQ-gone\nLAUNCHHASH\n' >".mumei/in-flight-agents/orphan-id"
   _run_hook "$(_event_json orphan-id mumei:tasks-reviewer)"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"no active feature"* ]]
+  [[ "$stderr" == *"no active feature"* ]] || return 1
   [ -f ".mumei/in-flight-agents/orphan-id" ]
 }
 

@@ -66,9 +66,9 @@ _run_hook() {
   _run_hook
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
-  [[ "$stderr" == *"REQ-9-ghost"* ]]
+  [[ "$stderr" == *"REQ-9-ghost"* ]] || return 1
   # The warning must tell the operator how to get out of the state.
-  [[ "$stderr" == *"/mumei:shelve"* ]]
+  [[ "$stderr" == *"/mumei:shelve"* ]] || return 1
 }
 
 @test "warns when the feature directory exists but state.json is missing" {
@@ -77,8 +77,8 @@ _run_hook() {
   _run_hook
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
-  [[ "$stderr" == *"state.json missing"* ]]
-  [[ "$stderr" == *"REQ-1-foo"* ]]
+  [[ "$stderr" == *"state.json missing"* ]] || return 1
+  [[ "$stderr" == *"REQ-1-foo"* ]] || return 1
 }
 
 @test "warns when state.json is not valid JSON" {
@@ -87,7 +87,7 @@ _run_hook() {
   _run_hook
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
-  [[ "$stderr" == *"not valid JSON"* ]]
+  [[ "$stderr" == *"not valid JSON"* ]] || return 1
 }
 
 @test "warns when state.json is 0-byte (truncated write)" {
@@ -96,7 +96,7 @@ _run_hook() {
   _run_hook
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
-  [[ "$stderr" == *"not valid JSON"* ]]
+  [[ "$stderr" == *"not valid JSON"* ]] || return 1
 }
 
 @test "a plan-vehicle feature gets the same state.json diagnostics" {
@@ -105,8 +105,8 @@ _run_hook() {
   printf '%s' '{broken' >.mumei/plans/REQ-2-bar/state.json
   _run_hook
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"not valid JSON"* ]]
-  [[ "$stderr" == *".mumei/plans/REQ-2-bar/state.json"* ]]
+  [[ "$stderr" == *"not valid JSON"* ]] || return 1
+  [[ "$stderr" == *".mumei/plans/REQ-2-bar/state.json"* ]] || return 1
 }
 
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────

@@ -52,9 +52,9 @@ _run_hook() {
     run --separate-stderr bash -c \
     "echo '{\"transcript_path\":\"${tx}\"}' | bash '${CLAUDE_PLUGIN_ROOT}/hooks/userprompt-context-hint.sh'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"additionalContext"'* ]]
-  [[ "$output" == *'context at 80%'* ]]
-  [[ "$output" == *'/compact'* ]]
+  [[ "$output" == *'"additionalContext"'* ]] || return 1
+  [[ "$output" == *'context at 80%'* ]] || return 1
+  [[ "$output" == *'/compact'* ]] || return 1
   hook_event="$(jq -r '.hookSpecificOutput.hookEventName' <<<"$output")"
   [ "$hook_event" = "UserPromptSubmit" ]
   rm -f "$tx"
@@ -88,7 +88,7 @@ _run_hook() {
   run --separate-stderr bash -c \
     "echo '{\"transcript_path\":\"${tx}\"}' | bash '${CLAUDE_PLUGIN_ROOT}/hooks/userprompt-context-hint.sh'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *'context at 70%'* ]]
+  [[ "$output" == *'context at 70%'* ]] || return 1
   rm -f "$tx"
 }
 

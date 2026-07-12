@@ -46,7 +46,7 @@ _minimal_agent() {
   _minimal_skill '"Renders a one-line summary: pass^3 / total."'
   run bash "$_lint_script"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"all frontmatter checks passed"* ]]
+  [[ "$output" == *"all frontmatter checks passed"* ]] || return 1
 }
 
 @test "fails on unquoted description with embedded colon+space" {
@@ -55,8 +55,8 @@ _minimal_agent() {
   _minimal_skill 'Renders a summary: pass^3 / total.'
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"YAML parse error"* ]]
-  [[ "$output" == *"silently dropped"* ]]
+  [[ "$output" == *"YAML parse error"* ]] || return 1
+  [[ "$output" == *"silently dropped"* ]] || return 1
 }
 
 @test "fails with explicit message on completely missing frontmatter" {
@@ -64,7 +64,7 @@ _minimal_agent() {
   printf '# No frontmatter here\n' >skills/no-fm/SKILL.md
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"missing frontmatter"* ]]
+  [[ "$output" == *"missing frontmatter"* ]] || return 1
 }
 
 @test "empty frontmatter (between --- ---) reports empty, not NoneType parse error" {
@@ -79,8 +79,8 @@ _minimal_agent() {
   } >skills/empty-fm/SKILL.md
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"empty frontmatter"* ]]
-  [[ "$output" != *"NoneType"* ]]
+  [[ "$output" == *"empty frontmatter"* ]] || return 1
+  [[ "$output" != *"NoneType"* ]] || return 1
 }
 
 @test "comment-only frontmatter reports empty, not NoneType parse error" {
@@ -92,8 +92,8 @@ _minimal_agent() {
   } >skills/comment-only/SKILL.md
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"empty frontmatter"* ]]
-  [[ "$output" != *"NoneType"* ]]
+  [[ "$output" == *"empty frontmatter"* ]] || return 1
+  [[ "$output" != *"NoneType"* ]] || return 1
 }
 
 @test "non-mapping frontmatter (e.g. YAML list) reports parse error with type" {
@@ -108,8 +108,8 @@ _minimal_agent() {
   } >skills/list-fm/SKILL.md
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"not a mapping"* ]]
-  [[ "$output" == *"list"* ]]
+  [[ "$output" == *"not a mapping"* ]] || return 1
+  [[ "$output" == *"list"* ]] || return 1
 }
 
 @test "fails on frontmatter missing the closing ---" {
@@ -122,7 +122,7 @@ _minimal_agent() {
   } >skills/no-close/SKILL.md
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"frontmatter missing closing"* ]]
+  [[ "$output" == *"frontmatter missing closing"* ]] || return 1
 }
 
 @test "tolerates UTF-8 BOM at file start" {
@@ -161,7 +161,7 @@ name: no-desc
 EOF
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"missing field: description"* ]]
+  [[ "$output" == *"missing field: description"* ]] || return 1
 }
 
 @test "agent missing required fields is rejected" {
@@ -175,15 +175,15 @@ name: incomplete
 EOF
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"missing field: description"* ]]
-  [[ "$output" == *"missing field: model"* ]]
+  [[ "$output" == *"missing field: description"* ]] || return 1
+  [[ "$output" == *"missing field: model"* ]] || return 1
 }
 
 @test "agent with forbidden plugin field is rejected" {
   _minimal_agent 'hooks: ["something"]'
   run bash "$_lint_script"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"forbidden plugin-agent field: hooks"* ]]
+  [[ "$output" == *"forbidden plugin-agent field: hooks"* ]] || return 1
 }
 
 @test "valid agent with all required fields passes" {

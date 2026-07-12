@@ -30,14 +30,14 @@ _run_agg() {
 @test "no .mumei/current and no arg -> error message" {
   _run_agg
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"no .mumei/current"* ]]
+  [[ "$stderr" == *"no .mumei/current"* ]] || return 1
 }
 
 @test "explicit feature with no cost-log -> empty exit 0 with message" {
   mkdir -p .mumei/specs/REQ-1-foo
   _run_agg "REQ-1-foo"
   [ "$status" -eq 0 ]
-  [[ "$stderr" == *"no cost-log found"* ]]
+  [[ "$stderr" == *"no cost-log found"* ]] || return 1
 }
 
 @test "by-agent totals sum across iterations and waves" {
@@ -45,8 +45,8 @@ _run_agg() {
   _run_agg "REQ-1-foo"
   [ "$status" -eq 0 ]
   # security-reviewer: 100+120 input, 1000+1200 cache_read, count 2
-  [[ "$output" == *"security-reviewer"*"220"* ]]
-  [[ "$output" == *"adversarial-reviewer"*"150"* ]]
+  [[ "$output" == *"security-reviewer"*"220"* ]] || return 1
+  [[ "$output" == *"adversarial-reviewer"*"150"* ]] || return 1
 }
 
 @test "by-iteration totals partition correctly" {
@@ -54,10 +54,10 @@ _run_agg() {
   _run_agg "REQ-1-foo"
   # iter 1: 100+150 = 250 input
   # iter 2: 120 input
-  [[ "$output" == *"## by iteration"* ]]
+  [[ "$output" == *"## by iteration"* ]] || return 1
   iter_section="$(awk '/## by iteration/,/## by wave/' <<<"$output")"
-  [[ "$iter_section" == *"250"* ]]
-  [[ "$iter_section" == *"120"* ]]
+  [[ "$iter_section" == *"250"* ]] || return 1
+  [[ "$iter_section" == *"120"* ]] || return 1
 }
 
 @test "by-wave totals partition correctly" {
@@ -65,16 +65,16 @@ _run_agg() {
   _run_agg "REQ-1-foo"
   wave_section="$(awk '/## by wave/,/## totals/' <<<"$output")"
   # wave 1: 100+150 = 250 input ; wave 2: 120 input
-  [[ "$wave_section" == *"250"* ]]
-  [[ "$wave_section" == *"120"* ]]
+  [[ "$wave_section" == *"250"* ]] || return 1
+  [[ "$wave_section" == *"120"* ]] || return 1
 }
 
 @test "totals line covers all after-records (3 in fixture)" {
   _seed_log "REQ-1-foo"
   _run_agg "REQ-1-foo"
-  [[ "$output" == *"3 after-records"* ]]
+  [[ "$output" == *"3 after-records"* ]] || return 1
   # input total = 100+150+120 = 370
-  [[ "$output" == *"370"* ]]
+  [[ "$output" == *"370"* ]] || return 1
 }
 
 @test "before records are excluded from totals" {
@@ -84,7 +84,7 @@ _run_agg() {
     '{"phase":"after","agent":"x","wave":1,"iteration":1,"input_tokens":1,"output_tokens":1,"cache_read_input_tokens":1,"cache_creation_input_tokens":1}' \
     >".mumei/specs/REQ-1-foo/cost-log.jsonl"
   _run_agg "REQ-1-foo"
-  [[ "$output" != *"99999"* ]]
+  [[ "$output" != *"99999"* ]] || return 1
 }
 
 @test "explicit -f flag accepts a custom log path" {
@@ -94,7 +94,7 @@ _run_agg() {
   run --separate-stderr bash "${CLAUDE_PLUGIN_ROOT}/scripts/aggregate-cost.sh" \
     -f "/tmp/mumei-test-custom-$$.jsonl"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"  input        7"* ]]
+  [[ "$output" == *"  input        7"* ]] || return 1
   rm -f "/tmp/mumei-test-custom-$$.jsonl"
 }
 
@@ -103,7 +103,7 @@ _run_agg() {
   echo "REQ-1-foo" >.mumei/current
   _run_agg
   [ "$status" -eq 0 ]
-  [[ "$output" == *"security-reviewer"* ]]
+  [[ "$output" == *"security-reviewer"* ]] || return 1
 }
 
 @test "plan-vehicle layout: reads from .mumei/plans/<slug>/cost-log.jsonl" {
@@ -113,7 +113,7 @@ _run_agg() {
     >".mumei/plans/fix-foo/cost-log.jsonl"
   _run_agg "fix-foo"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"42"* ]]
+  [[ "$output" == *"42"* ]] || return 1
 }
 
 @test "REQ-16 iter3 F-103: dedup is max-merge per token + last-non-null for wave/iteration" {

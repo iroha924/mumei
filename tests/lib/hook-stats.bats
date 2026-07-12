@@ -31,7 +31,7 @@ setup() {
   [ "$(jq -r '.tool_name' <<<"$rec")" = "Edit" ]
   [ "$(jq -r '.reason' <<<"$rec")" = "memory.md" ]
   ts="$(jq -r '.ts' <<<"$rec")"
-  [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+  [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || return 1
 }
 
 @test "multiple records produce JSONL (one record per line)" {

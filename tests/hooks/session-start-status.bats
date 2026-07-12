@@ -89,10 +89,10 @@ _context() {
   [ "$status" -eq 0 ]
   [ "$(printf '%s' "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "SessionStart" ]
   ctx="$(_context)"
-  [[ "$ctx" == *"REQ-1-foo"* ]]
-  [[ "$ctx" == *"spec vehicle"* ]]
-  [[ "$ctx" == *"phase=implement"* ]]
-  [[ "$ctx" == *"current_wave=2"* ]]
+  [[ "$ctx" == *"REQ-1-foo"* ]] || return 1
+  [[ "$ctx" == *"spec vehicle"* ]] || return 1
+  [[ "$ctx" == *"phase=implement"* ]] || return 1
+  [[ "$ctx" == *"current_wave=2"* ]] || return 1
   [ -z "$stderr" ]
 }
 
@@ -101,8 +101,8 @@ _context() {
   _run_hook
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"REQ-2-bar"* ]]
-  [[ "$ctx" == *"plan vehicle"* ]]
+  [[ "$ctx" == *"REQ-2-bar"* ]] || return 1
+  [[ "$ctx" == *"plan vehicle"* ]] || return 1
 }
 
 @test "prefers the spec vehicle when both vehicles hold a state.json" {
@@ -112,8 +112,8 @@ _context() {
   _run_hook
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"spec vehicle"* ]]
-  [[ "$ctx" == *"phase=implement"* ]]
+  [[ "$ctx" == *"spec vehicle"* ]] || return 1
+  [[ "$ctx" == *"phase=implement"* ]] || return 1
 }
 
 @test "reports phase=unknown and wave 0 when state.json is malformed" {
@@ -123,8 +123,8 @@ _context() {
   _run_hook
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"phase=unknown"* ]]
-  [[ "$ctx" == *"current_wave=0"* ]]
+  [[ "$ctx" == *"phase=unknown"* ]] || return 1
+  [[ "$ctx" == *"current_wave=0"* ]] || return 1
 }
 
 # ─── next-step hints ─────────────────────────────────────────
@@ -134,7 +134,7 @@ _context() {
   _run_hook
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"run /mumei:peruse"* ]]
+  [[ "$ctx" == *"run /mumei:peruse"* ]] || return 1
 }
 
 @test "omits the peruse hint when phase=review but pending_review is false" {
@@ -142,8 +142,8 @@ _context() {
   _run_hook
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"phase=review"* ]]
-  [[ "$ctx" != *"/mumei:peruse"* ]]
+  [[ "$ctx" == *"phase=review"* ]] || return 1
+  [[ "$ctx" != *"/mumei:peruse"* ]] || return 1
 }
 
 @test "hints /mumei:shelve <feature> when phase=done" {
@@ -151,7 +151,7 @@ _context() {
   _run_hook
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" == *"run /mumei:shelve REQ-1-foo"* ]]
+  [[ "$ctx" == *"run /mumei:shelve REQ-1-foo"* ]] || return 1
 }
 
 @test "emits no hint for an in-progress phase" {
@@ -159,7 +159,7 @@ _context() {
   _run_hook
   [ "$status" -eq 0 ]
   ctx="$(_context)"
-  [[ "$ctx" != *"run /mumei:"* ]]
+  [[ "$ctx" != *"run /mumei:"* ]] || return 1
 }
 
 # ─── MUMEI_BYPASS escape hatch ───────────────────────────────

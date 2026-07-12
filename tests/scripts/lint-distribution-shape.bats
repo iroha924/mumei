@@ -33,7 +33,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 0 ]
-  [[ "$output" == *"all declared"* ]]
+  [[ "$output" == *"all declared"* ]] || return 1
 }
 
 @test "unanchored CLAUDE.md silently strips the sample project -> fail" {
@@ -43,7 +43,7 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"examples/sample-project/CLAUDE.md"* ]]
+  [[ "$stderr" == *"examples/sample-project/CLAUDE.md"* ]] || return 1
 }
 
 @test "the staged .gitattributes is what is measured (not HEAD's)" {
@@ -59,5 +59,5 @@ _run_lint() {
 
   _run_lint
   [ "$status" -eq 1 ]
-  [[ "$stderr" == *"examples/sample-project/CLAUDE.md"* ]]
+  [[ "$stderr" == *"examples/sample-project/CLAUDE.md"* ]] || return 1
 }

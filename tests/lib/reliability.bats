@@ -26,18 +26,18 @@ teardown() {
   mkdir -p ".mumei/specs/REQ-1-foo"
   mkdir -p ".mumei/plans/REQ-1-foo"
   run mumei_reliability_log_dir "REQ-1-foo"
-  [[ "$output" == ".mumei/specs/REQ-1-foo" ]]
+  [[ "$output" == ".mumei/specs/REQ-1-foo" ]] || return 1
 }
 
 @test "log_dir: falls back to .mumei/plans when only plans exists" {
   mkdir -p ".mumei/plans/bare-slug"
   run mumei_reliability_log_dir "bare-slug"
-  [[ "$output" == ".mumei/plans/bare-slug" ]]
+  [[ "$output" == ".mumei/plans/bare-slug" ]] || return 1
 }
 
 @test "log_dir: defaults to .mumei/specs path when neither dir exists" {
   run mumei_reliability_log_dir "REQ-9-new"
-  [[ "$output" == ".mumei/specs/REQ-9-new" ]]
+  [[ "$output" == ".mumei/specs/REQ-9-new" ]] || return 1
 }
 
 # ============================================================
@@ -48,15 +48,15 @@ teardown() {
   mkdir -p ".mumei/specs/REQ-1-foo"
   mumei_reliability_append "REQ-1-foo" "1" "1.1" "true"
   local logfile=".mumei/specs/REQ-1-foo/reliability-log.jsonl"
-  [[ -f "$logfile" ]]
+  [[ -f "$logfile" ]] || return 1
   local line trial_n pass feature
   line="$(cat "$logfile")"
   trial_n="$(jq -r '.trial_n' <<<"$line")"
   pass="$(jq -r '.pass' <<<"$line")"
   feature="$(jq -r '.feature' <<<"$line")"
-  [[ "$trial_n" == "1" ]]
-  [[ "$pass" == "true" ]]
-  [[ "$feature" == "REQ-1-foo" ]]
+  [[ "$trial_n" == "1" ]] || return 1
+  [[ "$pass" == "true" ]] || return 1
+  [[ "$feature" == "REQ-1-foo" ]] || return 1
 }
 
 @test "append: trial_n increments for same (wave, task_id)" {
@@ -107,23 +107,23 @@ teardown() {
 @test "append: missing pass arg emits warning and exits 0 (non-blocking)" {
   mkdir -p ".mumei/specs/REQ-1-foo"
   run mumei_reliability_append "REQ-1-foo" "1" "1.1" ""
-  [[ "$status" -eq 0 ]]
-  [[ "$output" == *"append failed"* ]]
-  [[ ! -f ".mumei/specs/REQ-1-foo/reliability-log.jsonl" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ "$output" == *"append failed"* ]] || return 1
+  [[ ! -f ".mumei/specs/REQ-1-foo/reliability-log.jsonl" ]] || return 1
 }
 
 @test "append: invalid pass value (not true/false) is rejected non-blockingly" {
   mkdir -p ".mumei/specs/REQ-1-foo"
   run mumei_reliability_append "REQ-1-foo" "1" "1.1" "yes"
-  [[ "$status" -eq 0 ]]
-  [[ "$output" == *"pass must be true/false"* ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ "$output" == *"pass must be true/false"* ]] || return 1
 }
 
 @test "append: explicit log_dir overrides auto-resolution" {
   mkdir -p "custom/dir"
   mumei_reliability_append "REQ-1-foo" "1" "1.1" "true" "custom/dir"
-  [[ -f "custom/dir/reliability-log.jsonl" ]]
-  [[ ! -f ".mumei/specs/REQ-1-foo/reliability-log.jsonl" ]]
+  [[ -f "custom/dir/reliability-log.jsonl" ]] || return 1
+  [[ ! -f ".mumei/specs/REQ-1-foo/reliability-log.jsonl" ]] || return 1
 }
 
 # ============================================================
@@ -133,11 +133,11 @@ teardown() {
 @test "passk: missing log returns N/A shape" {
   local out
   out="$(mumei_reliability_passk "REQ-1-foo" 3 10)"
-  [[ "$(jq -r '.value' <<<"$out")" == "N/A" ]]
-  [[ "$(jq -r '.evaluable' <<<"$out")" == "false" ]]
-  [[ "$(jq -r '.n_trials' <<<"$out")" == "0" ]]
-  [[ "$(jq -r '.k' <<<"$out")" == "3" ]]
-  [[ "$(jq -r '.window' <<<"$out")" == "10" ]]
+  [[ "$(jq -r '.value' <<<"$out")" == "N/A" ]] || return 1
+  [[ "$(jq -r '.evaluable' <<<"$out")" == "false" ]] || return 1
+  [[ "$(jq -r '.n_trials' <<<"$out")" == "0" ]] || return 1
+  [[ "$(jq -r '.k' <<<"$out")" == "3" ]] || return 1
+  [[ "$(jq -r '.window' <<<"$out")" == "10" ]] || return 1
 }
 
 @test "passk: empty log file returns N/A shape" {
@@ -145,8 +145,8 @@ teardown() {
   : >".mumei/specs/REQ-1-foo/reliability-log.jsonl"
   local out
   out="$(mumei_reliability_passk "REQ-1-foo" 3 10)"
-  [[ "$(jq -r '.value' <<<"$out")" == "N/A" ]]
-  [[ "$(jq -r '.evaluable' <<<"$out")" == "false" ]]
+  [[ "$(jq -r '.value' <<<"$out")" == "N/A" ]] || return 1
+  [[ "$(jq -r '.evaluable' <<<"$out")" == "false" ]] || return 1
 }
 
 @test "passk: n_trials < k returns N/A but reports correct n_trials" {
@@ -155,9 +155,9 @@ teardown() {
   mumei_reliability_append "REQ-1-foo" "1" "1.2" "true"
   local out
   out="$(mumei_reliability_passk "REQ-1-foo" 3 10)"
-  [[ "$(jq -r '.value' <<<"$out")" == "N/A" ]]
-  [[ "$(jq -r '.evaluable' <<<"$out")" == "false" ]]
-  [[ "$(jq -r '.n_trials' <<<"$out")" == "2" ]]
+  [[ "$(jq -r '.value' <<<"$out")" == "N/A" ]] || return 1
+  [[ "$(jq -r '.evaluable' <<<"$out")" == "false" ]] || return 1
+  [[ "$(jq -r '.n_trials' <<<"$out")" == "2" ]] || return 1
 }
 
 @test "passk: all-pass returns value 1.0" {
@@ -167,8 +167,8 @@ teardown() {
   mumei_reliability_append "REQ-1-foo" "1" "1.3" "true"
   local out
   out="$(mumei_reliability_passk "REQ-1-foo" 3 10)"
-  [[ "$(jq -r '.value' <<<"$out")" == "1" ]]
-  [[ "$(jq -r '.evaluable' <<<"$out")" == "true" ]]
+  [[ "$(jq -r '.value' <<<"$out")" == "1" ]] || return 1
+  [[ "$(jq -r '.evaluable' <<<"$out")" == "true" ]] || return 1
 }
 
 @test "passk: arithmetic mean of mixed pass/fail (3 pass / 5 = 0.6)" {
@@ -185,7 +185,7 @@ teardown() {
     echo "got value=$value, expected 0.6"
     return 1
   }
-  [[ "$(jq -r '.n_trials' <<<"$out")" == "5" ]]
+  [[ "$(jq -r '.n_trials' <<<"$out")" == "5" ]] || return 1
 }
 
 @test "passk: window limits aggregation to the most recent N rows" {
@@ -200,9 +200,9 @@ teardown() {
   done
   local out
   out="$(mumei_reliability_passk "REQ-1-foo" 3 3)"
-  [[ "$(jq -r '.value' <<<"$out")" == "1" ]]
-  [[ "$(jq -r '.n_trials' <<<"$out")" == "3" ]]
-  [[ "$(jq -r '.window' <<<"$out")" == "3" ]]
+  [[ "$(jq -r '.value' <<<"$out")" == "1" ]] || return 1
+  [[ "$(jq -r '.n_trials' <<<"$out")" == "3" ]] || return 1
+  [[ "$(jq -r '.window' <<<"$out")" == "3" ]] || return 1
 }
 
 # ============================================================
@@ -211,14 +211,14 @@ teardown() {
 
 @test "recent: missing log returns empty array" {
   run mumei_reliability_recent "REQ-1-foo" 10
-  [[ "$output" == "[]" ]]
+  [[ "$output" == "[]" ]] || return 1
 }
 
 @test "recent: empty log returns empty array" {
   mkdir -p ".mumei/specs/REQ-1-foo"
   : >".mumei/specs/REQ-1-foo/reliability-log.jsonl"
   run mumei_reliability_recent "REQ-1-foo" 10
-  [[ "$output" == "[]" ]]
+  [[ "$output" == "[]" ]] || return 1
 }
 
 @test "recent: returns the last N rows as JSON array" {
@@ -230,10 +230,10 @@ teardown() {
   local out len
   out="$(mumei_reliability_recent "REQ-1-foo" 3)"
   len="$(jq 'length' <<<"$out")"
-  [[ "$len" == "3" ]]
+  [[ "$len" == "3" ]] || return 1
   # Should be the last 3 (1.3, 1.4, 1.5).
-  [[ "$(jq -r '.[0].task_id' <<<"$out")" == "1.3" ]]
-  [[ "$(jq -r '.[-1].task_id' <<<"$out")" == "1.5" ]]
+  [[ "$(jq -r '.[0].task_id' <<<"$out")" == "1.3" ]] || return 1
+  [[ "$(jq -r '.[-1].task_id' <<<"$out")" == "1.5" ]] || return 1
 }
 
 # ============================================================
@@ -250,14 +250,14 @@ _rel_test_vrow() {
 
 @test "derive_pass: empty log_dir arg returns empty" {
   run mumei_reliability_derive_pass ""
-  [[ "$status" -eq 0 ]]
-  [[ -z "$output" ]]
+  [[ "$status" -eq 0 ]] || return 1
+  [[ -z "$output" ]] || return 1
 }
 
 @test "derive_pass: missing verify-log returns empty" {
   mkdir -p "d"
   run mumei_reliability_derive_pass "d"
-  [[ -z "$output" ]]
+  [[ -z "$output" ]] || return 1
 }
 
 @test "derive_pass: latest commit-gate exit 0 -> true" {
@@ -265,7 +265,7 @@ _rel_test_vrow() {
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   _rel_test_vrow "d" "commit-gate" 0 "$now"
   run mumei_reliability_derive_pass "d"
-  [[ "$output" == "true" ]]
+  [[ "$output" == "true" ]] || return 1
 }
 
 @test "derive_pass: latest commit-gate non-zero -> false" {
@@ -273,7 +273,7 @@ _rel_test_vrow() {
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   _rel_test_vrow "d" "commit-gate" 1 "$now"
   run mumei_reliability_derive_pass "d"
-  [[ "$output" == "false" ]]
+  [[ "$output" == "false" ]] || return 1
 }
 
 @test "derive_pass: agent-run row is honored when no commit-gate" {
@@ -281,7 +281,7 @@ _rel_test_vrow() {
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   _rel_test_vrow "d" "agent-run" 0 "$now"
   run mumei_reliability_derive_pass "d"
-  [[ "$output" == "true" ]]
+  [[ "$output" == "true" ]] || return 1
 }
 
 @test "derive_pass: tool-gate / worktree-clean rows are NOT test signals" {
@@ -290,7 +290,7 @@ _rel_test_vrow() {
   _rel_test_vrow "d" "tool-gate" 0 "$now"
   _rel_test_vrow "d" "worktree-clean" 0 "$now"
   run mumei_reliability_derive_pass "d"
-  [[ -z "$output" ]]
+  [[ -z "$output" ]] || return 1
 }
 
 @test "derive_pass: uses the most recent test row (later overrides earlier)" {
@@ -299,13 +299,13 @@ _rel_test_vrow() {
   _rel_test_vrow "d" "commit-gate" 0 "$now"
   _rel_test_vrow "d" "commit-gate" 1 "$now"
   run mumei_reliability_derive_pass "d"
-  [[ "$output" == "false" ]]
+  [[ "$output" == "false" ]] || return 1
 }
 
 @test "derive_pass: stale row outside freshness window is excluded" {
   _rel_test_vrow "d" "commit-gate" 0 "2000-01-01T00:00:00Z"
   run mumei_reliability_derive_pass "d" 600
-  [[ -z "$output" ]]
+  [[ -z "$output" ]] || return 1
 }
 
 @test "derive_pass: corrupt line is tolerated, valid row still derived" {
@@ -315,7 +315,7 @@ _rel_test_vrow() {
   printf 'not json at all\n' >>"d/verify-log.jsonl"
   _rel_test_vrow "d" "commit-gate" 0 "$now"
   run mumei_reliability_derive_pass "d"
-  [[ "$output" == "true" ]]
+  [[ "$output" == "true" ]] || return 1
 }
 
 # ============================================================
@@ -324,24 +324,24 @@ _rel_test_vrow() {
 
 @test "has_row: missing log returns exit 1" {
   run mumei_reliability_has_row "REQ-1-foo" "1" "1.1"
-  [[ "$status" -eq 1 ]]
+  [[ "$status" -eq 1 ]] || return 1
 }
 
 @test "has_row: existing (wave, task_id) returns exit 0" {
   mkdir -p ".mumei/specs/REQ-1-foo"
   mumei_reliability_append "REQ-1-foo" "1" "1.1" "true"
   run mumei_reliability_has_row "REQ-1-foo" "1" "1.1"
-  [[ "$status" -eq 0 ]]
+  [[ "$status" -eq 0 ]] || return 1
 }
 
 @test "has_row: different (wave, task_id) returns exit 1" {
   mkdir -p ".mumei/specs/REQ-1-foo"
   mumei_reliability_append "REQ-1-foo" "1" "1.1" "true"
   run mumei_reliability_has_row "REQ-1-foo" "2" "2.1"
-  [[ "$status" -eq 1 ]]
+  [[ "$status" -eq 1 ]] || return 1
 }
 
 @test "has_row: missing required args returns exit 1" {
   run mumei_reliability_has_row "REQ-1-foo" "1" ""
-  [[ "$status" -eq 1 ]]
+  [[ "$status" -eq 1 ]] || return 1
 }
