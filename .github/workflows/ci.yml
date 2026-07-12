@@ -450,15 +450,21 @@ jobs:
             exit 0
           fi
 
-          echo "::error::Dependabot update runs are failing — the pins they maintain are not being maintained"
+          echo "::warning::Dependabot update runs are failing — the pins they maintain are not being maintained"
           printf '%s\n' "$failed"
 
+          # The issue IS the consumer; the exit code is not. Failing here would
+          # keep the weekly run red for as long as the underlying problem is open
+          # — which is how a signal becomes wallpaper, and it is the failure mode
+          # this job exists to break. It would also trip notify-cron-failure
+          # (`if: failure() && schedule`), filing a second issue about the first.
+          # File once, stay green, let the issue do the work.
           title="ci-fail: Dependabot update runs are failing"
           existing="$(gh issue list --repo "${REPO}" --state open --label ci-fail \
             --search "in:title \"${title}\"" --json number --jq 'length')"
           if [ "${existing}" -gt 0 ]; then
             echo "an open issue already tracks this; not filing another"
-            exit 1
+            exit 0
           fi
           gh issue create --repo "${REPO}" --title "${title}" --label ci-fail --body \
             "Dependabot could not complete the following update runs. Whatever they were meant to keep fresh is not being kept fresh, and \`docs/threat-model.md\` claims it is.
@@ -466,7 +472,7 @@ jobs:
           ${failed}
 
           Read the authoritative log at https://github.com/${REPO}/network/updates — the workflow-run log stops at the API error."
-          exit 1
+          exit 0
 
   notify-cron-failure:
     if: failure() && github.event_name == 'schedule'
