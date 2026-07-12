@@ -4,7 +4,7 @@
 # view of (source_reviewer, operation) → count and average score_total.
 #
 # When the cumulative record count crosses 30, the script appends a
-# one-line operations hint pointing the user at docs/mumei-decisions.md.
+# one-line hint that the 7-axis weights are now worth reviewing.
 #
 # Usage:
 #   bash scripts/aggregate-curator-log.sh
@@ -72,8 +72,8 @@ echo "  applied (ADD or UPDATE): ${applied}"
 if [[ "$total" -ge 30 ]]; then
   echo
   echo "dogfood data >=30; 7-axis weight review is now actionable."
-  echo "Recommend appending an operations note to docs/mumei-decisions.md"
-  echo "summarising agreement rate, weight imbalance, and threshold drift."
+  echo "Review agreement rate, weight imbalance and threshold drift before"
+  echo "changing the curator's weights."
 fi
 
 exit 0

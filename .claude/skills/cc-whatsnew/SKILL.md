@@ -77,7 +77,7 @@ Compress each item to 1-3 lines; expand deep-dive details (key-binding lists, in
 Read the following files before judging:
 
 - `CLAUDE.md`
-- `docs/mumei-decisions.md` — primary source; grounds for prior rejections
+- merged PR descriptions — where a prior rejection and its reasoning live
 - `ARCHITECTURE.md`
 - `hooks/hooks.json`
 - `.claude-plugin/plugin.json`
@@ -85,7 +85,7 @@ Read the following files before judging:
 Judgment axes per feature:
 
 1. Does it affect mumei's core (phase gating / Wave commits / review pipeline)?
-2. Has `docs/mumei-decisions.md` already rejected it?
+2. Has a merged PR already rejected it, and on what grounds?
 3. Would adoption violate KISS / YAGNI?
 4. Forward / backward compatibility risk
 

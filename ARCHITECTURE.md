@@ -165,8 +165,11 @@ spec-vehicle rules.
 | L-R2 | plan-vehicle | PreToolUse(Bash)         | `git push` while latest plan-vehicle review verdict is `MAJOR_ISSUES`, OR a clearing verdict lacks a diff-anchored reviewer-execution trace in `cost-log.jsonl` (hollow or stale review — a baseline reviewer's `diff_hash` mismatches the gating review's, or a re-edit since the verdict) — deny; a clearing push also emits the same non-blocking curator advisory as R2                                                                                                                                                                                                                                                                                                                                                                                                                 | `hooks/pre-bash-guard.sh`              |
 
 The single escape hatch is `MUMEI_BYPASS=1` (env var). It short-circuits every
-hook on entry. There is no per-rule bypass; this is intentional (see
-`docs/mumei-decisions.md` Escape hatch section).
+hook on entry. There is no per-rule bypass; this is intentional — one switch you
+can reason about beats a matrix of them. It is yours, not the agent's: rules
+S3/S4 refuse a write that puts it into Claude Code's settings, X7 warns when a
+settings change turns it on, and X6 announces at session start that every gate
+is off.
 
 ## Reviewer pipeline (Phase 5)
 
@@ -317,7 +320,6 @@ CLAUDE.md). Distinct boundaries:
 | `docs/document-corruption.md`, `docs/getting-started{,.ja}.md`, `docs/operations-playbook.md`, `docs/security-policy.md`, `docs/threat-model.md` | Yes                   | English (getting-started.ja.md mirrors in Japanese) |
 | `CLAUDE.md`, `.claude/` (rules / skills / agents)                                                                                                | Tracked, dev-side     | English                                             |
 | `docs/` dev records (`harness-engineering.md`, `loop-engineering.md`)                                                                            | Tracked, dev-side     | Japanese (pre-existing); new entries in English     |
-| `docs/mumei-decisions.md` (design-decision log)                                                                                                  | No (maintainer-local) | —                                                   |
 | `.claude/settings.local.json`, `.claude/agent-memory*/`, `.claude/worktrees/`, `.claude/tdd-guard/`, `CLAUDE.local.md`                           | No (gitignored)       | —                                                   |
 | `tests/`, `.github/`, `.editorconfig`, `.markdownlint-cli2.jsonc`, `_typos.toml`, `lychee.toml`, `.pre-commit-config.yaml`                       | No (CI / dev tooling) | Mixed                                               |
 

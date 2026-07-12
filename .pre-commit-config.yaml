@@ -118,7 +118,7 @@ repos:
         entry: bash scripts/lint-hook-ids.sh
         language: system
         pass_filenames: false
-        files: ^(ARCHITECTURE\.md|README\.md|hooks/[^/]*\.sh|scripts/[^/]*\.sh|tests/hooks/.*\.bats|docs/mumei-decisions\.md)$
+        files: ^(ARCHITECTURE\.md|README\.md|hooks/[^/]*\.sh|scripts/[^/]*\.sh|tests/hooks/.*\.bats)$
       - id: lint-docs-drift
         name: lint-docs-drift (REQ-11.2)
         entry: bash scripts/lint-docs-drift.sh

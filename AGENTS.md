@@ -36,9 +36,8 @@ export-ignore` in `.gitattributes`); the hooks reference them by
   instructions, English), `.claude/rules|skills|agents/` (English),
   `docs/` dev records (`harness-engineering.md`, `loop-engineering.md`
   — pre-existing Japanese content, new entries in English).
-  `docs/mumei-decisions.md` is maintainer-local (gitignored, not
-  published); external contributors put design rationale in the PR
-  description instead.
+  Design rationale goes in the PR description that lands the change; there
+  is no separate decision log.
 - **Gitignored (per-developer runtime state)**:
   `.claude/settings.local.json`, `.claude/agent-memory*/`,
   `.claude/worktrees/`, `.claude/tdd-guard/`, `CLAUDE.local.md`.
@@ -330,8 +329,7 @@ an assist, not a guarantee.
 ### What NOT to flag
 
 - **Bash → Python / Rust rewrite proposals.** The bash + jq stack is
-  a deliberate distribution-footprint choice; documented in
-  `docs/mumei-decisions.md` (gitignored). Out of scope — will be
+  a deliberate distribution-footprint choice. Out of scope — will be
   filtered.
 - **Adding `set -e` / `set -euo pipefail` globally.** Project policy
   chose explicit error handling. See `set -u`-only convention in

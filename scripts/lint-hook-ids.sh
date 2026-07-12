@@ -10,7 +10,7 @@
 #   A) ARCHITECTURE.md            : Hook rules table rows (canonical set)
 #   B) hooks/*.sh, scripts/*.sh   : `# --- <ID>: <description> ---` comments (collision check)
 #   C) tests/hooks/*.bats         : `@test "<ID>: ..."` references
-#   D) README.md, docs/mumei-decisions.md : inline ID mentions in prose
+#   D) README.md                  : inline ID mentions in prose
 #
 # Violations:
 #   1. A duplicate          same ID appears on multiple rows in (A)
@@ -19,7 +19,7 @@
 #   3. C orphan             (C) references an ID not present in (A)
 #   4. D orphan             (D) references an ID not present in (A); strikethrough
 #                           `~~ ... ~~` is excluded so historically rejected
-#                           proposals in decisions.md do not trip the check
+#                           proposals in prose do not trip the check
 #
 # Usage: bash scripts/lint-hook-ids.sh [<root>]
 #   <root> defaults to the current working directory.
@@ -119,15 +119,13 @@ if [[ -n "$arch_ids_sorted" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# (D) README.md + docs/mumei-decisions.md — every mentioned ID must exist
-# in (A). Strikethrough text (`~~ ... ~~`) is stripped first so historically
-# rejected proposals in decisions.md (kept in the historical log inside
-# `~~ ~~`) do not trip the check.
+# (D) README.md — every mentioned ID must exist in (A). Strikethrough text
+# (`~~ ... ~~`) is stripped first, so a rule described as withdrawn does not
+# trip the check.
 # ---------------------------------------------------------------------------
 doc_ids_sorted=""
 doc_files=()
 [[ -f "${ROOT}/README.md" ]] && doc_files+=("${ROOT}/README.md")
-[[ -f "${ROOT}/docs/mumei-decisions.md" ]] && doc_files+=("${ROOT}/docs/mumei-decisions.md")
 
 if ((${#doc_files[@]} > 0)); then
   # Strip ~~ ... ~~ inline strikethrough before extracting IDs.
@@ -142,7 +140,7 @@ if [[ -n "$arch_ids_sorted" ]]; then
   while IFS= read -r id; do
     [[ -z "$id" ]] && continue
     if ! grep -qxF "$id" <<<"$arch_ids_sorted"; then
-      _mumei_emit "docs: README.md or docs/mumei-decisions.md references Hook ID '${id}' that is missing from ARCHITECTURE.md Hook rules table (strikethrough excluded)"
+      _mumei_emit "docs: README.md references Hook ID '${id}' that is missing from ARCHITECTURE.md Hook rules table (strikethrough excluded)"
     fi
   done <<<"$doc_ids_sorted"
 fi
@@ -156,5 +154,5 @@ if ((violations > 0)); then
 fi
 
 defined_count="$(printf '%s\n' "$arch_ids_sorted" | grep -c . || true)"
-printf 'lint-hook-ids: %s Hook IDs verified across ARCHITECTURE.md, hooks/, scripts/, tests/, README.md, docs/mumei-decisions.md\n' "$defined_count"
+printf 'lint-hook-ids: %s Hook IDs verified across ARCHITECTURE.md, hooks/, scripts/, tests/, README.md\n' "$defined_count"
 exit 0

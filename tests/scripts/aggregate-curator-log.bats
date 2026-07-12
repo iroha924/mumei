@@ -64,7 +64,7 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"dogfood data >=30"* ]]
   [[ "$output" == *"records: 30"* ]]
-  [[ "$output" == *"docs/mumei-decisions.md"* ]]
+  [[ "$output" == *"worth reviewing"* ]] || [[ "$output" == *"Review agreement rate"* ]]
 }
 
 @test "31 records: hint still appears" {

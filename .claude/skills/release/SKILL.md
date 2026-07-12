@@ -195,7 +195,7 @@ if git rev-parse "v$new" >/dev/null 2>&1; then
 fi
 
 # Annotated tag (unsigned). git commit / tag signing is disabled
-# (see docs/mumei-decisions.md; the Sigstore-signed badge in the README
+# (the Sigstore-signed badge in the README
 # refers to the tarball asset signature, not a git tag signature).
 git tag -a "v$new" -m "Release ${new}"
 git push origin "v$new"

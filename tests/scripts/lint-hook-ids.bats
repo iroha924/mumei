@@ -137,14 +137,13 @@ EOF
   [[ "$stderr" == *"references Hook ID 'W7'"* ]]
 }
 
-@test "decisions.md strikethrough ID is ignored" {
-  mkdir -p "${MUMEI_TEST_TMPDIR}/docs"
+@test "a strikethrough ID in prose is ignored" {
   _write_arch P1
-  cat >"${MUMEI_TEST_TMPDIR}/docs/mumei-decisions.md" <<'EOF'
-# Decisions
+  cat >"${MUMEI_TEST_TMPDIR}/README.md" <<'EOF'
+# README
 
 - Active: P1.
-- ~~Rejected: W3 (commit prefix proposal).~~
+- ~~Withdrawn: W3 (commit prefix proposal).~~
 EOF
 
   _run_lint

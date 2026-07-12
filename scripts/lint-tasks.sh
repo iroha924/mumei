@@ -98,7 +98,7 @@ while IFS= read -r task_id; do
   # 2 & 3. Validate each _Requirements:_ token. Accepts both the
   # canonical 2-level form REQ-N.M (the documented default) and the
   # 3-level form REQ-N.M.K (used by larger features that group ACs by
-  # category — see docs/mumei-decisions.md "REQ trace ID hierarchy").
+  # category).
   if [[ -n "$requirements" ]]; then
     IFS=',' read -ra req_arr <<<"$requirements"
     for req in "${req_arr[@]}"; do

@@ -15,7 +15,8 @@ locally and quote the affected REQ-N.M.
 
 <!--
 What did you do, and why this approach? Mention alternatives you considered
-and rejected. For Hook / agent / skill changes, note any decisions.md update.
+and rejected. This body IS the decision log: a design judgment that is not
+written here is not written anywhere.
 -->
 
 ## Affected components
@@ -51,7 +52,7 @@ Examples:
 - [ ] `bats -r tests/` passes locally on macOS or Linux.
 - [ ] `task lint` passes locally (shellcheck + shfmt + `jq empty` + frontmatter + drift checks).
 - [ ] If the change alters external behavior, network egress, or distribution layout: `README.md`, `README.ja.md`, `PRIVACY.md` are updated to match.
-- [ ] If the change introduces a new design decision or revises an existing one: the rationale is written in this PR's description (a maintainer transcribes it into the maintainer-local decision log at merge).
+- [ ] If the change introduces a new design decision or revises an existing one: the rationale — Why, rejected alternatives, and the evidence — is written in this PR's description. It is the record; there is no separate decision log.
 - [ ] **Ratchet principle**: if this PR adds a new hook rule, agent, skill, or Hook ID, this PR's description has a one-paragraph _why this earned inclusion_ entry naming the incident or external research that triggered it.
 - [ ] Distributable artifacts (`agents/`, `skills/`, `hooks/`, `.claude-plugin/`, `README*`, `LICENSE`, `PRIVACY.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`) stay in **English**; Japanese intent notes go in `<!-- HTML comments -->` only.
 - [ ] No `--no-verify` or `--force` push to `main` is used.

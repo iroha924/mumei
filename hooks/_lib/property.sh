@@ -6,7 +6,7 @@
 # (the 4 allowed types and their required fields, plus a tautology guard) and
 # enumerates which ACs opted in. The property TEST itself is written by the
 # blind property-author subagent and frozen as a golden file; its CORRECTNESS is
-# an effort goal, not a strong guarantee (see docs/mumei-decisions.md).
+# an effort goal, not a strong guarantee.
 #
 # Declaration form (a tasks-style underscore-wrapped meta line under an AC):
 #   - _Invariant: type=roundtrip fn=encode inverse=decode_

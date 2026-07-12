@@ -15,9 +15,7 @@ New features are driven through `/mumei:compose`, whose vehicle picker offers
 with TaskCreate). Both vehicles share the same review pipeline and the single
 escape hatch (`MUMEI_BYPASS=1`).
 
-Details: [README.md](./README.md). Design-decision history:
-`docs/mumei-decisions.md` (maintainer-local, gitignored — deliberately
-not published).
+Details: [README.md](./README.md).
 
 ## Language policy
 
@@ -27,8 +25,7 @@ assets (`CLAUDE.md`, `.claude/` rules / skills / agents), CI, and all NEW
 additions to `docs/` dev records. The pre-existing Japanese content in
 `docs/harness-engineering.md` and `docs/loop-engineering.md` stays as-is
 (translation was deliberately skipped); append new entries to those files in
-English. `docs/mumei-decisions.md` is maintainer-local (gitignored, not
-published); new entries there are also written in English.
+English.
 
 `README.ja.md` and `docs/getting-started.ja.md` are intentional Japanese
 mirrors of their English counterparts — keep both sides in sync.
@@ -79,12 +76,17 @@ Details: [.claude/rules/doc-sync.md](./.claude/rules/doc-sync.md).
 
 ## Design decisions
 
-`docs/mumei-decisions.md` (maintainer-local, gitignored) is the primary
-source. Every new design judgment gets an entry there (English, dated
-heading, Why + Non-goals); external contributors provide the rationale in
-their PR description and a maintainer transcribes it. Drift between code and
-decisions.md is detectable via
-`.claude/agents/decisions-consistency-checker.md`.
+**The PR description is the decision log.** Every design judgment gets its Why,
+its rejected alternatives, and its measured evidence in the body of the PR that
+lands it. Squash-merge keeps the PR number in the commit subject, so the
+reasoning is one click from `git log` forever, and it is written where a
+reviewer reads it rather than in a file only the author opens.
+
+There was a separate `docs/mumei-decisions.md`. It is gone, and nothing here
+should point at it: a document nobody can open is not a source of truth, it is a
+claim that one exists. Decisions that users need — what a gate does and does not
+guarantee — belong in the shipped docs (`README.md`, `ARCHITECTURE.md`,
+`docs/threat-model.md`), not in a maintainer's private file.
 
 Research knowledge (CLAUDE.md / hooks / plugins / SDD tools / requirements
 notation, etc.) is collected in `docs/harness-engineering.md` — read it before
@@ -98,14 +100,13 @@ re-researching.
   the URL alongside.
 - Unverified claims are marked as such — presenting them as verified is
   equivalent to lying.
-- Primary references already verified: `docs/mumei-decisions.md`,
-  `docs/harness-engineering.md`,
+- Primary references already verified: `docs/harness-engineering.md`,
   <https://code.claude.com/docs/en/hooks>,
   <https://code.claude.com/docs/en/plugins-reference>,
   <https://code.claude.com/docs/en/sub-agents>.
-- Where findings go: design-relevant → `docs/mumei-decisions.md`; general
-  knowledge → `docs/harness-engineering.md`; one-off confirmations → do not
-  persist.
+- Where findings go: design-relevant → the PR description that acts on them;
+  general knowledge → `docs/harness-engineering.md`; one-off confirmations → do
+  not persist.
 
 ## Testing
 
@@ -174,8 +175,7 @@ local `git merge` is denied in settings).
 
 - Do not add `agents/` / `skills/` until the third real duplication appears.
 - Do not escape to Python for logic bash can hold; extend `hooks/_lib/*.sh`.
-- Do not build MCP servers (mumei uses none internally —
-  `docs/mumei-decisions.md` Part 4.1 / Part 15).
+- Do not build MCP servers (mumei uses none internally).
 - Do not add backward-compat shims or feature flags; rewrite directly.
 
 ## Relationship to user-level rules

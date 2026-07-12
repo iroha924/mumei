@@ -1035,8 +1035,8 @@ can compute reviewer-vs-validator agreement rate per reviewer.
 **Long-term tracking goal**: when accumulated `valid_by_assertion`
 findings reach a sample size where validator agreement rate (sampled
 1/5) drops below a threshold (e.g., agreement < 80%) for a specific
-reviewer, the orchestrator should flag this in `docs/mumei-decisions.md`
-and that reviewer's MEDIUM/LOW + confidence=HIGH path should revert to
+reviewer, the orchestrator should surface this to the user and that
+reviewer's MEDIUM/LOW + confidence=HIGH path should revert to
 mandatory validation. Implementation of this metric tracking is
 deferred (out of scope, candidate for a future REQ).
 

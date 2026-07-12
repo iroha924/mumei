@@ -19,11 +19,11 @@ When adding a feature, changing existing behavior, or creating/deleting/renaming
 | New / deleted `skills/<name>/SKILL.md`              | `/mumei:<skill>` row in the `README.md` commands table                                                  |
 | New environment variable (`MUMEI_*`)                | "escape hatch / config" section in `README.md` + `docs/getting-started.md` (user-facing)                |
 | New hook event / matcher                            | Event enumeration in `ARCHITECTURE.md` + registration in `hooks.json`                                   |
-| New design decision / revision of an existing one   | `docs/mumei-decisions.md` (append a dated section)                                                      |
+| New design decision / revision of an existing one   | the PR description that lands it (Why + rejected alternatives + evidence)                               |
 | Shipped frontmatter / manifest schema change        | `.claude-plugin/plugin.json` + `.claude/rules/plugin-artifact-conventions.md`                           |
 | Behavior documented in README changes               | `README.md` + `README.ja.md` (keep both languages)                                                      |
 | Procedure mentioned in `getting-started.md` changes | `docs/getting-started.md` + `docs/getting-started.ja.md`                                                |
-| Phase / state machine change                        | Phase state machine section in `ARCHITECTURE.md` + `docs/mumei-decisions.md`                            |
+| Phase / state machine change                        | Phase state machine section in `ARCHITECTURE.md`                                                        |
 | Threat model / security policy related change       | `docs/threat-model.md` / `docs/security-policy.md`                                                      |
 | Added / edited `schemas/<name>.schema.json`         | Files table in `schemas/README.md` (schemas are hand-authored canon, no generator)                      |
 
