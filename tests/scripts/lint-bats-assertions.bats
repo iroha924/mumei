@@ -165,6 +165,63 @@ OUTER
   [[ "$stderr" != *"inside"* ]] || return 1
 }
 
+@test "a bareword here-string does not latch the heredoc skip on" {
+  # `<<<yes`: the 2nd/3rd < satisfy <<, and the bareword satisfies the
+  # delimiter, so a naive opener regex sets in_heredoc=1 and nothing ever
+  # closes it — the rest of the file goes unscanned. A silent false negative in
+  # a linter whose only job is not to miss a bare assertion.
+  _write_bats bad <<'OUTER'
+@test "x" {
+  grep x <<<yes
+  [[ "$real" == "assertion" ]]
+  true
+}
+OUTER
+  _lint
+  [ "$status" -eq 1 ]
+  [[ "$stderr" == *"real"* ]] || return 1
+}
+
+@test "a here-string feeding an expansion does not latch it on either" {
+  _write_bats bad <<'OUTER'
+@test "x" {
+  grep x <<<"$var"
+  [[ "$real" == "assertion" ]]
+}
+OUTER
+  _lint
+  [ "$status" -eq 1 ]
+  [[ "$stderr" == *"real"* ]] || return 1
+}
+
+@test "an opener with trailing content still skips its body" {
+  # `cat <<EOF | tee f` is a real heredoc whose line does not END at the
+  # delimiter. Keying on end-of-line would scan its body — a false positive.
+  _write_bats ok <<'OUTER'
+@test "x" {
+  cat <<EOF | tee f
+  [[ "inside" == "heredoc" ]]
+EOF
+  true
+}
+OUTER
+  _lint
+  [ "$status" -eq 0 ]
+}
+
+@test "a tab-indented heredoc (<<-) skips its body" {
+  _write_bats ok <<'OUTER'
+@test "x" {
+  cat <<-EOF
+  [[ "inside" == "heredoc" ]]
+	EOF
+  true
+}
+OUTER
+  _lint
+  [ "$status" -eq 0 ]
+}
+
 # ─── run from the wrong place ────────────────────────────────
 
 @test "aborts when tests/ is absent rather than passing silently" {

@@ -55,14 +55,29 @@ bad="$(find tests -name '*.bats' -print0 | xargs -0 awk '
     if (line == delim) in_heredoc = 0
     next
   }
-  # Heredoc opener: <<EOF / <<-EOF / <<"EOF" / <<'"'"'EOF'"'"' (quoted or not).
-  /<<-?[ \t]*["'"'"']?[A-Za-z_][A-Za-z0-9_]*["'"'"']?[ \t]*$/ {
-    delim = $0
-    sub(/^.*<<-?[ \t]*/, "", delim)
-    gsub(/["'"'"']/, "", delim)
-    sub(/[ \t]+$/, "", delim)
-    in_heredoc = 1
-    next
+  # Heredoc opener: <<EOF / <<-EOF / <<"EOF" / <<'"'"'EOF'"'"'.
+  #
+  # Keyed on the << operator, NOT on the line ending in an identifier. Two
+  # traps that the naive form falls into:
+  #   - `grep x <<<yes` — the 2nd/3rd < of a here-string satisfy <<, and the
+  #     bareword satisfies the delimiter, so in_heredoc latches on and nothing
+  #     ever closes it: the rest of the file goes unscanned. A silent
+  #     false negative in a linter whose only job is not to miss one.
+  #   - `cat <<EOF | tee f` — a real opener whose line does not END at the
+  #     delimiter, so its body would get scanned. A false positive.
+  # Rejecting a << that is preceded by another < settles the first; taking the
+  # delimiter from the operator rather than from end-of-line settles the second.
+  {
+    if (match($0, /<<-?[ \t]*("[^"]+"|'"'"'[^'"'"']+'"'"'|[A-Za-z_][A-Za-z0-9_]*)/)) {
+      before = (RSTART > 1) ? substr($0, RSTART - 1, 1) : ""
+      if (before != "<") {
+        delim = substr($0, RSTART, RLENGTH)
+        sub(/^<<-?[ \t]*/, "", delim)
+        gsub(/["'"'"']/, "", delim)
+        in_heredoc = 1
+        next
+      }
+    }
   }
   /^[ \t]*\[\[ .*\]\][ \t]*(#.*)?$/ { printf "%s:%d:%s\n", FILENAME, FNR, $0 }
 ' || true)"
