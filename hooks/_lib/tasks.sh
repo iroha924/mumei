@@ -180,7 +180,9 @@ mumei_tasks_owners_of_file() {
   tf="$(mumei_tasks_path "$feature")"
   [[ -f "$tf" ]] || return 1
   local owners=""
-  local saved_ifs="$IFS"
+  # IFS is never modified globally here: both `IFS= read` and `IFS=',' read`
+  # below are command-prefix assignments, and `read` is a regular builtin, so
+  # they scope to that one command. No save/restore is needed.
   while IFS= read -r task_id; do
     [[ -n "$task_id" ]] || continue
     local files
@@ -206,7 +208,6 @@ mumei_tasks_owners_of_file() {
       done
     fi
   done < <(mumei_tasks_list_ids "$feature")
-  IFS="$saved_ifs"
   printf '%s' "${owners% }"
 }
 
