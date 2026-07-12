@@ -404,6 +404,70 @@ jobs:
   # Active failure signal for scheduled runs: GitHub only emails the last
   # workflow-file committer on cron failures, which is easy to miss. Open a
   # deduped ci-fail issue instead so the failure lands in the issue list.
+  # ─────────────────────────────────────────
+  # A failure with no consumer is not a signal. `Dependabot Updates` had been
+  # red for six weeks (#186) and nobody knew, because a failed run is a row in a
+  # list nobody opens — it gates nothing, it notifies no one. Every control this
+  # project found broken this month was invisible for the same reason.
+  #
+  # This job gives that failure a consumer: it reads the recent Dependabot runs
+  # and opens a deduped issue when any of them failed. It watches the mechanism
+  # rather than measuring the outcome, and that is deliberate — the outcome
+  # (freshness) is not uniform here, since semgrep is frozen by policy and
+  # setuptools is held below 81, so a staleness check would have to encode the
+  # freeze rules and would drift out of sync with dependabot.yml. What must never
+  # fail quietly is the job.
+  # ─────────────────────────────────────────
+  dependabot-health:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      - name: Report failed Dependabot update runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -u
+          wid="$(gh api "repos/${REPO}/actions/workflows" \
+            --jq '.workflows[] | select(.name == "Dependabot Updates") | .id')"
+          if [ -z "$wid" ]; then
+            echo "::warning::no 'Dependabot Updates' workflow found — nothing to watch"
+            exit 0
+          fi
+
+          # The last 12 runs: one per ecosystem entry per week, so this covers
+          # roughly the last three weekly passes.
+          failed="$(gh api "repos/${REPO}/actions/workflows/${wid}/runs?per_page=12" \
+            --jq '[.workflow_runs[] | select(.conclusion == "failure")
+                   | "- \(.created_at[0:10]) — \(.display_title) — \(.html_url)"] | .[0:12] | join("\n")')"
+
+          if [ -z "$failed" ]; then
+            echo "all recent Dependabot update runs succeeded"
+            exit 0
+          fi
+
+          echo "::error::Dependabot update runs are failing — the pins they maintain are not being maintained"
+          printf '%s\n' "$failed"
+
+          title="ci-fail: Dependabot update runs are failing"
+          existing="$(gh issue list --repo "${REPO}" --state open --label ci-fail \
+            --search "in:title \"${title}\"" --json number --jq 'length')"
+          if [ "${existing}" -gt 0 ]; then
+            echo "an open issue already tracks this; not filing another"
+            exit 1
+          fi
+          gh issue create --repo "${REPO}" --title "${title}" --label ci-fail --body \
+            "Dependabot could not complete the following update runs. Whatever they were meant to keep fresh is not being kept fresh, and \`docs/threat-model.md\` claims it is.
+
+          ${failed}
+
+          Read the authoritative log at https://github.com/${REPO}/network/updates — the workflow-run log stops at the API error."
+          exit 1
+
   notify-cron-failure:
     if: failure() && github.event_name == 'schedule'
     needs: [codeql]

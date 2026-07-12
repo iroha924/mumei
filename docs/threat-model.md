@@ -121,6 +121,13 @@ The implemented controls map onto the surfaces above:
   failing since at least 2026-06-29 while this document claimed
   otherwise (#186). The exact versions now live in the lock, where they
   belong; the `.in` files declare the dependency, not the version.
+  **Still not fixed**: the resolution now succeeds and Dependabot is then
+  refused when it submits the change (`400 invalid or unauthorized
+  changes`). Not one pip lock has ever been updated by Dependabot in this
+  repository — the 40 PRs it has opened are all GitHub Actions or npm.
+  Treat the pip pins as manually maintained until #186 closes. A
+  `dependabot-health` job now opens an issue when these runs fail, so the
+  next regression will not take six weeks to notice.
 - **plugin.json schema gate**: `plugin-json-validate.yml` strict-
   validates the manifest on every PR that touches it.
 
