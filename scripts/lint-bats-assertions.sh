@@ -39,7 +39,48 @@ fi
 # comment does not make it any less bare, and it is exactly where a contributor
 # adds prose, so it must be caught too. Lines that continue into || or && are
 # control flow (or the fixed form) and are left alone.
-bad="$(grep -rnE '^[[:space:]]*\[\[ .*\]\][[:space:]]*(#.*)?$' tests/ --include='*.bats' || true)"
+#
+# Heredoc bodies are skipped. A test that writes a fixture .bats file needs to
+# put a bare [[ ]] inside a heredoc on purpose — tests/scripts/lint-bats-assertions.bats
+# does exactly that, to prove this linter catches one. Flagging it would make
+# the linter unable to be tested.
+#
+# BSD awk compatible: no gawk-only 3-arg match().
+# shellcheck disable=SC2016  # $0/$ below are awk fields, not shell expansions
+bad="$(find tests -name '*.bats' -print0 | xargs -0 awk '
+  # Heredoc terminator reached: stop skipping.
+  in_heredoc {
+    line = $0
+    sub(/^[ \t]+/, "", line)
+    if (line == delim) in_heredoc = 0
+    next
+  }
+  # Heredoc opener: <<EOF / <<-EOF / <<"EOF" / <<'"'"'EOF'"'"'.
+  #
+  # Keyed on the << operator, NOT on the line ending in an identifier. Two
+  # traps that the naive form falls into:
+  #   - `grep x <<<yes` — the 2nd/3rd < of a here-string satisfy <<, and the
+  #     bareword satisfies the delimiter, so in_heredoc latches on and nothing
+  #     ever closes it: the rest of the file goes unscanned. A silent
+  #     false negative in a linter whose only job is not to miss one.
+  #   - `cat <<EOF | tee f` — a real opener whose line does not END at the
+  #     delimiter, so its body would get scanned. A false positive.
+  # Rejecting a << that is preceded by another < settles the first; taking the
+  # delimiter from the operator rather than from end-of-line settles the second.
+  {
+    if (match($0, /<<-?[ \t]*("[^"]+"|'"'"'[^'"'"']+'"'"'|[A-Za-z_][A-Za-z0-9_]*)/)) {
+      before = (RSTART > 1) ? substr($0, RSTART - 1, 1) : ""
+      if (before != "<") {
+        delim = substr($0, RSTART, RLENGTH)
+        sub(/^<<-?[ \t]*/, "", delim)
+        gsub(/["'"'"']/, "", delim)
+        in_heredoc = 1
+        next
+      }
+    }
+  }
+  /^[ \t]*\[\[ .*\]\][ \t]*(#.*)?$/ { printf "%s:%d:%s\n", FILENAME, FNR, $0 }
+' || true)"
 
 if [[ -n "$bad" ]]; then
   printf 'Bare [[ ]] assertions found in tests/ (they do NOT fail the test on macOS bash 3.2):\n\n' >&2
