@@ -7,12 +7,17 @@
 [![Sigstore signed](https://img.shields.io/badge/sigstore-signed-blue?logo=sigstore)](https://www.sigstore.dev)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/iroh4-labs/mumei/network/updates)
 
-**mumei is a quality-enforcement harness for Claude Code.** It runs two things —
-your spec-driven workflow and a grounded, multi-agent code review. Both pass
-through Hooks that inspect every phase, commit, and push at the OS boundary, and
-physically refuse the ones that break a rule. The agent's intent is treated as
-untrusted input — standards are _enforced_, never merely suggested in a prompt
-the agent can choose to ignore.
+**mumei is a quality-enforcement harness for Claude Code.** A passing build tells
+you the tests are green. It does not tell you whether the agent made them green
+by weakening them. mumei is built to answer that second question: it re-runs the
+tests as `HEAD` defines them, freezes the tests an agent must not tune, and reads
+the diff for the moves that turn a failing check into a passing one — a deleted
+test, a suppressed type error, a `continue-on-error`, a file quietly dropped from
+the shipped tarball.
+
+The checks live in Hooks at the OS boundary, so the agent's intent is treated as
+untrusted input: standards are _enforced_, not suggested in a prompt it can
+choose to ignore.
 
 Enforcement is not one thing, though, and mumei says so on the tin: the gates
 that _re-measure_ (tests re-run from a clean `HEAD`, real scanners, the real
@@ -44,7 +49,12 @@ A `CLAUDE.md` rule, a system prompt, a "please run the tests first" — these ar
 suggestions, and a capable agent under pressure routes around suggestions. mumei
 moves the standards you care about off the prompt and onto the OS boundary.
 There, a Hook inspects the project-changing tool calls — edits, commits, pushes,
-plan transitions — and refuses the ones that break an invariant. Three things it
+plan transitions — and refuses the ones that break an invariant.
+
+Deterministic detectors, diverse review lenses and evidence-demanding
+adjudication are table stakes now; several good tools do them. **Nothing else
+checks whether the build was made to pass.** Official `/code-review` excludes
+test coverage by design. That gap is what mumei is for. Four things it
 _enforces_ rather than asks for:
 
 - **A harness, not a chat.** Phases, Waves, commits, pushes, and the entire
@@ -53,11 +63,20 @@ _enforces_ rather than asks for:
   `MUMEI_BYPASS=1` — an env var you set deliberately, and the one thing mumei
   will not let the agent set for you: writing it into Claude Code's settings is
   refused, and a session that starts with it active opens by saying so.
-- **Spec-driven development that actually holds.** Plenty of tools _generate_ a
-  spec; mumei makes the agent _build to it_. A feature runs requirements →
-  design → tasks (each independently reviewed) → one approval gate →
-  Wave-by-Wave implementation → review. Skipping a phase, editing out of scope,
-  or committing a broken Wave is physically blocked, not politely discouraged.
+- **Tests the agent cannot quietly weaken.** At commit, the tests re-run against
+  a clean `HEAD` worktree, so rigging in your working tree changes nothing.
+  Golden files are restored from `HEAD` before they are read. Property tests are
+  written blind — from the spec and the signature, without seeing the
+  implementation — and then frozen. And the diff itself is read for the moves
+  that trade a red check for a green one.
+- **Spec-driven development, if you want it.** Plenty of tools _generate_ a spec;
+  mumei makes the agent _build to it_ — requirements → design → tasks (each
+  independently reviewed) → one approval gate → Wave-by-Wave implementation.
+  Skipping a phase or committing a broken Wave is physically blocked. It is one
+  of three ways in, not the toll gate: `/mumei:review` runs the same review
+  engine and the same detectors against your current diff with **no `.mumei`, no
+  state, no ceremony**, and the plan vehicle wraps Claude Code's own plan mode
+  instead. Bring your own process; keep the enforcement.
 - **Review that is grounded, not vibes.** Deterministic detectors (CVE / secret
   / type / test / SAST) run first and _ground_ a diverse-lens review — security
   and adversarial passes on fresh contexts. A per-finding validator then drops
@@ -104,9 +123,11 @@ Prerequisites: `semgrep` + `osv-scanner` for the review-phase detectors. See [do
   </a>
 </div>
 
-> The diagram shows the **spec** / **plan** vehicles. For a one-shot review
-> outside any vehicle, `/mumei:review` runs the same review engine against the
-> current diff — no `.mumei`, no side effects. See [Commands](#commands).
+> The diagram shows the **spec** and **plan** vehicles. Neither is required.
+> `/mumei:review` runs the same review engine and the same detectors against your
+> current diff with no `.mumei`, no state and no side effects — it is the shortest
+> way to see what mumei catches, and a perfectly good way to keep using it. See
+> [Commands](#commands).
 
 ## What mumei enforces
 
