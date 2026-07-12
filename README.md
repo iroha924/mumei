@@ -50,7 +50,9 @@ _enforces_ rather than asks for:
 - **A harness, not a chat.** Phases, Waves, commits, pushes, and the entire
   review pipeline are driven deterministically by Hooks — the agent cannot
   prompt its way past one. The only escape hatch is a single, explicit
-  `MUMEI_BYPASS=1` (an env var you set deliberately; it short-circuits silently).
+  `MUMEI_BYPASS=1` — an env var you set deliberately, and the one thing mumei
+  will not let the agent set for you: writing it into Claude Code's settings is
+  refused, and a session that starts with it active opens by saying so.
 - **Spec-driven development that actually holds.** Plenty of tools _generate_ a
   spec; mumei makes the agent _build to it_. A feature runs requirements →
   design → tasks (each independently reviewed) → one approval gate →

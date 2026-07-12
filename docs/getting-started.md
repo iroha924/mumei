@@ -65,7 +65,7 @@ artifacts you install.
 | **Telemetry**              | None. No analytics, no error reporting, no usage tracking.                                                                        |
 | **Data storage**           | All state under project-local `.mumei/`. Nothing written to `~/.claude/` or any global location.                                  |
 | **Tools used**             | `bash`, `jq`, `git` (required); `semgrep`, `osv-scanner` (required for review phase). All locally executable.                     |
-| **Escape hatch**           | `MUMEI_BYPASS=1` env var, single rule, audited. No per-rule bypass, no feature flags.                                             |
+| **Escape hatch**           | `MUMEI_BYPASS=1` env var, single rule, audited. No per-rule bypass, no feature flags. The agent cannot set it for you: writing it into `.claude/settings*.json` is denied, and an active bypass is announced at session start. |
 
 **Distribution (the artifacts you install):**
 
@@ -222,7 +222,7 @@ not supported user configuration knobs.
 
 | Variable | Purpose | Default / notes |
 | --- | --- | --- |
-| `MUMEI_BYPASS` | One-command escape hatch that makes hooks exit without enforcing gates. | Unset; set to `1` for one command only. |
+| `MUMEI_BYPASS` | One-command escape hatch that makes hooks exit without enforcing gates. Yours to set, not the agent's: an Edit or Bash write that puts it into `.claude/settings.json` / `settings.local.json` (project or user-global) is denied, a settings change that turns it on is logged and warned about, and a session that starts with it active announces that every gate is off. Settings `env` reaches hook processes and `settings.local.json` is gitignored, so without that it would be a switch the agent could flip in a file no diff would ever show. | Unset; set to `1` for one command only. |
 | `MUMEI_TEST_CMD` | Overrides the commit-gate test command auto-detection. | Unset; auto-detects from common project manifests. |
 | `MUMEI_DEBUG` | Enables debug logging from shared hook log helpers. | `0`; set to `1` to print debug lines. |
 | `MUMEI_CONTEXT_LINES` | Caps artifact context lines injected for subagents. | `200`. |
