@@ -214,7 +214,7 @@ jobs:
       # Both run on every PR (lint-extra is PR-gated). Defense-in-depth is
       # preserved by the weekly full-history rescan in gitleaks.yml.
       - name: trufflehog (secret scan)
-        uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f # v3.95.8
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
         with:
           path: ./
           # Pin the docker image tag so the action's internal
@@ -398,12 +398,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
+        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v3
         with:
           languages: ${{ matrix.language }}
           queries: +security-extended
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v3
+        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v3
         with:
           category: "/language:${{ matrix.language }}"
 
